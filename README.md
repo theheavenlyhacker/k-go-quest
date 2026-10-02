@@ -90,13 +90,19 @@ ordinary engineering and which are out of reach for a project this size.
 
 ## Running it
 
-Each folder has its own README with the detail. The short version:
+Each folder has its own README with the detail. `backend` and `mobile` are
+npm workspaces driven by Turborepo: one `npm ci` at the root installs both, and
+`npm run build|lint|typecheck|test|check` runs that task in every workspace.
+The backend image builds from the root: `docker build -f backend/Dockerfile .`
+The short version:
 
 ```bash
+# 0. JavaScript dependencies for backend and mobile, from the repository root
+npm ci
+
 # 1. backend — needs a PostgreSQL database
 cd backend
 cp .env.example .env          # fill in DATABASE_URL and generate JWT_SECRET
-npm ci
 npm run migration:run         # create the schema
 npm run db:bootstrap          # first LGU admin, credentials from .env
 npm run db:seed               # optional demo class, lessons and reward
@@ -104,7 +110,6 @@ npm run start:dev             # http://localhost:3000/api/v1
 
 # 2. mobile — point it at the backend's LAN IP, not localhost, for a real device
 cd ../mobile
-npm install
 npx expo start
 
 # 3. ml — fit parameters once there is practice data

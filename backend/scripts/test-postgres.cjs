@@ -19,7 +19,7 @@ function runTests(env) {
       process.execPath,
       [
         '--experimental-vm-modules',
-        'node_modules/jest/bin/jest.js',
+        require.resolve('jest/bin/jest'),
         '--config',
         'test/jest-e2e.json',
         '--runInBand',

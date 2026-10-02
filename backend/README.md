@@ -6,7 +6,7 @@ NestJS 12 API for Students, Teachers, and LGU Admins. PostgreSQL persistence use
 
 The ignored `.env` contains your supplied Aiven connection and generated application secrets. Your downloaded project CA is copied to `certs/aiven-ca.pem`, also ignored. `DATABASE_SCHEMA=kgo` isolates this NestJS application from the other backend's public tables. Application tables are not automatically created on startup.
 
-1. Install dependencies: `npm ci`.
+1. Install dependencies from the repository root: `npm ci` (npm workspaces).
 2. Create tables: `npm run db:migrate`. This creates the configured schema and applies migrations under a deployment lock. Alternatively, run `database/schema.sql` once in an SQL client connected to Aiven's `defaultdb`; the export creates schema `kgo` and includes migration bookkeeping. Do not paste it over existing tables.
 3. Create the first LGU admin: `npm run db:bootstrap`. Its login and generated password are in local `.env` under `BOOTSTRAP_LOGIN` and `BOOTSTRAP_PASSWORD`. Remove the bootstrap password from the environment after successful provisioning.
 4. Optional demo: `npm run db:seed`. This creates `student-demo`, `teacher-demo`, a Grade 5 class, three original fraction questions, and a demo reward. Use the password in `DEMO_PASSWORD`. Demo records are not real student data.
