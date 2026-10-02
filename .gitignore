@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Builds
+dist/
+build/
+web-build/
+*.tsbuildinfo
+
+# Environment and secrets — never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.p8
+*.jks
+*.mobileprovision
+
+# Fitted model parameters (regenerate with ml/scripts/fit_model.py)
+model.json
+!model.example.json
+
+# Local tooling
+.expo/
+.tmp/
+.temp/
+coverage/
+.nyc_output/
+*.log
+npm-debug.log*
+.metro-health-check*
+
+# Editors and OS
+.DS_Store
+.idea/
+Thumbs.db

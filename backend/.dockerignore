@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.env*
+coverage
+test
+work
+.tmp
+certs
+outputs

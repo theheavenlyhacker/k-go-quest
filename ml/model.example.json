@@ -1,0 +1,83 @@
+{
+  "modelVersion": "bkt-sim-20261001",
+  "fittedAt": "2026-10-01T23:22:53.371269+00:00",
+  "source": "synthetic",
+  "method": "Expectation-Maximisation (Baum-Welch) on a constrained two-state BKT HMM",
+  "minimums": {
+    "sequences": 25,
+    "observations": 150
+  },
+  "defaults": {
+    "prior": 0.2,
+    "learn": 0.08,
+    "guess": 0.2,
+    "slip": 0.1
+  },
+  "skills": {
+    "demo.english5.inference": {
+      "prior": 0.085851,
+      "learn": 0.061625,
+      "guess": 0.267145,
+      "slip": 0.087631,
+      "logLikelihood": -3333.5058,
+      "sequences": 420,
+      "observations": 5930,
+      "iterations": 14,
+      "converged": true,
+      "fitted": true,
+      "note": "Fitted by EM with multiple restarts."
+    },
+    "demo.math5.decimals.numberline": {
+      "prior": 0.199519,
+      "learn": 0.092242,
+      "guess": 0.236708,
+      "slip": 0.045415,
+      "logLikelihood": -2718.8858,
+      "sequences": 420,
+      "observations": 5790,
+      "iterations": 11,
+      "converged": true,
+      "fitted": true,
+      "note": "Fitted by EM with multiple restarts."
+    },
+    "demo.math5.fractions.add": {
+      "prior": 0.197444,
+      "learn": 0.100313,
+      "guess": 0.201734,
+      "slip": 0.081312,
+      "logLikelihood": -2903.1686,
+      "sequences": 420,
+      "observations": 5904,
+      "iterations": 9,
+      "converged": true,
+      "fitted": true,
+      "note": "Fitted by EM with multiple restarts."
+    },
+    "demo.math5.fractions.equivalent": {
+      "prior": 0.313247,
+      "learn": 0.137287,
+      "guess": 0.162886,
+      "slip": 0.060062,
+      "logLikelihood": -2402.8106,
+      "sequences": 420,
+      "observations": 5886,
+      "iterations": 13,
+      "converged": true,
+      "fitted": true,
+      "note": "Fitted by EM with multiple restarts."
+    },
+    "demo.science5.lifecycles": {
+      "prior": 0.353834,
+      "learn": 0.16508,
+      "guess": 0.148606,
+      "slip": 0.073681,
+      "logLikelihood": -2385.4124,
+      "sequences": 420,
+      "observations": 5743,
+      "iterations": 13,
+      "converged": true,
+      "fitted": true,
+      "note": "Fitted by EM with multiple restarts."
+    }
+  }
+}
