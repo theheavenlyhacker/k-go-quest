@@ -40,3 +40,6 @@ npm-debug.log*
 .DS_Store
 .idea/
 Thumbs.db
+
+# Turborepo
+.turbo/

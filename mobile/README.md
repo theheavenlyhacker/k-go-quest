@@ -10,7 +10,7 @@ role the server reports, with its own tab bar per role.
 ## Running it
 
 ```bash
-npm install
+npm ci          # from the repository root (npm workspaces)
 npx expo start
 ```
 

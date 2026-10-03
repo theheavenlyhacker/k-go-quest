@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.expo
+.git
+**/.env*
+**/coverage
+**/.tmp
+backend/certs
+backend/work
+backend/outputs
+ml
+backend/test
