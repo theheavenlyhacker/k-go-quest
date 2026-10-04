@@ -1,8 +1,9 @@
 {
-  "name": "khan-go-quests-mobile",
+  "name": "k-go-quests-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@clerk/expo": "^4.8.0",
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/public-sans": "^0.4.2",
@@ -18,11 +19,8 @@
     "expo-linear-gradient": "~57.0.2",
     "expo-linking": "~57.0.11",
     "expo-navigation-bar": "^57.0.3",
-    "expo-network": "~57.0.2",
-    "expo-print": "~57.0.2",
     "expo-router": "~57.0.24",
     "expo-secure-store": "~57.0.4",
-    "expo-sharing": "~57.0.22",
     "expo-speech": "~57.0.3",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
@@ -35,7 +33,6 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
-    "react-native-qrcode-svg": "^6.3.26",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -56,7 +53,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "private": true
 }

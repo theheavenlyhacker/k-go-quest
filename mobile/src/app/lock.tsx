@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Delete, Lock, ShieldCheck } from 'lucide-react-native';
+import { Delete, Lock } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { initials } from '@/domain/format';
@@ -11,28 +11,14 @@ import { palette, useTheme } from '@/ui/theme';
 const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
 
 export default function LockScreen() {
-  const { session, pinConfigured, unlock, setPin, logout, toast } = useApp();
+  const { profile, unlock, selectProfile, toast } = useApp();
   const theme = useTheme();
   const [entry, setEntry] = useState('');
-  const [confirming, setConfirming] = useState('');
   const [working, setWorking] = useState(false);
-
-  const creating = !pinConfigured;
-  const stage = creating && confirming ? 'confirm' : creating ? 'create' : 'unlock';
-  const heading = stage === 'confirm' ? 'Repeat your PIN' : stage === 'create' ? 'Create a 6-digit PIN' : 'Enter your PIN';
-  const caption = stage === 'unlock'
-    ? 'Your saved lessons and answers stay on this device.'
-    : 'You will use this PIN to open K-Go Quests without a connection.';
 
   const submit = async (value: string) => {
     setWorking(true);
     try {
-      if (stage === 'create') { setConfirming(value); setEntry(''); return; }
-      if (stage === 'confirm') {
-        if (value !== confirming) { setConfirming(''); setEntry(''); throw new Error('Those PINs did not match. Start again.'); }
-        await setPin(value);
-        return;
-      }
       await unlock(value);
     } catch (error) {
       setEntry('');
@@ -52,20 +38,20 @@ export default function LockScreen() {
   };
 
   return (
-    <Screen refreshable={false} contentStyle={{ justifyContent: 'center', flexGrow: 1, maxWidth: 420 }}>
+    <Screen contentStyle={{ justifyContent: 'center', flexGrow: 1, maxWidth: 420 }}>
       <View style={{ alignItems: 'center', gap: 14 }}>
-        <IconBox icon={creating ? ShieldCheck : Lock} size={58} color={palette.green} />
-        <T heading size={25} style={{ textAlign: 'center' }}>{heading}</T>
-        <T size={12} color={theme.muted} style={{ textAlign: 'center', maxWidth: 290 }}>{caption}</T>
+        <IconBox icon={Lock} size={58} color={palette.green} />
+        <T heading size={25} style={{ textAlign: 'center' }}>Enter your PIN</T>
+        <T size={12} color={theme.muted} style={{ textAlign: 'center', maxWidth: 290 }}>Your saved lessons and answers stay on this device.</T>
       </View>
 
-      {session ? (
+      {profile ? (
         <Card style={{ alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16 }}>
           <Row style={{ gap: 10 }}>
             <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: theme.soft, alignItems: 'center', justifyContent: 'center' }}>
-              <T size={12} bold>{initials(session.user.alias)}</T>
+              <T size={12} bold>{initials(profile.alias)}</T>
             </View>
-            <T size={12} bold>{session.user.alias}</T>
+            <T size={12} bold>{profile.alias}</T>
           </Row>
         </Card>
       ) : null}
@@ -103,8 +89,8 @@ export default function LockScreen() {
         ))}
       </View>
 
-      <Pressable accessibilityRole="button" onPress={() => { void logout(); }} style={{ padding: 14, alignItems: 'center' }}>
-        <T size={12} color={palette.blue} bold>Use a different account</T>
+      <Pressable accessibilityRole="button" onPress={() => selectProfile(null)} style={{ padding: 14, alignItems: 'center' }}>
+        <T size={12} color={palette.blue} bold>Switch profile</T>
       </Pressable>
     </Screen>
   );

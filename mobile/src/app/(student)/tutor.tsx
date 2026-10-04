@@ -6,7 +6,8 @@ import { CircleHelp, Lightbulb, Mic, PenLine, Play, Search, Square, Volume2 } fr
 
 import { useApp } from '@/state/app-context';
 import type { Lesson, Pack } from '@/domain/types';
-import { subjectTitles } from '@/data/preview';
+import { starterPacks } from '@/content/starter-pack';
+import { subjectTitles } from '@/domain/subjects';
 import { Action, Bar, Card, Empty, Eyebrow, IconTile, Info, Pill, Pills, Row, Sheet, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -49,7 +50,7 @@ function search(topics: Topic[], question: string): Topic | null {
 }
 
 export default function Tutor() {
-  const { snapshot, preferences, updatePreferences, toast } = useApp();
+  const { learning, preferences, updatePreferences, toast } = useApp();
   const theme = useTheme();
   const [mode, setMode] = useState<Mode>('voice');
   const [question, setQuestion] = useState('');
@@ -57,15 +58,14 @@ export default function Tutor() {
   const [picking, setPicking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
 
-  const topics: Topic[] = snapshot.downloads.flatMap((entry) =>
-    entry.lessons.map((lesson) => ({ pack: entry.pack, lesson })),
+  const topics: Topic[] = starterPacks.flatMap((pack) =>
+    pack.lessons.map((lesson) => ({ pack, lesson })),
   );
-  const skills = snapshot.progress?.skills ?? [];
   // Default to whatever the learner is weakest at and actually has downloaded.
   const weakest = [...topics].sort(
     (a, b) =>
-      (skills.find((s) => s.skillCode === a.lesson.skillCode)?.mastery ?? 1) -
-      (skills.find((s) => s.skillCode === b.lesson.skillCode)?.mastery ?? 1),
+      (learning.skills.find((s) => s.skillId === a.lesson.skillCode)?.mastery ?? 1) -
+      (learning.skills.find((s) => s.skillId === b.lesson.skillCode)?.mastery ?? 1),
   )[0];
   const [chosen, setChosen] = useState<Topic | null>(null);
   const topic = answer ?? chosen ?? weakest ?? null;
@@ -73,7 +73,7 @@ export default function Tutor() {
   const available = LANGUAGES.filter((l) => topic?.lesson.hints[l.value]);
   const language = available.find((l) => l.value === preferences.language) ?? available[0] ?? LANGUAGES[0];
   const hint = topic?.lesson.hints[language.value] ?? topic?.lesson.hints.en ?? '';
-  const mastery = topic ? skills.find((s) => s.skillCode === topic.lesson.skillCode)?.mastery ?? null : null;
+  const mastery = topic ? learning.skills.find((s) => s.skillId === topic.lesson.skillCode)?.mastery ?? null : null;
 
   const say = (text: string) => {
     if (!text) return;

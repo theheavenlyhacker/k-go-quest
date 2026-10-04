@@ -5,7 +5,7 @@ import type { Cipher } from './repository';
 import { vault } from './vault';
 
 /**
- * Encryption for the on-device cache.
+ * Encryption for the on-device Attempt log.
  *
  * expo-crypto provides secure randomness and digests but no symmetric cipher,
  * so AES-256-GCM comes from @noble/ciphers — audited, pure JS, no native
