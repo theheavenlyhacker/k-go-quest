@@ -62,7 +62,7 @@ Every version of one Content Pack. A Pack Line is one Subject, one grade and one
 _Avoid_: pack family, pack series, channel
 
 **Grading Mode**:
-How a Content Pack's Exercises are graded, chosen by the Pack Author for the whole Pack. **On Device** ships the answer key inside the Pack, so the tablet grades instantly. **On Sync** withholds the key, so the tablet records the Attempt ungraded and the server grades it on upload. The Starter Pack is always On Device.
+How a Content Pack's Exercises are graded, chosen by the Pack Author. **On Device** ships the answer key inside the Pack, so the tablet grades instantly. **On Sync** withholds the key, so the tablet records the Attempt unmarked and the server grades it on upload. The Starter Pack is always On Device. A Shared Tablet knows the Grading Mode per **Lesson**, from whether the answer key arrived with it, so a Pack whose Lessons disagree is partly On Sync rather than one or the other.
 _Avoid_: grading policy, server grading, offline grading
 
 **Subject**:
@@ -88,6 +88,10 @@ _Avoid_: tutor, AI tutor
 **Attempt**:
 A Learner's answer to one Exercise. The tablet grades it at once when the Content Pack's Grading Mode is On Device. Under On Sync the tablet records it unmarked and says so, and the server grades it on upload.
 _Avoid_: submission, sync event
+
+**Unmarked Attempt**:
+An Attempt nobody has said is right or wrong yet, because no answer key for its Exercise is on the Shared Tablet. A Learner sees that their answer was saved and is waiting to be marked, never a verdict the tablet is in no position to give. It moves no Mastery and earns no Coins, and it is distinct from an Exercise a Learner has not opened.
+_Avoid_: pending, provisional, ungraded
 
 **Counted Attempt**:
 The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before.

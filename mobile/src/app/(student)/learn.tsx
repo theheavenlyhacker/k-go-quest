@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { BookOpen, ChartColumn, Leaf, Sparkles } from 'lucide-react-native';
 
 import { quests } from '@/domain/engine';
+import { gradingLabel, gradingMode } from '@/domain/grading-mode';
 import { useApp } from '@/state/app-context';
 import type { Subject } from '@/domain/types';
 import { subjectTitles } from '@/domain/subjects';
@@ -44,6 +45,10 @@ export default function Learn() {
 
       {packs.map((pack, index) => {
         const tone = subjectTheme[pack.subject];
+        // A Downloaded Pack carries no answer key, so saying "On device" here
+        // would promise instant marking this tablet cannot give.
+        const mode = gradingMode(pack);
+        const onDevice = mode === 'ON_DEVICE';
         return (
           <Card key={pack.id} index={index} onPress={() => router.push({ pathname: '/subject', params: { packId: pack.id } })}>
             <Row style={{ gap: 11 }}>
@@ -52,9 +57,14 @@ export default function Learn() {
                 <T variant="titleM" lines={1}>{`${subjectTitles[pack.subject]} ${pack.grade}`}</T>
                 <T variant="bodyS" color={theme.muted} lines={1}>{pack.title}</T>
               </View>
-              <Pill color={tokens.state.success} tint={tokens.tint.success}>On device</Pill>
+              <Pill
+                color={onDevice ? tokens.state.success : theme.muted}
+                tint={onDevice ? tokens.tint.success : theme.surfaceAlt}
+              >
+                {gradingLabel(mode)}
+              </Pill>
             </Row>
-            <T variant="bodyS" color={theme.secondary}>{`${pack.lessons.length} lesson${pack.lessons.length === 1 ? '' : 's'} · works offline`}</T>
+            <T variant="bodyS" color={theme.secondary}>{`${pack.lessons.length} lesson${pack.lessons.length === 1 ? '' : 's'}${onDevice ? ' · works offline' : ' · answers go up when online'}`}</T>
           </Card>
         );
       })}

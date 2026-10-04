@@ -4,6 +4,7 @@ import { BookOpen, ChartColumn, Leaf, Sparkles } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { meanMastery } from '@/domain/format';
+import { type LessonProgress, gradingLabel, gradingMode, lessonProgress } from '@/domain/grading-mode';
 import type { Subject } from '@/domain/types';
 import { subjectTitles } from '@/domain/subjects';
 import { BackLink, Card, Empty, Eyebrow, IconTile, Pill, Ring, Row, T } from '@/ui/primitives';
@@ -14,16 +15,30 @@ const subjectIcon: Record<Subject, typeof BookOpen> = {
   MATH: ChartColumn, ENGLISH: BookOpen, FILIPINO: Leaf, SCIENCE: Sparkles,
 };
 
-/** Mastery bands drive the trailing pill: Done / a percentage / Start. */
-function band(mastery: number | undefined, theme: { muted: string; surfaceAlt: string }) {
-  if (mastery === undefined) return { detail: 'Not started', label: 'Start', color: theme.muted, tint: theme.surfaceAlt };
+/**
+ * Mastery bands drive the trailing pill: Done / a percentage / Waiting / Start.
+ *
+ * Absent Mastery means two different things, so `progress` tells them apart:
+ * a Learner who answered an unmarked Lesson has not "not started" it, and
+ * saying so loses the work they did.
+ */
+function band(
+  mastery: number | undefined,
+  progress: LessonProgress,
+  theme: { muted: string; surfaceAlt: string },
+) {
+  if (mastery === undefined) {
+    return progress === 'WAITING_FOR_SERVER'
+      ? { detail: 'Answered · waiting for the server to mark it', label: 'Sent', color: tokens.brand.sunDeep, tint: tokens.tint.sunDeep }
+      : { detail: 'Not started', label: 'Start', color: theme.muted, tint: theme.surfaceAlt };
+  }
   if (mastery >= 0.9) return { detail: `Mastered · ${Math.round(mastery * 100)}%`, label: 'Done', color: tokens.state.success, tint: tokens.tint.success };
   return { detail: `Proficient · ${Math.round(mastery * 100)}%`, label: `${Math.round(mastery * 100)}%`, color: tokens.brand.sunDeep, tint: tokens.tint.sunDeep };
 }
 
 export default function SubjectScreen() {
   const { packId } = useLocalSearchParams<{ packId?: string }>();
-  const { learning, packs } = useApp();
+  const { attempts, learning, packs } = useApp();
   const theme = useTheme();
   const router = useRouter();
 
@@ -43,7 +58,7 @@ export default function SubjectScreen() {
   const overall = meanMastery(packSkills);
 
   return (
-    <Screen chrome title={`${subjectTitles[pack.subject]} ${pack.grade}`} caption={`${pack.title} · on device`}>
+    <Screen chrome title={`${subjectTitles[pack.subject]} ${pack.grade}`} caption={`${pack.title} · ${gradingLabel(gradingMode(pack)).toLowerCase()}`}>
       <BackLink label="Subjects" onPress={() => router.back()} />
 
       <Card>
@@ -61,7 +76,7 @@ export default function SubjectScreen() {
 
       <Eyebrow>Lessons</Eyebrow>
       {lessons.map((lesson, index) => {
-        const status = band(masteryFor(lesson.skillCode), theme);
+        const status = band(masteryFor(lesson.skillCode), lessonProgress(lesson, masteryFor(lesson.skillCode), attempts), theme);
         return (
           <Card key={lesson.id} index={index} onPress={() => router.push({ pathname: '/lesson', params: { lessonId: lesson.id } })}>
             <Row style={{ gap: 11 }}>

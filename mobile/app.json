@@ -17,11 +17,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "edgeToEdgeEnabled": true,
-      "navigationBar": {
-        "visible": "immersive"
-      }
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -39,7 +35,13 @@
       ],
       "expo-sqlite",
       "expo-secure-store",
-      "expo-navigation-bar"
+      [
+        "expo-navigation-bar",
+        {
+          "hidden": true,
+          "style": "light"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

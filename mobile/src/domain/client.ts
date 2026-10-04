@@ -4,7 +4,12 @@ export class ApiError extends Error {
   constructor(public status: number, message: string, public retryAfterMs = 0) { super(message); this.name = 'ApiError'; }
   get retryable() { return this.status === 0 || this.status === 408 || this.status === 429 || this.status >= 500; }
 }
-export interface TokenStore { read(): Session | null; write(session: Session): Promise<void>; invalidate(owner: string): Promise<void>; }
+/**
+ * One owner's Session, as the client needs it. `invalidate` takes no argument:
+ * a TokenStore is already bound to its owner, and the id the caller would have
+ * passed is the server's user id, not the owner key the vault is filed under.
+ */
+export interface TokenStore { read(): Session | null; write(session: Session): Promise<void>; invalidate(): Promise<void>; }
 export class ApiClient {
   private refreshJob: Promise<void> | null = null;
   constructor(private base: () => string, private tokens: TokenStore, private transport: typeof fetch = fetch) {}
@@ -47,7 +52,7 @@ export class ApiClient {
             if (this.tokens.read()?.user.id !== original.user.id) throw new ApiError(401, 'The active profile changed.');
             await this.tokens.write({ ...original, ...result });
           } catch (failure) {
-            if (failure instanceof ApiError && failure.status === 401) await this.tokens.invalidate(original.user.id);
+            if (failure instanceof ApiError && failure.status === 401) await this.tokens.invalidate();
             throw failure;
           }
         })().finally(() => { this.refreshJob = null; });
@@ -57,7 +62,7 @@ export class ApiClient {
       if (!current || current.user.id !== original.user.id || current.revoked) throw new ApiError(401, 'Sign in again to reconnect this profile.');
       try { return await this.request<T>(method, route, body, current.accessToken); }
       catch (failure) {
-        if (failure instanceof ApiError && failure.status === 401) await this.tokens.invalidate(original.user.id);
+        if (failure instanceof ApiError && failure.status === 401) await this.tokens.invalidate();
         throw failure;
       }
     }

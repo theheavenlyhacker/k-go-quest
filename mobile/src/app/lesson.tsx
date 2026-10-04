@@ -7,6 +7,7 @@ import * as Speech from 'expo-speech';
 import { Check, CircleCheck, CloudUpload, Play, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
+import { gradingMode } from '@/domain/grading-mode';
 import { subjectTitles } from '@/domain/subjects';
 import type { Exercise } from '@/domain/types';
 import { Action, BackLink, Card, Empty, Info, Row, T } from '@/ui/primitives';
@@ -53,7 +54,8 @@ export default function ModuleScreen() {
     <Screen chrome title="Module" caption="Playing from device storage">
       <BackLink label="Back to modules" onPress={() => router.back()} />
 
-      {pack.grading === 'ON_SYNC' ? (
+      {/* Per Lesson, not per Pack: a Pack may hold Lessons that disagree. */}
+      {gradingMode(lesson) !== 'ON_DEVICE' ? (
         <Info
           icon={CloudUpload}
           color={tokens.brand.sky}

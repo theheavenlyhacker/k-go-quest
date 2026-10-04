@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attempt Lifecycle Prototype</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --panel: #ffffff; --ink: #1b1a17; --soft: #6b6862;
+    --line: #e5e1d8; --accent: #b4532a; --accent-soft: #fdf1ec;
+    --ok: #2f6b43; --warn: #8a6d1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17161a; --panel: #1f1e23; --ink: #f0eee9; --soft: #a6a29a;
+      --line: #322f38; --accent: #e8814f; --accent-soft: #2b201b;
+      --ok: #7cc79a; --warn: #d9bb6a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 16px 80px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.015em; }
+  h2 { font-size: 1.05rem; margin: 32px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--soft); margin: 0 0 10px; font-weight: 600; }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--soft); max-width: 70ch; }
+  .throwaway {
+    display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent); background: var(--accent-soft);
+    border: 1px solid var(--accent); border-radius: 4px; padding: 3px 8px; margin-bottom: 14px;
+  }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; }
+  .q { border-left: 3px solid var(--accent); padding-left: 14px; margin: 0 0 22px; }
+  .q p { margin-bottom: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .field { border-top: 1px solid var(--line); padding-top: 8px; }
+  .field .k { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--soft); }
+  .field .v { font-size: 1.22rem; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .field .n { font-size: 0.82rem; color: var(--soft); margin-top: 2px; }
+  .changed { color: var(--accent); }
+  button {
+    font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 7px; padding: 8px 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.step { text-align: left; width: 100%; }
+  button.now { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  button.done { color: var(--soft); text-decoration: line-through; cursor: default; }
+  button.done:hover { border-color: var(--line); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .note { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px; padding: 11px 14px; margin-bottom: 16px; font-size: 0.93rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.87rem; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--soft); font-weight: 600; }
+  td.reason { color: var(--soft); font-size: 0.82rem; }
+  .pill { display: inline-block; font-size: 0.74rem; font-weight: 600; padding: 2px 7px; border-radius: 20px; border: 1px solid var(--line); }
+  .pill.DONE { color: var(--ok); border-color: var(--ok); }
+  .pill.REVIEW { color: var(--accent); border-color: var(--accent); }
+  .pill.PENDING { color: var(--warn); border-color: var(--warn); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tabs button.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 10px 13px; margin: 0; }
+  legend { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--soft); padding: 0 5px; }
+  label.opt { display: block; font-size: 0.88rem; padding: 2px 0; cursor: pointer; }
+  .when { font-size: 0.76rem; color: var(--soft); font-style: italic; }
+  .empty { color: var(--soft); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="throwaway">Throwaway prototype &mdash; not production</span>
+  <h1>The life of an Attempt, across the tablet/server boundary</h1>
+
+  <div class="q">
+    <p><strong>The question this answers.</strong> K-Go Quests grades some Content Packs on the tablet
+    and some only on the server. Three rules are undecided, and all three bite the same object &mdash; one
+    Learner's answer to one Exercise, on its way from a tablet that may be offline for a year to a
+    server that has the last word:</p>
+    <p>&nbsp;&nbsp;<strong>1.</strong> Who owns Mastery &mdash; the tablet's estimate, or the server's?<br>
+    &nbsp;&nbsp;<strong>2.</strong> What happens to an answer older than the server's 30-day upload window?<br>
+    &nbsp;&nbsp;<strong>3.</strong> Is there one wallet of Coins or two?</p>
+    <p>Each is a switch below. Press the buttons, change a switch, and watch what it does to a Learner
+    who has already practised. The cases worth watching are in the walkthroughs: they're the ones that
+    look fine on paper.</p>
+  </div>
+
+  <div id="note" class="note"></div>
+
+  <h2>What the tablet knows right now</h2>
+  <div class="panel">
+    <div class="grid" id="state"></div>
+  </div>
+
+  <h2>The three rules</h2>
+  <div class="panel">
+    <div class="grid" id="policies"></div>
+  </div>
+
+  <h2>Every answer this Learner has given</h2>
+  <div class="panel" id="log"></div>
+
+  <h2>Free play</h2>
+  <p class="lede">Always available, in any order. Nothing here is guarded, so you can try things that
+  ought to be impossible.</p>
+  <div class="panel">
+    <h3>Practise</h3>
+    <div class="row" id="acts-practise"></div>
+    <h3>The tablet's situation</h3>
+    <div class="row" id="acts-world"></div>
+    <h3>Go online</h3>
+    <div class="row" id="acts-sync"></div>
+  </div>
+
+  <h2>Guided walkthroughs</h2>
+  <p class="lede">Each one resets the tablet, then hands you the buttons in order. Read what to watch
+  for before you start clicking.</p>
+  <div class="tabs" id="tabs"></div>
+  <div class="panel" id="scenario"></div>
+
+</div>
+
+<script>
+/* ============================================================================
+   THE PORTABLE MODULE
+   Pure. No DOM, no handlers, no storage. This is the part worth keeping: if the
+   rules below survive being clicked at, these functions lift into
+   mobile/src/domain/ as they stand. The page underneath is throwaway.
+   ========================================================================= */
+
+/** Fitted Skill Parameters, shipped inside a Content Pack. From content/fitted-parameters.ts. */
+const PACK_PARAMS = {
+  'math5.fractions.add':        { prior: 0.197444, learn: 0.100313, guess: 0.201734, slip: 0.081312 },
+  'math5.fractions.equivalent': { prior: 0.313247, learn: 0.137287, guess: 0.162886, slip: 0.060062 },
+};
+
+/** The server's own BKT parameters, keyed by its modelVersion. From backend/docs/ml-contract.md. */
+const SERVER_PARAMS = { prior: 0.2, learn: 0.08, guess: 0.2, slip: 0.1 };
+
+const PACKS = {
+  STARTER:    { title: 'Starter Pack',    mode: 'ON_DEVICE', skill: 'math5.fractions.add',        count: 6 },
+  DOWNLOADED: { title: 'Downloaded Pack', mode: 'ON_SYNC',   skill: 'math5.fractions.equivalent', count: 6 },
+};
+
+const SKILL_NAMES = {
+  'math5.fractions.add': 'Adding fractions',
+  'math5.fractions.equivalent': 'Equivalent fractions',
+};
+
+/** The server rejects answers older than this. From backend/docs/offline-contract.md. */
+const WINDOW_DAYS = 30;
+const COSMETIC_COST = 3;
+
+function initialWorld() {
+  return {
+    day: 0, online: false, linked: false,
+    log: [], purchases: 0, serverHasSpoken: false,
+    policies: { mastery: 'TABLET_ONLY', late: 'SPLIT', wallet: 'TWO_WALLETS' },
+    note: 'A fresh tablet. Nobody has practised, and it has never seen the school server.',
+  };
+}
+
+/** Copied from mobile/src/domain/engine.ts, which copied it from the backend. */
+function updateMastery(prior, correct, p) {
+  const known = prior * (correct ? 1 - p.slip : p.slip);
+  const unknown = (1 - prior) * (correct ? p.guess : 1 - p.guess);
+  const total = known + unknown;
+  const posterior = total > 0 ? known / total : prior;
+  return Math.min(0.999, Math.max(0.001, posterior + (1 - posterior) * p.learn));
+}
+
+/** Has anyone said whether this answer was right? The tablet, or the server. */
+const isMarked = (a) => a.server !== null || a.local !== null;
+
+/** The verdict that stands. The server's result supersedes the tablet's. */
+const verdictOf = (a) => (a.server ? a.server.correct : a.local);
+
+/**
+ * Mastery and Coins are never stored: they are replayed from the Attempt log,
+ * which is what lets a server result arriving a year late still land correctly.
+ * Mirrors learningState() in engine.ts.
+ */
+function derive(world) {
+  const serverOwns = world.policies.mastery === 'SERVER_OVERWRITES' && world.serverHasSpoken;
+  const paramsFor = (skill) => (serverOwns ? SERVER_PARAMS : PACK_PARAMS[skill]);
+
+  const skills = {};
+  for (const skill of Object.keys(PACK_PARAMS)) {
+    skills[skill] = { mastery: paramsFor(skill).prior, measured: false, counted: 0 };
+  }
+
+  let earned = 0;
+  let serverBalance = 0;
+  const countedExercises = new Set();
+
+  for (const a of [...world.log].sort((x, y) => x.day - y.day)) {
+    if (a.server) serverBalance += a.server.coins;
+    // An answer nobody has marked moves nothing. No answer key came with the
+    // Pack, so this tablet cannot say whether it was right.
+    if (!isMarked(a) || countedExercises.has(a.exercise)) continue;
+    countedExercises.add(a.exercise);
+    const s = skills[a.skill];
+    s.mastery = updateMastery(s.mastery, verdictOf(a), paramsFor(a.skill));
+    s.measured = true;
+    s.counted += 1;
+    earned += a.server ? a.server.coins : (verdictOf(a) ? 1 : 0);
+  }
+
+  const spent = world.purchases * COSMETIC_COST;
+  const tabletWallet = earned - spent;
+  const walletShown = world.policies.wallet === 'TWO_WALLETS'
+    ? tabletWallet
+    : (world.serverHasSpoken ? serverBalance : tabletWallet);
+
+  return { skills, earned, spent, tabletWallet, serverBalance, walletShown, serverOwns };
+}
+
+/** (world, action) => world */
+function reduce(world, action) {
+  const say = (w, note) => ({ ...w, note });
+
+  switch (action.type) {
+    case 'RESET':
+      return { ...initialWorld(), policies: world.policies, note: 'Tablet reset. The three rules are left as you set them.' };
+
+    case 'PRACTISE': {
+      const pack = PACKS[action.pack];
+      const answered = world.log.filter((a) => a.pack === action.pack).length;
+      if (answered >= pack.count) {
+        return say(world, 'Every Exercise in the ' + pack.title + ' has been answered. A second answer to the same Exercise is practice only: it is not a Counted Attempt, so nothing would move.');
+      }
+      const attempt = {
+        id: world.log.length + 1,
+        exercise: action.pack + '.q' + (answered + 1),
+        pack: action.pack,
+        mode: pack.mode,
+        skill: pack.skill,
+        day: world.day,
+        truth: action.correct,          // what the answer key says. The tablet may not hold it.
+        local: pack.mode === 'ON_DEVICE' ? action.correct : null,
+        server: null,
+        upload: 'PENDING',
+        reason: pack.mode === 'ON_DEVICE'
+          ? 'Marked on the tablet the moment it was answered.'
+          : 'Recorded unmarked. This Pack came without its answer key.',
+      };
+      const note = pack.mode === 'ON_DEVICE'
+        ? 'Answered on the ' + pack.title + ' and marked instantly: Mastery moved and a Coin was ' + (action.correct ? 'earned' : 'not earned') + '. No network was involved.'
+        : 'Answered on the ' + pack.title + '. The tablet holds no answer key for it, so the answer sits unmarked: no Mastery, no Coin, and the Learner is told so rather than shown a verdict the tablet cannot give.';
+      return say({ ...world, log: [...world.log, attempt] }, note);
+    }
+
+    case 'WAIT':
+      return say({ ...world, day: world.day + action.days },
+        action.days + ' days pass. The tablet kept working the whole time; the clock is now day ' + (world.day + action.days) + '.');
+
+    case 'CONNECTION':
+      return say({ ...world, online: action.online },
+        action.online ? 'The tablet can reach the school server.' : 'The connection is gone. Everything a Learner does still works.');
+
+    case 'LINK':
+      if (!world.online) return say(world, 'Linking needs the server: the Caretaker enters the Learner’s server credentials once, and only the server can accept them.');
+      return say({ ...world, linked: true },
+        'This Profile is now a Linked Profile. Nothing about practice changed — but the whole backlog of answers can now go up.');
+
+    case 'UNLINK':
+      return say({ ...world, linked: false }, 'The Profile is unlinked. It practises exactly as before and uploads nothing.');
+
+    case 'BUY': {
+      const { walletShown } = derive(world);
+      if (walletShown < COSMETIC_COST) return say(world, 'Not enough Coins for a Cosmetic. It costs ' + COSMETIC_COST + '; the wallet holds ' + walletShown + '.');
+      return say({ ...world, purchases: world.purchases + 1 },
+        'Bought a Cosmetic for ' + COSMETIC_COST + ' Coins. This happened entirely on the tablet — the server has never been told.');
+    }
+
+    case 'SYNC': {
+      if (!world.online) return say(world, 'No connection, so nothing moved. Every answer is still on the tablet, and the Learner was not made to wait.');
+      if (!world.linked) {
+        const pending = world.log.filter((a) => a.upload === 'PENDING').length;
+        return say(world, 'This Profile is not linked, so nothing uploads: ' + pending + ' answer(s) stay pending. That is not an error — linking later uploads exactly this backlog.');
+      }
+      let graded = 0, refused = 0, late = 0, withdrawn = 0;
+      const log = world.log.map((a) => {
+        if (a.upload !== 'PENDING') return a;
+        const age = world.day - a.day;
+        if (age > WINDOW_DAYS) {
+          if (world.policies.late === 'REJECT') {
+            refused += 1;
+            return { ...a, upload: 'REVIEW', reason: age + ' days old. Past the ' + WINDOW_DAYS + '-day window, so the server will not mark it — ever.' };
+          }
+          if (world.policies.late === 'SPLIT') {
+            late += 1;
+            if (a.local === true) withdrawn += 1;
+            return { ...a, upload: 'DONE', server: { correct: a.truth, coins: 0, duplicate: false },
+              reason: 'Graded ' + age + ' days late. Mastery moves; no Coin, and it counts toward no League month.' };
+          }
+          late += 1;
+          return { ...a, upload: 'DONE', server: { correct: a.truth, coins: a.truth ? 1 : 0, duplicate: false },
+            reason: 'Graded ' + age + ' days late, and Coins awarded into a month that already closed.' };
+        }
+        graded += 1;
+        return { ...a, upload: 'DONE', server: { correct: a.truth, coins: a.truth ? 1 : 0, duplicate: false },
+          reason: 'Graded by the server, which has the last word.' };
+      });
+      if (!graded && !refused && !late) return say(world, 'Nothing was waiting to go up.');
+      const parts = [];
+      if (graded) parts.push(graded + ' graded');
+      if (late) parts.push(late + ' graded late');
+      if (refused) parts.push(refused + ' refused as too old');
+      let note = 'Uploaded: ' + parts.join(', ') + '.';
+      if (withdrawn) note += ' Watch the wallet: ' + withdrawn + ' answer(s) the tablet had already paid a Coin for came back worth nothing, so the Coin was taken back.';
+      return say({ ...world, log, serverHasSpoken: true }, note);
+    }
+
+    case 'RESEND': {
+      const done = world.log.filter((a) => a.upload === 'DONE').length;
+      if (!done) return say(world, 'Nothing has been uploaded yet, so there is nothing to re-send.');
+      const log = world.log.map((a) => a.upload !== 'DONE' ? a : ({
+        ...a, server: { ...a.server, duplicate: true },
+        reason: 'Re-sent after a lost response. The server already held it, so it earned nothing a second time.',
+      }));
+      return say({ ...world, log }, 'Re-sent ' + done + ' answer(s) the server already had. Every one came back marked duplicate and earned no Coins again — the wallet did not move.');
+    }
+
+    case 'POLICY': {
+      const policies = { ...world.policies, [action.rule]: action.value };
+      const notes = {
+        TABLET_ONLY: 'Mastery is the tablet’s own, computed from the Skill Parameters in the Content Pack. The server’s estimate never crosses back.',
+        SERVER_OVERWRITES: 'Mastery is now the server’s estimate, from its own parameters. Watch the numbers move without anyone answering anything.',
+        SPLIT: 'A late answer will be graded and will move Mastery, but earns no Coin. Applies to the next upload.',
+        REJECT: 'A late answer will be refused outright and marked for review. Applies to the next upload.',
+        DROP: 'There is no window: a late answer is graded and paid like any other. Applies to the next upload.',
+        TWO_WALLETS: 'The Learner sees the tablet’s wallet. The server’s balance is the server’s business.',
+        SERVER_AUTHORITATIVE: 'The Learner now sees the server’s balance — which has never been told about a single Cosmetic.',
+      };
+      return say({ ...world, policies }, notes[action.value]);
+    }
+
+    default:
+      return world;
+  }
+}
+
+/* ============================================================================
+   THROWAWAY PAGE SHELL below. Nothing here is meant to survive.
+   ========================================================================= */
+
+let world = initialWorld();
+let openTab = 0;
+let stepAt = 0;
+
+const ACTIONS = {
+  practise: [
+    { label: 'Answer a Starter Pack question correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+    { label: 'Answer a Starter Pack question wrongly', action: { type: 'PRACTISE', pack: 'STARTER', correct: false } },
+    { label: 'Answer a Downloaded Pack question correctly', action: { type: 'PRACTISE', pack: 'DOWNLOADED', correct: true } },
+    { label: 'Answer a Downloaded Pack question wrongly', action: { type: 'PRACTISE', pack: 'DOWNLOADED', correct: false } },
+  ],
+  world: [
+    { label: 'Wait 7 days', action: { type: 'WAIT', days: 7 } },
+    { label: 'Wait 60 days', action: { type: 'WAIT', days: 60 } },
+    { label: 'Wait a year', action: { type: 'WAIT', days: 365 } },
+    { label: 'Buy a Cosmetic (' + COSMETIC_COST + ' Coins)', action: { type: 'BUY' } },
+    { label: 'Reset the tablet', action: { type: 'RESET' } },
+  ],
+  sync: [
+    { label: 'Connection appears', action: { type: 'CONNECTION', online: true } },
+    { label: 'Connection goes', action: { type: 'CONNECTION', online: false } },
+    { label: 'Link this Profile', action: { type: 'LINK' } },
+    { label: 'Unlink this Profile', action: { type: 'UNLINK' } },
+    { label: 'Upload to the server', action: { type: 'SYNC' } },
+    { label: 'Re-send the last batch', action: { type: 'RESEND' } },
+  ],
+};
+
+const RULES = [
+  { rule: 'mastery', legend: 'Who owns Mastery', when: 'Re-derives immediately', options: [
+    { value: 'TABLET_ONLY', label: 'The tablet’s, always' },
+    { value: 'SERVER_OVERWRITES', label: 'The server’s, after each upload' },
+  ]},
+  { rule: 'late', legend: 'An answer older than ' + WINDOW_DAYS + ' days', when: 'Applies to the next upload', options: [
+    { value: 'SPLIT', label: 'Graded, moves Mastery, earns no Coin' },
+    { value: 'REJECT', label: 'Refused and marked for review' },
+    { value: 'DROP', label: 'Graded and paid, like any other' },
+  ]},
+  { rule: 'wallet', legend: 'The wallet', when: 'Re-derives immediately', options: [
+    { value: 'TWO_WALLETS', label: 'Two wallets, never reconciled' },
+    { value: 'SERVER_AUTHORITATIVE', label: 'One wallet, the server’s' },
+  ]},
+];
+
+const SCENARIOS = [
+  {
+    name: 'Offline for life',
+    blurb: 'The tablet that never sees Wi-Fi again. This is the product; everything else is extra.',
+    watch: 'Nothing waits, nothing is provisional, and no rule below makes any difference. A Learner practised, earned, and spent, with no server in the story at all.',
+    steps: [
+      { label: 'Reset the tablet', action: { type: 'RESET' } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer wrongly', action: { type: 'PRACTISE', pack: 'STARTER', correct: false } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Buy a Cosmetic', action: { type: 'BUY' } },
+      { label: 'Wait a year', action: { type: 'WAIT', days: 365 } },
+    ],
+  },
+  {
+    name: 'The year-late backlog',
+    blurb: 'A Downloaded Pack holds no answer key, so its answers wait for the server. This tablet waits a year. Run it three times, changing the middle rule each time.',
+    watch: 'Under "refused", a year of honest work can never be marked and the Learner never finds out whether they were right. Under "graded and paid", Coins land in a month that closed long ago. Under "graded, no Coin", the Learner gets the verdict and the Mastery they earned, and the server’s monthly numbers stay honest.',
+    steps: [
+      { label: 'Reset the tablet', action: { type: 'RESET' } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'DOWNLOADED', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'DOWNLOADED', correct: true } },
+      { label: 'Answer wrongly', action: { type: 'PRACTISE', pack: 'DOWNLOADED', correct: false } },
+      { label: 'Wait a year', action: { type: 'WAIT', days: 365 } },
+      { label: 'Connection appears', action: { type: 'CONNECTION', online: true } },
+      { label: 'Link this Profile', action: { type: 'LINK' } },
+      { label: 'Upload to the server', action: { type: 'SYNC' } },
+    ],
+  },
+  {
+    name: 'The upload that pays for the Cosmetic twice',
+    blurb: 'Four right answers on the Starter Pack, marked on the tablet, one Cosmetic bought. Then the tablet goes online for the first time. Switch the wallet rule to "one wallet, the server’s" at the end.',
+    watch: 'The server was never told about the purchase, so its balance is gross earnings. Switch the rule and the spent Coins reappear: the Cosmetic the Learner already owns becomes free, and they can buy another. A sync changed something a Learner had already done.',
+    steps: [
+      { label: 'Reset the tablet', action: { type: 'RESET' } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Buy a Cosmetic', action: { type: 'BUY' } },
+      { label: 'Connection appears', action: { type: 'CONNECTION', online: true } },
+      { label: 'Link this Profile', action: { type: 'LINK' } },
+      { label: 'Upload to the server', action: { type: 'SYNC' } },
+      { label: 'Switch to one wallet, the server’s', action: { type: 'POLICY', rule: 'wallet', value: 'SERVER_AUTHORITATIVE' } },
+    ],
+  },
+  {
+    name: 'Mastery moves with nobody answering',
+    blurb: 'Identical practice, uploaded, and then the first rule switched. The Content Pack ships fitted Skill Parameters; the server runs its own, from a different model version.',
+    watch: 'The Mastery number changes although the Learner answered nothing. Two tablets with the same practice would disagree purely over whether one of them had met Wi-Fi — which is Online Mode changing what a Learner sees, not adding to it.',
+    steps: [
+      { label: 'Reset the tablet', action: { type: 'RESET' } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer wrongly', action: { type: 'PRACTISE', pack: 'STARTER', correct: false } },
+      { label: 'Connection appears', action: { type: 'CONNECTION', online: true } },
+      { label: 'Link this Profile', action: { type: 'LINK' } },
+      { label: 'Upload to the server', action: { type: 'SYNC' } },
+      { label: 'Switch to the server’s Mastery', action: { type: 'POLICY', rule: 'mastery', value: 'SERVER_OVERWRITES' } },
+      { label: 'Switch back to the tablet’s', action: { type: 'POLICY', rule: 'mastery', value: 'TABLET_ONLY' } },
+    ],
+  },
+  {
+    name: 'Things that should be impossible',
+    blurb: 'Three attempts at breaking it: uploading an unlinked Profile, answering the same Exercise twice, and the server being told the same answer twice.',
+    watch: 'None of the three should move a number. The unlinked upload should be a normal state, not an error. The second answer to one Exercise should not be a Counted Attempt. The duplicate should be acknowledged without paying again — if any of them moves the wallet or Mastery, that is a bug in the idea.',
+    steps: [
+      { label: 'Reset the tablet', action: { type: 'RESET' } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Answer correctly', action: { type: 'PRACTISE', pack: 'STARTER', correct: true } },
+      { label: 'Connection appears', action: { type: 'CONNECTION', online: true } },
+      { label: 'Upload while still unlinked', action: { type: 'SYNC' } },
+      { label: 'Link this Profile', action: { type: 'LINK' } },
+      { label: 'Upload to the server', action: { type: 'SYNC' } },
+      { label: 'Re-send the last batch', action: { type: 'RESEND' } },
+    ],
+  },
+];
+
+const el = (id) => document.getElementById(id);
+const pct = (n) => (n * 100).toFixed(1) + '%';
+
+function dispatch(action) {
+  world = reduce(world, action);
+  render();
+}
+
+function field(k, v, n, changed) {
+  return '<div class="field"><div class="k">' + k + '</div>'
+    + '<div class="v' + (changed ? ' changed' : '') + '">' + v + '</div>'
+    + (n ? '<div class="n">' + n + '</div>' : '') + '</div>';
+}
+
+function render() {
+  const d = derive(world);
+
+  el('note').textContent = world.note;
+
+  const pending = world.log.filter((a) => a.upload === 'PENDING').length;
+  const review = world.log.filter((a) => a.upload === 'REVIEW').length;
+  const unmarked = world.log.filter((a) => !isMarked(a)).length;
+
+  let s = '';
+  s += field('Tablet clock', 'Day ' + world.day, world.day > WINDOW_DAYS ? 'Past the ' + WINDOW_DAYS + '-day window' : '');
+  s += field('Connection', world.online ? 'Reachable' : 'None', world.online ? '' : 'Everything a Learner does still works');
+  s += field('This Profile', world.linked ? 'Linked' : 'Not linked', world.linked ? 'Its answers can go up' : 'It uploads nothing, and works the same');
+  s += field('Coins the Learner can spend', d.walletShown,
+    world.policies.wallet === 'TWO_WALLETS'
+      ? 'Earned ' + d.earned + ', spent ' + d.spent
+      : (world.serverHasSpoken ? 'The server’s balance. It knows nothing of the ' + d.spent + ' spent' : 'Earned ' + d.earned + ', spent ' + d.spent + '. The server has not spoken yet'),
+    world.policies.wallet !== 'TWO_WALLETS' && world.serverHasSpoken && d.spent > 0);
+  s += field('Cosmetics owned', world.purchases,
+    world.purchases && world.policies.wallet !== 'TWO_WALLETS' && world.serverHasSpoken && d.walletShown >= COSMETIC_COST
+      ? 'Already paid for — and affordable all over again' : '');
+  s += field('The server’s balance', world.serverHasSpoken ? d.serverBalance : '—', world.serverHasSpoken ? 'Everything it has graded' : 'Never contacted');
+
+  for (const [skill, st] of Object.entries(d.skills)) {
+    s += field('Mastery — ' + SKILL_NAMES[skill],
+      st.measured ? pct(st.mastery) : 'Not measured',
+      st.measured
+        ? st.counted + ' Counted Attempt(s), ' + (d.serverOwns ? 'on the server’s parameters' : 'on the Pack’s fitted parameters')
+        : 'Nothing has measured this Skill, so no number is shown',
+      d.serverOwns && st.measured);
+  }
+
+  s += field('Waiting to go up', pending, unmarked ? unmarked + ' of them still unmarked' : '');
+  if (review) s += field('Needs review', review, 'Will never be marked');
+  el('state').innerHTML = s;
+
+  el('policies').innerHTML = RULES.map((r) => '<fieldset><legend>' + r.legend + '</legend>'
+    + r.options.map((o) => '<label class="opt"><input type="radio" name="' + r.rule + '" value="' + o.value + '"'
+      + (world.policies[r.rule] === o.value ? ' checked' : '') + '> ' + o.label + '</label>').join('')
+    + '<div class="when">' + r.when + '</div></fieldset>').join('');
+  for (const r of RULES) {
+    for (const input of document.getElementsByName(r.rule)) {
+      input.onchange = (e) => dispatch({ type: 'POLICY', rule: r.rule, value: e.target.value });
+    }
+  }
+
+  if (!world.log.length) {
+    el('log').innerHTML = '<p class="empty">Nobody has answered anything yet.</p>';
+  } else {
+    el('log').innerHTML = '<table><thead><tr><th>Day</th><th>Pack</th><th>Marked</th><th>Verdict</th>'
+      + '<th>Coin</th><th>Upload</th><th>What happened</th></tr></thead><tbody>'
+      + world.log.map((a) => {
+          const marked = isMarked(a);
+          const coin = a.server ? a.server.coins : (a.local === true ? 1 : 0);
+          return '<tr><td>' + a.day + '</td><td>' + PACKS[a.pack].title + '</td>'
+            + '<td>' + (a.server ? 'By the server' : a.local !== null ? 'On the tablet' : 'Not yet') + '</td>'
+            + '<td>' + (marked ? (verdictOf(a) ? 'Right' : 'Wrong') : '—') + '</td>'
+            + '<td>' + (marked ? coin : '—') + (a.server && a.server.duplicate ? ' (duplicate)' : '') + '</td>'
+            + '<td><span class="pill ' + a.upload + '">' + a.upload.toLowerCase() + '</span></td>'
+            + '<td class="reason">' + a.reason + '</td></tr>';
+        }).join('')
+      + '</tbody></table>';
+  }
+
+  for (const group of ['practise', 'world', 'sync']) {
+    el('acts-' + group).innerHTML = ACTIONS[group]
+      .map((a, i) => '<button data-g="' + group + '" data-i="' + i + '">' + a.label + '</button>').join('');
+    for (const b of el('acts-' + group).children) {
+      b.onclick = () => dispatch(ACTIONS[b.dataset.g][+b.dataset.i].action);
+    }
+  }
+
+  el('tabs').innerHTML = SCENARIOS
+    .map((sc, i) => '<button data-t="' + i + '" class="' + (i === openTab ? 'on' : '') + '">' + sc.name + '</button>').join('');
+  for (const b of el('tabs').children) {
+    b.onclick = () => { openTab = +b.dataset.t; stepAt = 0; render(); };
+  }
+
+  const sc = SCENARIOS[openTab];
+  el('scenario').innerHTML = '<p><strong>' + sc.blurb + '</strong></p>'
+    + '<p class="lede"><em>What to watch for:</em> ' + sc.watch + '</p>'
+    + '<h3>Press these in order</h3>'
+    + sc.steps.map((st, i) => '<div class="row"><button class="step '
+        + (i < stepAt ? 'done' : i === stepAt ? 'now' : '') + '" data-s="' + i + '">'
+        + (i + 1) + '. ' + st.label + '</button></div>').join('');
+  for (const b of el('scenario').querySelectorAll('button.step')) {
+    b.onclick = () => {
+      const i = +b.dataset.s;
+      if (i < stepAt) return;
+      stepAt = i + 1;
+      dispatch(sc.steps[i].action);
+    };
+  }
+}
+
+render();
+</script>
+</body>
+</html>

@@ -21,7 +21,15 @@ npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
 ```
 
-Run lint and typecheck before declaring any task done.
+Run `npm run lint`, `npm run typecheck` and `npm test` before declaring any task done. All three, every time.
+
+## Testing
+
+Vitest runs the pure modules under `src/domain/`, `src/data/` and `src/content/`. Three things the config cannot tell you:
+
+- **There is no vitest config.** `npm test` is bare `vitest run`, so a test that imports an Expo or React Native module fails to load. `src/state/` and `src/ui/` have no tests for this reason — assert against the pure module beneath a screen instead of the screen.
+- **Vitest is v5.** Reach for `npx vitest run <path>` to narrow a run; the v2-era `--reporter=basic` is gone.
+- **`@types/node` is installed but `expo/tsconfig.base` does not expose it.** A test needing `node:fs` wants `/// <reference types="node" />` at the top of that one file, which keeps the project tsconfig alone.
 
 ## Navigation & Routing
 
