@@ -61,6 +61,10 @@ export class UsersService {
       where: { jurisdictionId: actor.jurisdictionId },
       select: {
         id: true,
+        // The login an admin just provisioned is the one a Caretaker types to
+        // link a Profile, so it has to be readable back. It is an identifier,
+        // not a credential: the password hash stays unselected.
+        loginId: true,
         alias: true,
         role: true,
         schoolId: true,
