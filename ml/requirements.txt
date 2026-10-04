@@ -1,2 +1,5 @@
 numpy>=1.24
 psycopg[binary]>=3.1
+# service/app.py is a FastAPI app; the Dockerfile serves it with uvicorn.
+fastapi>=0.115
+uvicorn>=0.30

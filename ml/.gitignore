@@ -5,3 +5,6 @@ venv/
 model*.json
 !model.example.json
 .env
+# MNIST and the trained checkpoint: 11 MB of data that is downloaded, not authored.
+data/
+*.npz

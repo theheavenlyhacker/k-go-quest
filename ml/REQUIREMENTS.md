@@ -111,7 +111,7 @@ three pre-authored depths per item.
 - **Schema** — extend `lessons.hints` (already multilingual jsonb) to per-exercise
   explanations keyed by language and depth.
 
-### F2 — Multi-subject OCR and explanation evaluator **[SPLIT — see §3]**
+### F2 — Multi-subject OCR and explanation evaluator **[PARTLY BUILT — see §3]**
 
 Evaluate handwritten math steps, essay outlines, and spoken or typed
 explanations, offline, with bonus coins for accurate concept retelling.
@@ -120,7 +120,7 @@ Three sub-features, three different verdicts:
 
 | sub-feature | verdict |
 |---|---|
-| Handwritten **digits and fraction notation** | **Buildable from scratch.** Small CNN, ~1–3 MB, trained on MNIST-style data plus a locally collected set of Filipino learners' handwriting. Narrow output space makes it tractable. |
+| Handwritten **digits and fraction notation** | **BUILT.** `kgo_ink/`: a 27,000-parameter CNN trained from scratch in NumPy on MNIST plus a drawn fraction bar. 0.983 held-out accuracy overall, 0.947 on the bar. Runs on the tablet as plain arithmetic — no native module, no server. Still has never seen a Filipino learner's handwriting; collecting that is the next step, not a rewrite. |
 | Handwritten/typed **essay outline structure** | **Partly buildable.** Structural checks — has a thesis line, has N supporting points, points are distinct — are feasible with shallow NLP. Judging *quality* is not. Ship the structural feedback, say so plainly. |
 | **Spoken or typed explanation** comprehension scoring | **Not buildable from scratch.** Requires semantic understanding of free text in four languages. The honest substitute is keyword/concept coverage against teacher-authored key concepts per lesson — checkable, explainable, and genuinely useful, but it is coverage, not comprehension. Label it as such in the UI. |
 
@@ -170,8 +170,8 @@ ships, or every supervised model starts from nothing.
 
 | tier | features | assessment |
 |---|---|---|
-| **Built** | F4 Growth-Delta, F5 rule-based flagging, F3 quiz generation | Working, tested, live |
-| **Buildable, no research risk** | F3 competency alignment, F3 QR grading, F5 predictive flagging, F2 digit/fraction OCR, F6 moderation filter | Ordinary engineering plus data collection |
+| **Built** | F4 Growth-Delta, F5 rule-based flagging, F3 quiz generation, F2 digit/fraction OCR | Working, tested, live |
+| **Buildable, no research risk** | F3 competency alignment, F3 QR grading, F5 predictive flagging, F6 moderation filter | Ordinary engineering plus data collection |
 | **Achievable in a reduced, honest form** | F1 voice tutor (pre-authored explanations), F2 outline structure, F2 explanation coverage | Delivers the user-facing value without claiming capability the model lacks |
 | **Not achievable from scratch here** | Conversational tutor, free-text comprehension scoring, essay quality grading | Needs pretraining scale that this project does not have |
 
@@ -197,6 +197,7 @@ ships, or every supervised model starts from nothing.
    recommender.
 3. **F6 moderation filter**, before any forum ships. Safety, not features.
 4. **F5 predictive flagging**, once `durationMs` has accumulated.
-5. **F2 digit/fraction OCR.** The highest-visibility model and genuinely
-   from-scratch — strong demonstration material.
+5. ~~**F2 digit/fraction OCR.**~~ Done. What remains is collecting real
+   learners' handwriting: the model has only ever seen MNIST, and a few hundred
+   labelled samples from one classroom would tell us how far that carries.
 6. **F1 authored explanations.** Content pipeline, not a model.

@@ -6,8 +6,11 @@ import { CircleHelp, Lightbulb, Mic, PenLine, Play, Search, Square, Volume2 } fr
 
 import { useApp } from '@/state/app-context';
 import type { Lesson, Pack } from '@/domain/types';
+import { fields, type Stroke } from '@/domain/ink';
+import { ACCURACY, OVERALL_ACCURACY, certainty, read, spell } from '@/domain/recognise';
 import { subjectTitles } from '@/domain/subjects';
 import { Action, Bar, Card, Empty, Eyebrow, IconTile, Info, Pill, Pills, Row, Sheet, T } from '@/ui/primitives';
+import { FieldPreview, InkPad, PAD_HEIGHT, PAD_THICKNESS } from '@/ui/ink-pad';
 import { Screen } from '@/ui/screen';
 import { radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
 
@@ -233,13 +236,7 @@ export default function Tutor() {
         </Card>
       ) : null}
 
-      {mode === 'handwriting' ? (
-        <Empty
-          icon={PenLine}
-          title="Handwriting reading is not built yet"
-          text="Checking handwritten working needs the on-device OCR model, which is the next piece of ML work. Until it ships, use Type or Voice — both run offline today."
-        />
-      ) : null}
+      {mode === 'handwriting' ? <Handwriting /> : null}
 
       <Card style={{ gap: 10, opacity: 0.7 }}>
         <Row>
@@ -275,5 +272,90 @@ export default function Tutor() {
         ))}
       </Sheet>
     </Screen>
+  );
+}
+
+/**
+ * Handwriting: the tablet reads what a Learner wrote.
+ *
+ * The model is a small convolutional network trained from scratch on MNIST
+ * digits and a drawn fraction bar — about 27,000 numbers, running as plain
+ * arithmetic on this device. No server, no download, nothing sent anywhere.
+ *
+ * Nothing here is graded. The point is to find out whether the tablet can read
+ * this Learner's handwriting before that ever decides anything, which is also
+ * why the measured accuracy is on the screen rather than in a document.
+ */
+function Handwriting() {
+  const theme = useTheme();
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [width, setWidth] = useState(0);
+
+  // Reading is a few hundred thousand multiplications: fast enough to redo on
+  // every stroke, so there is no button to press and nothing to wait for.
+  const shapes = width ? fields(strokes, width, PAD_HEIGHT, PAD_THICKNESS) : [];
+  const readings = read(shapes);
+  const sure = certainty(readings);
+
+  return (
+    <View style={{ gap: 11 }} onLayout={(event) => setWidth(Math.round(event.nativeEvent.layout.width))}>
+      <Card style={{ gap: 11 }}>
+        <Row style={{ gap: 11 }}>
+          <IconTile icon={PenLine} color={tokens.brand.grape} tint={tokens.tint.grape} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <T variant="titleM">Write it and I will read it</T>
+            <T variant="bodyS" color={theme.muted}>Digits 0 to 9 and the fraction bar — try 3/4.</T>
+          </View>
+        </Row>
+        <InkPad strokes={strokes} onChange={setStrokes} />
+      </Card>
+
+      {readings.length ? (
+        <Animated.View entering={FadeIn.duration(220)} style={{ gap: 11 }}>
+          <Card style={{ gap: 11 }}>
+            <Row>
+              <Eyebrow style={{ flex: 1 }}>Read as</Eyebrow>
+              <Pill
+                color={sure >= 0.9 ? tokens.state.success : sure >= 0.6 ? tokens.brand.sunDeep : tokens.state.critical}
+                tint={sure >= 0.9 ? tokens.tint.success : sure >= 0.6 ? tokens.tint.sun : tokens.tint.warning}
+              >
+                {`${Math.round(sure * 100)}% sure`}
+              </Pill>
+            </Row>
+            <T variant="displayXL">{spell(readings)}</T>
+            <Row style={{ gap: 9, flexWrap: 'wrap' }}>
+              {readings.map((reading, index) => (
+                <Row key={index} style={{ gap: 7 }}>
+                  <FieldPreview field={shapes[index]} />
+                  <View style={{ gap: 1 }}>
+                    <T variant="titleM">{reading.symbol}</T>
+                    <T variant="dataS" color={theme.muted}>{`${Math.round(reading.confidence * 100)}%`}</T>
+                  </View>
+                </Row>
+              ))}
+            </Row>
+            <T variant="bodyS" color={theme.muted}>
+              The small squares are exactly what the model sees: your writing cropped, scaled and centred. If one looks wrong, that symbol was written too close to its neighbour.
+            </T>
+          </Card>
+
+          {sure < 0.6 ? (
+            <Info
+              color={tokens.state.warning}
+              icon={PenLine}
+              title="Not confident about that one"
+              text="Try writing it larger, with a clear gap before the next symbol. Low confidence means the model is guessing, and a guess should never be treated as an answer."
+            />
+          ) : null}
+        </Animated.View>
+      ) : null}
+
+      <Info
+        color={tokens.brand.sky}
+        icon={PenLine}
+        title="What this model is"
+        text={`Trained from scratch on handwritten digits, ${Math.round(OVERALL_ACCURACY * 100)}% correct on held-out writing. The fraction bar is the weakest at ${Math.round((ACCURACY['/'] ?? 0) * 100)}%, because it was drawn rather than collected from real learners. Nothing here is graded or counted — reading your writing is not the same as marking it.`}
+      />
+    </View>
   );
 }

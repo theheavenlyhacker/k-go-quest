@@ -97,7 +97,78 @@ The importer refuses synthetic parameters unless `--allow-synthetic` is passed,
 so a simulated fit cannot reach a live jurisdiction by accident. It also
 refuses degenerate parameter sets and duplicate versions.
 
+## Handwriting
+
+A second model lives in `kgo_ink/`: a small convolutional network that reads
+handwritten digits and the fraction bar, so a learner can write `3/4` on the
+tablet instead of tapping an option.
+
+    1x28x28 -> conv 8@3x3 -> ReLU -> pool
+            -> conv 16@3x3 -> ReLU -> pool
+            -> 784 -> dense 32 -> ReLU -> dense 11 -> softmax
+
+About 27,000 parameters. Forward and backward passes are written out in NumPy
+rather than taken from a framework, because the forward pass has to be
+reimplemented in TypeScript to run on the tablet, and the only way to be sure
+the two agree is for both to be small enough to read in one sitting.
+
+| class | held-out accuracy |
+|---|---|
+| digits 0-9 | 0.980 - 0.998 |
+| fraction bar `/` | 0.947 |
+| overall | **0.983** |
+
+The digits come from MNIST. There is no `/` in MNIST, so that class is drawn:
+random angle, thickness, bow and position, normalised like every other sample.
+It is the weakest class in the model and is labelled as such on the screen that
+uses it. Collecting real fraction bars from learners is what would fix it.
+
+Augmentation matters more than the architecture here. MNIST was written with a
+mouse at high contrast; a learner draws with a fingertip, thicker and more
+slanted. `data.augment` adds rotation, scale, shift and stroke thickening, and
+that is the difference between a model that scores well on the test set and one
+that works on a tablet.
+
+### Running it
+
+MNIST is not in this repository. Download the four `.gz` files first:
+
+```
+mkdir -p data/mnist && cd data/mnist
+for f in train-images-idx3-ubyte train-labels-idx1-ubyte t10k-images-idx3-ubyte t10k-labels-idx1-ubyte; do
+  curl -LO "https://ossci-datasets.s3.amazonaws.com/mnist/$f.gz"
+done
+```
+
+Then train, which takes about eight minutes on a laptop and writes the weights
+straight into the app:
+
+```
+python scripts/train_ink.py --mnist data/mnist --out ../mobile/src/content/handwriting-model.json
+python scripts/train_ink.py --export-only --out ../mobile/src/content/handwriting-model.json   # re-export, no retraining
+```
+
+The exported file carries the weights, the measured per-class accuracy, and
+three fixed inputs with the probabilities NumPy produced for them. The tablet's
+test suite runs those same inputs through its own port of the forward pass and
+compares — so the two implementations cannot drift apart unnoticed.
+
+### The part that is not a model
+
+`kgo_ink/normalise.py` is half the system. MNIST was built by fitting each digit
+into a 20x20 box and centring it in a 28x28 field by its centre of mass. Ink
+from a tablet looks nothing like a MNIST digit until the same two steps are
+applied, so they are applied identically there and in
+`mobile/src/domain/ink.ts`, down to Python's round-half-to-even. One pixel of
+disagreement moves the whole symbol.
+
 ## What this does not do
+
+The handwriting model reads isolated digits and a fraction bar. It does not
+read words, working shown across several lines, or anything photographed —
+it reads strokes, not pictures. It has never seen a Filipino learner's
+handwriting: every digit it was trained on came from MNIST, and the first
+real collection is what would tell us how far that generalises.
 
 - It does not personalise per learner. BKT parameters are per *skill*; the
   per-learner state is the mastery estimate the backend already stores.

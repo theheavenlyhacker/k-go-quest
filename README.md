@@ -7,13 +7,19 @@ Tracing (BKT)** with Default Skill Parameters, running on the tablet. No Learner
 data leaves the tablet: only the Caretaker's email address goes online, once, to
 sign in at Setup. Terms are defined in [`CONTEXT.md`](CONTEXT.md).
 
-The only AI is BKT: plain arithmetic, no neural model, no server. Mastery is an
-estimate, never a grade.
+Two models, both trained from scratch and both running on the tablet. **BKT** is
+four numbers per Skill and plain arithmetic; Mastery is an estimate, never a
+grade. **Handwriting** is a small convolutional network — about 27,000 numbers,
+98.3% on held-out digits — that reads what a Learner writes. Neither needs a
+server, a native module or a download, and neither grades anything.
 
 | Folder | What it is | Stack |
 | --- | --- | --- |
 | [`mobile/`](mobile) | The tablet app | Expo SDK 57, expo-router, React Native |
-| [`ml/`](ml) | Offline BKT fitter and tests | Python 3.11, NumPy |
+| [`ml/`](ml) | Offline BKT fitter, handwriting model and tests | Python 3.11, NumPy |
+
+Putting this in front of real learners: **[`docs/deployment.md`](docs/deployment.md)** —
+what to deploy, in what order, and an honest list of what is not ready yet.
 
 ## Run it
 
