@@ -6,8 +6,9 @@ import type { Pack, Profile } from '../domain/types';
 import { starterPacks } from '../content/starter-pack';
 import { demoHistory, grade, growth, learningState, type Attempt, type Grade, type LearningState } from '../domain/engine';
 import { balance as coinBalance, buy, type Purchase } from '../domain/shop';
+import { meanMastery } from '../domain/format';
 import { confirmCaretaker, setupStep, type SetupStep } from '../domain/setup';
-import { isIdle, isValidPin, lockedOut, recordFailure, type Lockout } from '../domain/pin-lock';
+import { isIdle, isValidPin, lockedOut, recordFailure, remaining, type Lockout } from '../domain/pin-lock';
 import { getRepository } from '../data/storage';
 import { pinDigest } from '../data/crypto';
 import { vault } from '../data/vault';
@@ -16,7 +17,7 @@ export type Appearance = 'light' | 'dark' | 'system';
 interface Preferences { appearance: Appearance; language: string; }
 interface Notice { message: string; kind: 'success' | 'error' | 'info'; }
 /** One Profile's place in this Shared Tablet's monthly standings: Growth counts only, never Attempts. */
-export interface Standing { id: string; alias: string; up: number; mastered: number; }
+export interface Standing { id: string; alias: string; up: number; mastered: number; mastery: number | null; }
 interface AppContextValue {
   ready: boolean; profiles: Profile[]; profile: Profile | null; locked: boolean; caretaker: boolean;
   /** Everything this tablet can practise from: the Starter Pack, plus every Downloaded Pack. */
@@ -37,6 +38,10 @@ interface AppContextValue {
   /** The Demo Learner's Profile ID, once Setup has made it. */
   demoId: string | null; resetDemo(): Promise<void>;
   deleteProfile(id: string): Promise<void>; resetProfilePin(id: string, pin: string): Promise<void>;
+  /** Minutes this Profile is locked out for; 0 when it is not. */
+  lockoutFor(id: string): Promise<number>;
+  /** Caretaker: let a locked-out Learner back in, keeping their PIN. */
+  clearLockout(id: string): Promise<void>;
   /** Read-only look at one Profile's data, for the Caretaker. */
   viewProfile(id: string): Promise<{ attempts: Attempt[]; purchases: Purchase[] }>;
   /** Every Profile on this Shared Tablet ranked by this month's Growth. Any Learner may read it; it carries no one's Attempts. */
@@ -56,7 +61,11 @@ const DEMO_ID = 'kgo-demo-id';
 // Same verifier as Profile PINs, keyed by a fixed owner instead of a Profile ID.
 const CARETAKER_OWNER = 'caretaker';
 const lockoutKey = (id: string) => `kgo-lockout-${id}`;
-const WAIT_MESSAGE = 'Too many wrong PINs. Wait 5 minutes, then try again.';
+const NO_LOCKOUT: Lockout = { failed: 0, until: 0 };
+// Says how long is actually left rather than repeating the full wait, so a
+// Learner who comes back after four minutes is not told to wait five more.
+const waitMessage = (minutes: number) =>
+  `Too many wrong PINs. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}, or ask your Caretaker to let you back in.`;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -182,9 +191,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     profileRef.current = next; setProfile(next); lock(); forget();
   };
   /** Checks a PIN against its stored verifier, with the shared 5-failure wait. */
+  const readLockout = async (owner: string): Promise<Lockout> => {
+    try { return JSON.parse(await vault.get(lockoutKey(owner)) ?? 'null') as Lockout ?? NO_LOCKOUT; }
+    catch { return NO_LOCKOUT; }
+  };
+  /** What the Caretaker screen shows: how long this Profile is shut out for. */
+  const lockoutFor = useCallback(async (id: string) => remaining(await readLockout(id), Date.now()), []);
+  /**
+   * Lets a Learner back in without changing the PIN they already know.
+   *
+   * Resetting the PIN also cleared the lockout, but it made a child learn a new
+   * PIN because they mistyped the old one five times. The wait is there to stop
+   * someone guessing at a tablet, not to punish a bad morning.
+   */
+  const clearLockout = async (id: string) => {
+    requireCaretaker();
+    await vault.remove(lockoutKey(id));
+  };
   const checkPin = async (owner: string, verifierKey: string, pin: string, mismatch: string) => {
-    const lockout = JSON.parse(await vault.get(lockoutKey(owner)) ?? '{"failed":0,"until":0}') as Lockout;
-    if (lockedOut(lockout, Date.now())) throw new Error(WAIT_MESSAGE);
+    const lockout = await readLockout(owner);
+    if (lockedOut(lockout, Date.now())) throw new Error(waitMessage(remaining(lockout, Date.now())));
     const verifier = await vault.get(verifierKey);
     if (!verifier || verifier !== await pinDigest(owner, pin)) {
       await vault.set(lockoutKey(owner), JSON.stringify(recordFailure(lockout, Date.now())));
@@ -243,7 +269,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const rows = await Promise.all(profiles.map(async (p) => {
       const log = await repo.attempts(p.id).catch((): Attempt[] => []);
       const month = growth(packs, log, now).thisMonth;
-      return { id: p.id, alias: p.alias, up: month.up, mastered: month.mastered };
+      // The League ranks on improvement; mean Mastery is shown beside it so a
+      // Learner can see where they are as well as how far they have come.
+      return { id: p.id, alias: p.alias, up: month.up, mastered: month.mastered, mastery: meanMastery(learningState(packs, log).skills) };
     }));
     return rows.sort((a, b) => b.up - a.up || b.mastered - a.mastered || a.alias.localeCompare(b.alias));
   }, [packs, profiles]);
@@ -270,7 +298,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), saveCaretakerId, caretakerSignedOut, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), saveCaretakerId, caretakerSignedOut, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }

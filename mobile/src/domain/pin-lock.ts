@@ -8,6 +8,10 @@ export const lockedOut = (state: Lockout, now: number) => state.until > now;
 export const isIdle = (lastTouch: number, now: number) => now - lastTouch > IDLE_MS;
 export const isValidPin = (pin: string) => /^\d{6}$/.test(pin);
 
+/** Whole minutes left on a wait, rounded up. Zero once it is over. */
+export const remaining = (state: Lockout, now: number) =>
+  state.until > now ? Math.ceil((state.until - now) / 60000) : 0;
+
 /** A failure after an expired wait starts a fresh count. */
 export function recordFailure(state: Lockout, now: number): Lockout {
   const failed = state.until && state.until <= now ? 1 : state.failed + 1;

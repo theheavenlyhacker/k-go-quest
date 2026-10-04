@@ -19,6 +19,8 @@ export const radius = tokens.radius;
 /** elevation/card and elevation/appbar from the Figma effect styles. */
 export const elevation = {
   card: { shadowColor: '#0c4a3e', shadowOpacity: 0.07, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
+  /** elevation/raised: the lifted first-place card on the League podium. */
+  raised: { shadowColor: '#0c4a3e', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 14 }, shadowRadius: 32, elevation: 8 },
   appbar: { shadowColor: '#0c4a3e', shadowOpacity: 0.55, shadowOffset: { width: 0, height: 8 }, shadowRadius: 14, elevation: 10 },
 } as const;
 
@@ -85,6 +87,7 @@ export const palette = {
 
 /** Figma text styles. letterSpacing is absolute px, as React Native expects. */
 export const type = {
+  displayXL: { fontFamily: 'Outfit_700Bold', fontSize: 28, lineHeight: 28 * 1.15, letterSpacing: -0.7 },
   displayL: { fontFamily: 'Outfit_700Bold', fontSize: 21, lineHeight: 21 * 1.18, letterSpacing: -0.378 },
   titleM: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, lineHeight: 15 * 1.28, letterSpacing: -0.15 },
   titleS: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, lineHeight: 13 * 1.3, letterSpacing: -0.065 },
@@ -93,6 +96,7 @@ export const type = {
   eyebrow: { fontFamily: 'PublicSans_700Bold', fontSize: 10, lineHeight: 10 * 1.3, letterSpacing: 1.4 },
   bodyM: { fontFamily: 'PublicSans_400Regular', fontSize: 13, lineHeight: 13 * 1.5, letterSpacing: 0 },
   bodyS: { fontFamily: 'PublicSans_400Regular', fontSize: 11, lineHeight: 11 * 1.48, letterSpacing: 0 },
+  dataM: { fontFamily: 'IBMPlexMono_500Medium', fontSize: 13, lineHeight: 13 * 1.4, letterSpacing: -0.13 },
   dataS: { fontFamily: 'IBMPlexMono_500Medium', fontSize: 10.5, lineHeight: 10.5 * 1.4, letterSpacing: 0 },
 } as const;
 

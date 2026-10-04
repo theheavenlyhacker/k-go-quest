@@ -167,7 +167,7 @@ export function Section({ title, caption, action, onPress }: { title: string; ca
   );
 }
 
-export function Ring({ value, size = 126, color = tokens.brand.limeDeep, label }: { value: number | null; size?: number; color?: string; label?: string }) {
+export function Ring({ value, size = 126, color = tokens.brand.limeDeep, label, suffix = '%' }: { value: number | null; size?: number; color?: string; label?: string; suffix?: string }) {
   const theme = useTheme();
   const r = (size - 12) / 2;
   const circumference = 2 * Math.PI * r;
@@ -186,7 +186,7 @@ export function Ring({ value, size = 126, color = tokens.brand.limeDeep, label }
           rotation={-90} origin={`${size / 2}, ${size / 2}`} animatedProps={animated}
         />
       </Svg>
-      <T variant="displayL" style={{ fontSize: size * 0.24, lineHeight: size * 0.29 }}>{value === null ? '—' : `${Math.round(value * 100)}%`}</T>
+      <T variant="displayL" style={{ fontSize: size * 0.24, lineHeight: size * 0.29 }}>{value === null ? '—' : `${Math.round(value * 100)}${suffix}`}</T>
       {label ? <T variant="bodyS" color={theme.muted}>{label}</T> : null}
     </View>
   );

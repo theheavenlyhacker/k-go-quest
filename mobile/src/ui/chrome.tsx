@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BookOpen, ChevronRight, CircleHelp, Coins, Download, Gift, Globe, Lock, MapPin, Repeat2, Sparkles, Trophy, ChartColumn } from 'lucide-react-native';
 
 import { useApp } from '../state/app-context';
+import { useOnline } from '../state/online-context';
 import { initials } from '../domain/format';
 import { HINT_LANGUAGES } from '../domain/hint-voice';
 import { elevation, radius, tokens, useTheme } from './theme';
@@ -27,7 +28,43 @@ export function AppBar({ title, subtitle, onMenu }: { title: string; subtitle?: 
           <T variant="displayL" color="#ffffff" lines={1}>{title}</T>
           {subtitle ? <T variant="bodyS" color="#ffffff" style={{ opacity: 0.72 }} lines={1}>{subtitle}</T> : null}
         </View>
+        <SyncPill />
       </Row>
+    </View>
+  );
+}
+
+/**
+ * Sync pill (443:31).
+ *
+ * Says what Online Mode is doing without a Learner having to look for it, and
+ * says "Offline" as a plain fact rather than an error — a tablet with no signal
+ * is the normal case, and the queued count is the reassurance that nothing has
+ * been lost.
+ */
+function SyncPill() {
+  const { profile, attempts } = useApp();
+  const { state, summary } = useOnline();
+  const [queued, setQueued] = useState<number | null>(null);
+  const owner = profile?.id ?? null;
+  const logged = attempts.length;
+
+  useEffect(() => {
+    let live = true;
+    const read = owner ? summary(owner) : Promise.resolve(null);
+    read
+      .then((counts) => { if (live) setQueued(counts ? counts.pending : null); })
+      .catch(() => { if (live) setQueued(null); });
+    return () => { live = false; };
+  }, [owner, logged, summary]);
+
+  const online = state === 'READY';
+  const label = online ? 'Online' : 'Offline';
+  const text = queued === null ? label : queued ? `${label} \u00b7 ${queued} queued` : `${label} \u00b7 up to date`;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }}>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: online ? tokens.state.success : tokens.brand.sun }} />
+      <T variant="labelPill" color="#ffffff">{text}</T>
     </View>
   );
 }
@@ -39,7 +76,7 @@ const TABS = [
   { name: 'league', label: 'League', icon: Trophy },
   { name: 'tutor', label: 'Tutor', icon: Sparkles },
   { name: 'progress', label: 'Progress', icon: ChartColumn },
-  { name: 'rewards', label: 'Shop', icon: Gift },
+  { name: 'rewards', label: 'Rewards', icon: Gift },
 ] as const;
 
 /** Shape of the slice of the tab-bar props this component reads. */
