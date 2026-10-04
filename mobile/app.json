@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "khan-go-quests-mobile",
-    "slug": "khan-go-quests-mobile",
+    "name": "k-go-quests-mobile",
+    "slug": "k-go-quests-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "khangoquestsmobile",
+    "scheme": "kgoquestsmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
@@ -39,7 +39,6 @@
       ],
       "expo-sqlite",
       "expo-secure-store",
-      "expo-sharing",
       "expo-navigation-bar"
     ],
     "experiments": {

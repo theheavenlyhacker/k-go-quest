@@ -5,7 +5,8 @@ import { BookOpen, ChartColumn, Leaf, Sparkles } from 'lucide-react-native';
 import { useApp } from '@/state/app-context';
 import { meanMastery } from '@/domain/format';
 import type { Subject } from '@/domain/types';
-import { subjectTitles } from '@/data/preview';
+import { subjectTitles } from '@/domain/subjects';
+import { starterPacks } from '@/content/starter-pack';
 import { BackLink, Card, Empty, Eyebrow, IconTile, Pill, Ring, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -23,29 +24,28 @@ function band(mastery: number | undefined, theme: { muted: string; surfaceAlt: s
 
 export default function SubjectScreen() {
   const { packId } = useLocalSearchParams<{ packId?: string }>();
-  const { snapshot } = useApp();
+  const { learning } = useApp();
   const theme = useTheme();
   const router = useRouter();
 
-  const entry = snapshot.downloads.find((item) => item.pack.id === packId);
-  if (!entry) {
+  const pack = starterPacks.find((item) => item.id === packId);
+  if (!pack) {
     return (
-      <Screen chrome title="Subject" caption="Not on this device">
-        <Empty title="This pack is not downloaded" text="Go back to the Offline Library and download it while you have signal." />
+      <Screen chrome title="Subject" caption="Not found">
+        <Empty title="This subject is not on this tablet" text="Go back to Subjects and pick another." />
       </Screen>
     );
   }
 
-  const { pack, lessons } = entry;
+  const { lessons } = pack;
   const tone = subjectTheme[pack.subject];
-  const skills = snapshot.progress?.skills ?? [];
-  const masteryFor = (skillCode: string) => skills.find((skill) => skill.skillCode === skillCode)?.mastery;
-  const packSkills = skills.filter((skill) => lessons.some((lesson) => lesson.skillCode === skill.skillCode));
+  const masteryFor = (skillCode: string) => learning.skills.find((skill) => skill.skillId === skillCode)?.mastery;
+  const packSkills = learning.skills.filter((skill) => lessons.some((lesson) => lesson.skillCode === skill.skillId));
   const overall = meanMastery(packSkills);
 
   return (
-    <Screen chrome title={`${subjectTitles[pack.subject]} ${pack.grade}`} caption={`${pack.title} · cached`}>
-      <BackLink label="Offline Library" onPress={() => router.back()} />
+    <Screen chrome title={`${subjectTitles[pack.subject]} ${pack.grade}`} caption={`${pack.title} · on device`}>
+      <BackLink label="Subjects" onPress={() => router.back()} />
 
       <Card>
         <Row style={{ gap: 12 }}>
@@ -53,14 +53,14 @@ export default function SubjectScreen() {
           <View style={{ flex: 1, gap: 2 }}>
             <T variant="titleM" lines={1}>{pack.title}</T>
             <T variant="bodyS" color={theme.muted} lines={1}>
-              {`${subjectTitles[pack.subject]} ${pack.grade} · ${lessons.length} module${lessons.length === 1 ? '' : 's'}`}
+              {`${subjectTitles[pack.subject]} ${pack.grade} · ${lessons.length} lesson${lessons.length === 1 ? '' : 's'}`}
             </T>
           </View>
           <Ring value={overall} size={52} color={tone.brand} />
         </Row>
       </Card>
 
-      <Eyebrow>Modules</Eyebrow>
+      <Eyebrow>Lessons</Eyebrow>
       {lessons.map((lesson, index) => {
         const status = band(masteryFor(lesson.skillCode), theme);
         return (

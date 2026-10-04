@@ -1,0 +1,141 @@
+# K-Go Quests
+
+An offline learning app for Philippine public-school learners. It runs on a shared
+Android tablet and adapts practice to each learner. Learners never need a network;
+the Caretaker goes online once, at Setup.
+
+## Language
+
+### People and devices
+
+**Learner**:
+A child who practises on the tablet.
+_Avoid_: student, user, account
+
+**Caretaker**:
+The adult who manages a Shared Tablet. Only the Caretaker can create or delete Profiles, reset a Learner's PIN and see Plateau Flags for every Profile. The Caretaker signs in to a Caretaker Account once at Setup, then uses a Caretaker PIN offline.
+_Avoid_: teacher, admin, parent
+
+**Caretaker Account**:
+The Caretaker's online identity. It is used at Setup and to reset a forgotten Caretaker PIN, and both need the tablet to be online. Only the Caretaker Account that did Setup can reset the Caretaker PIN. Learners never have one.
+_Avoid_: login, user account
+
+**Setup**:
+The first launch of the app on a Shared Tablet. The Caretaker signs in to their Caretaker Account, sets the Caretaker PIN and creates the first Profiles.
+_Avoid_: onboarding, registration
+
+**Profile**:
+One Learner's identity and progress on one Shared Tablet, protected by a PIN. It is shown by an alias the Caretaker picks, never a legal name.
+_Avoid_: account, login
+
+**Shared Tablet**:
+One device used in turn by several Learners, each through their own Profile. A Learner always uses the same Shared Tablet.
+_Avoid_: device, phone
+
+### Content
+
+**Pack Author**:
+The person who writes Content Packs, outside the app.
+_Avoid_: admin, teacher, content manager
+
+**Content Pack**:
+A bundle of Lessons for one Subject, with each Skill's parameters.
+_Avoid_: course, module, download
+
+**Starter Pack**:
+A Content Pack that ships inside the app, so the app works on first launch.
+
+**Subject**:
+One school subject, such as Math or Science. Each Content Pack covers one Subject.
+
+**Skill**:
+One competency that has its own Mastery.
+_Avoid_: topic, competency code
+
+**Lesson**:
+A short reading on one Skill, followed by Exercises.
+
+**Exercise**:
+One multiple-choice question with exactly one correct option.
+_Avoid_: item, question, quiz
+
+**Hint**:
+A fixed explanation written by the Pack Author, in one or more languages. The app reads a Hint aloud only when the tablet has a voice for that language. A Hint is never generated at practice time.
+_Avoid_: tutor, AI tutor
+
+### Practice
+
+**Attempt**:
+A Learner's answer to one Exercise. The tablet grades it at once.
+_Avoid_: submission, sync event
+
+**Counted Attempt**:
+The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only.
+_Avoid_: retry, score
+
+### Learning model
+
+**Mastery**:
+The estimated probability that a Learner knows a Skill, updated after each Counted Attempt.
+_Avoid_: score, level, progress
+
+**Mastered**:
+A Skill whose Mastery is at least 0.95.
+_Avoid_: complete, passed, done
+
+**Skill Parameters**:
+The four numbers (prior, learn, guess, slip) that control how Mastery moves for one Skill. They are fitted offline and shipped in a Content Pack.
+_Avoid_: model, weights
+
+**Default Skill Parameters**:
+Placeholder Skill Parameters used for every Skill until fitted values exist. They are a starting guess, not a measurement.
+_Avoid_: dummy data, real model
+
+**Quest**:
+A practice suggestion: one Exercise the Learner has not answered yet, taken from the lowest-Mastery Skill that is not Mastered.
+_Avoid_: task, assignment
+
+**Plateau Flag**:
+A mark on a Skill where a Learner has made at least five Counted Attempts and Mastery is still below 0.40. The Learner sees it as a nudge to review; the Caretaker sees it for every Profile.
+_Avoid_: alert, failing, at-risk
+
+### Motivation
+
+**Coin**:
+A point earned for a correct Counted Attempt. A Coin has no value outside the app and buys only Cosmetics.
+_Avoid_: Khan-Coin, money, reward
+
+**Cosmetic**:
+A badge built into the app that a Learner buys with Coins. A Cosmetic never changes what or how a Learner practises.
+
+**Growth**:
+Two counts for one month: the Learner's Skills whose Mastery went up, and the Skills that became Mastered. Each count is shown next to last month's. Growth compares a Learner only with their own past, never with other Learners, and it is never negative.
+_Avoid_: league, rank, leaderboard, score
+
+## Relationships
+
+- A **Shared Tablet** holds one or more **Profiles**, managed by one **Caretaker**
+- A **Caretaker** has one **Caretaker Account**; a **Learner** has none
+- A **Profile** belongs to exactly one **Learner**, and a **Learner** has exactly one **Profile**
+- A **Content Pack** covers one **Subject** and contains many **Lessons**
+- A **Lesson** practises one **Skill**, contains many **Exercises** and has one **Hint**
+- A **Skill** belongs to exactly one **Content Pack** and has one set of **Skill Parameters**
+- A **Profile** has one **Mastery** value for each **Skill** it has practised
+- A **Quest** points to one **Exercise**
+- A **Plateau Flag** belongs to one **Profile** and one **Skill**
+- A **Profile** earns **Coins** and owns the **Cosmetics** it bought
+
+## Flagged ambiguities
+
+- "AI" meant both the Mastery estimate and a conversational tutor. Resolved: the only on-device model is Mastery. The tutor screen becomes **Hints**.
+- "Student" and "learner" were used interchangeably. Resolved: **Learner**.
+- "Reward" meant both Coins and vouchers for real goods. Resolved: only **Coins** exist, and they buy **Cosmetics**. Vouchers are gone.
+- "League" meant ranking classrooms against each other. Resolved: replaced by **Growth**, which compares a Learner only with themselves.
+- "Teacher" and "admin" meant separate accounts. Resolved: one **Caretaker** per **Shared Tablet**.
+- "Dummy data for the AI" resolved to **Default Skill Parameters** plus demo Lessons in the **Starter Pack**.
+- "Provisional" correctness and Coins: resolved. Every **Attempt** is graded at once on the tablet, so nothing is provisional.
+- "Quest" was first written here as pointing to a Skill; the code makes it one Exercise. Resolved: one **Exercise**.
+- **Hint**: the spec wanted one Hint per Exercise; the code holds one Hint per Lesson. Resolved: one Hint per **Lesson**.
+- "Khan-on-the-Go" and "Khan-Coin" suggested a link with Khan Academy. Resolved: the app is **K-Go Quests**, and its points are **Coins**.
+- "Authentication" could mean Learners or the Caretaker signing in online. Resolved: only the **Caretaker** has a **Caretaker Account**; Learners use Profile PINs and never go online.
+- How a Caretaker recovers a forgotten Caretaker PIN. Resolved: by signing in again to the same **Caretaker Account**.

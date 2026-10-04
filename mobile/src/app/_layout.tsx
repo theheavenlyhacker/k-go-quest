@@ -29,15 +29,13 @@ export default function RootLayout() {
 }
 
 function Shell() {
-  const { ready, session, locked, needsLogin } = useApp();
+  const { ready, profile, locked, caretaker, step } = useApp();
+  const setUp = step === 'done';
   const theme = useTheme();
   useEffect(() => { void SystemUI.setBackgroundColorAsync(theme.page).catch(() => undefined); }, [theme.page]);
   useEffect(() => { if (ready) void SplashScreen.hideAsync(); }, [ready]);
   if (!ready) return null;
 
-  const signedIn = Boolean(session) && !needsLogin;
-  const unlocked = signedIn && !locked;
-  const role = session?.user.role;
 
   return (
     <>
@@ -47,29 +45,24 @@ function Shell() {
       <StatusBar style="light" />
       <NavigationBar hidden style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.page } }}>
-        <Stack.Protected guard={!signedIn}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="sign-in" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="register" />
+        <Stack.Protected guard={!setUp}>
+          <Stack.Screen name="setup" />
         </Stack.Protected>
-        <Stack.Protected guard={signedIn && locked}>
+        <Stack.Protected guard={setUp && !profile && !caretaker}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="caretaker-pin" />
+        </Stack.Protected>
+        <Stack.Protected guard={setUp && !profile && caretaker}>
+          <Stack.Screen name="caretaker" />
+          <Stack.Screen name="caretaker-profile" />
+        </Stack.Protected>
+        <Stack.Protected guard={setUp && Boolean(profile) && locked}>
           <Stack.Screen name="lock" />
         </Stack.Protected>
-        <Stack.Protected guard={unlocked && role === 'STUDENT'}>
+        <Stack.Protected guard={setUp && Boolean(profile) && !locked}>
           <Stack.Screen name="(student)" />
           <Stack.Screen name="subject" />
           <Stack.Screen name="lesson" />
-          <Stack.Screen name="voucher" />
-          <Stack.Screen name="profile" />
-        </Stack.Protected>
-        <Stack.Protected guard={unlocked && role === 'TEACHER'}>
-          <Stack.Screen name="(teacher)" />
-          <Stack.Screen name="learner" />
-        </Stack.Protected>
-        <Stack.Protected guard={unlocked && role === 'LGU_ADMIN'}>
-          <Stack.Screen name="(admin)" />
-          <Stack.Screen name="pack" />
         </Stack.Protected>
       </Stack>
       <Toast />

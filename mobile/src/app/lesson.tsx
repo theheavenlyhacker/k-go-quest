@@ -4,12 +4,14 @@ import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import { Check, CircleCheck, Lightbulb, Play, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react-native';
+import { Check, CircleCheck, Play, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
-import { subjectTitles } from '@/data/preview';
+import { subjectTitles } from '@/domain/subjects';
+import { starterPacks } from '@/content/starter-pack';
 import type { Exercise } from '@/domain/types';
-import { Action, BackLink, Card, Empty, Pill, Row, T } from '@/ui/primitives';
+import { Action, BackLink, Card, Empty, Row, T } from '@/ui/primitives';
+import { HintCard } from '@/ui/hint-card';
 import { Screen } from '@/ui/screen';
 import { radius, tokens, useTheme } from '@/ui/theme';
 
@@ -17,19 +19,18 @@ type Verdict = 'correct' | 'wrong' | 'saved';
 
 export default function ModuleScreen() {
   const { lessonId, exerciseId } = useLocalSearchParams<{ lessonId?: string; exerciseId?: string }>();
-  const { snapshot, outcomes, queued, queue, sync, preferences } = useApp();
+  const { attempts, answer, preferences } = useApp();
   const theme = useTheme();
   const router = useRouter();
   const [playlist, setPlaylist] = useState<Exercise[] | null>(null);
   const [index, setIndex] = useState(0);
   const [choice, setChoice] = useState<number | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
-  const [hintOpen, setHintOpen] = useState(false);
 
   const found = (() => {
-    for (const entry of snapshot.downloads) {
-      for (const lesson of entry.lessons) {
-        if (lesson.id === lessonId || lesson.exercises.some((item) => item.id === exerciseId)) return { pack: entry.pack, lesson };
+    for (const pack of starterPacks) {
+      for (const lesson of pack.lessons) {
+        if (lesson.id === lessonId || lesson.exercises.some((item) => item.id === exerciseId)) return { pack, lesson };
       }
     }
     return null;
@@ -37,19 +38,17 @@ export default function ModuleScreen() {
 
   if (!found) {
     return (
-      <Screen chrome title="Module" caption="Not on this device">
-        <Empty title="This module is not on this device" text="Go back to the Offline Library and download the pack it belongs to." />
+      <Screen chrome title="Module" caption="Not found">
+        <Empty title="This lesson is not on this tablet" text="Go back to Subjects and pick another." />
       </Screen>
     );
   }
 
   const { pack, lesson } = found;
-  const answered = new Set([...outcomes.map((row) => row.input.exerciseId), ...queued.map((item) => item.input.exerciseId)]);
-  const unanswered = lesson.exercises.filter((item) => !answered.has(item.id));
-  const set = playlist ?? unanswered;
+  const answered = new Set(attempts.map((a) => a.exerciseId));
+  // A Quest opens on its own Exercise, then the rest of the Lesson follows.
+  const unanswered = lesson.exercises.filter((item) => !answered.has(item.id)).sort((a, b) => Number(b.id === exerciseId) - Number(a.id === exerciseId));
   const exercise = playlist ? playlist[index] : unanswered[0];
-  const hint = lesson.hints[preferences.language] ?? lesson.hints.en;
-  const reward = set.reduce((total, item) => total + item.coinAward, 0);
 
   return (
     <Screen chrome title="Module" caption="Playing from device storage">
@@ -80,7 +79,6 @@ export default function ModuleScreen() {
         <Card style={{ gap: 10 }}>
           <Row style={{ gap: 8 }}>
             <T variant="titleM" style={{ flex: 1 }}>Practice set</T>
-            <Pill color={tokens.brand.sunDeep} tint={tokens.tint.sun}>{`+${reward} KC`}</Pill>
           </Row>
           <T variant="bodyM" color={theme.secondary}>{exercise.prompt}</T>
           {exercise.options.map((option, optionIndex) => (
@@ -100,23 +98,12 @@ export default function ModuleScreen() {
           <CircleCheck size={42} color={tokens.state.success} />
           <T variant="titleM">Practice set complete</T>
           <T variant="bodyS" color={theme.muted} style={{ textAlign: 'center', maxWidth: 280 }}>
-            Your answers are on this device. The school server confirms them and awards coins on the next sync.
+            Your answers are saved on this device.
           </T>
-          <Action title="Sync now" icon={RefreshCw} task={sync} />
         </Card>
       )}
 
-      {hint ? (
-        <Card onPress={() => setHintOpen((open) => !open)} style={{ backgroundColor: tokens.tint.sun, borderColor: `${tokens.state.warning}40` }}>
-          <Row style={{ alignItems: 'flex-start' }}>
-            <Lightbulb size={18} color={tokens.brand.sunDeep} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <T variant="titleS" color={tokens.brand.sunDeep}>{hintOpen ? 'Hint' : 'I do not understand — show a hint'}</T>
-              {hintOpen ? <T variant="bodyM">{hint}</T> : null}
-            </View>
-          </Row>
-        </Card>
-      ) : null}
+      <HintCard hints={lesson.hints} />
 
       {exercise ? (
         <Action
@@ -125,9 +112,9 @@ export default function ModuleScreen() {
           task={async () => {
             if (choice === null) return;
             if (!verdict) {
-              await queue(exercise.id, choice, pack);
+              const graded = await answer(exercise.id, choice);
               if (!playlist) { setPlaylist(unanswered); setIndex(0); }
-              setVerdict(exercise.correctOption === undefined ? 'saved' : exercise.correctOption === choice ? 'correct' : 'wrong');
+              setVerdict(graded.correct ? 'correct' : 'wrong');
               return;
             }
             setVerdict(null);
@@ -137,13 +124,13 @@ export default function ModuleScreen() {
         />
       ) : null}
 
-      {verdict ? <VerdictBar kind={verdict} coins={exercise?.coinAward ?? 0} /> : null}
+      {verdict ? <VerdictBar kind={verdict} /> : null}
     </Screen>
   );
 }
 
 function optionState(verdict: Verdict | null, exercise: Exercise, optionIndex: number, choice: number | null): 'idle' | 'right' | 'wrong' {
-  if (!verdict || verdict === 'saved' || exercise.correctOption === undefined) return 'idle';
+  if (!verdict || verdict === 'saved') return 'idle';
   if (optionIndex === exercise.correctOption) return 'right';
   if (optionIndex === choice) return 'wrong';
   return 'idle';
@@ -177,14 +164,14 @@ function Option({ letter, label, selected, state, disabled, onPress }: {
 }
 
 /** The full-width result bar that sits above the nav bar in 07b / 07c. */
-function VerdictBar({ kind, coins }: { kind: Verdict; coins: number }) {
+function VerdictBar({ kind }: { kind: Verdict }) {
   const background = kind === 'wrong' ? tokens.state.critical : '#0c4a3e';
   const Icon = kind === 'wrong' ? TriangleAlert : kind === 'correct' ? Check : RefreshCw;
   const message = kind === 'correct'
-    ? `Correct! +${coins} Khan-Coins earned`
+    ? 'Correct!'
     : kind === 'wrong'
       ? 'Not quite — the correct answer is shown above'
-      : 'Saved on this device — checked when you sync';
+      : 'Saved on this device';
   return (
     <Animated.View entering={SlideInDown.duration(280)} style={{ backgroundColor: background, borderRadius: radius.md, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Animated.View entering={FadeIn.delay(120)}><Icon size={18} color="#ffffff" /></Animated.View>

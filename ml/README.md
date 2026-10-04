@@ -1,4 +1,4 @@
-# khan-go-quest-ml
+# k-go-quests-ml
 
 Fits the Bayesian Knowledge Tracing parameters that K-Go Quests uses to
 estimate what a learner knows. Trained from scratch on the platform's own
@@ -96,60 +96,6 @@ npm run model:import -- ../khan-go-quest-ml/model.json --activate
 The importer refuses synthetic parameters unless `--allow-synthetic` is passed,
 so a simulated fit cannot reach a live jurisdiction by accident. It also
 refuses degenerate parameter sets and duplicate versions.
-
-## The model service
-
-A small FastAPI app hosts these models. It exists for the things the Nest
-backend cannot do in-process — numpy, EM fitting, and later any neural model —
-and deliberately does **not** score attempts. The backend updates mastery
-inline during sync, in TypeScript; duplicating that arithmetic here would give
-one model two implementations that drift apart silently. Scoring stays in one
-place. So does importing: `npm run model:import` in the backend remains the
-only writer to `model_versions`, because that is where the synthetic-parameter
-and degeneracy guards live.
-
-| endpoint | auth | what it does |
-|---|---|---|
-| `GET /health` | none | liveness, database reachability, which model is active |
-| `POST /predict` | bearer | probability a learner answers the next item correctly |
-| `POST /recommend` | bearer | ranks skills by expected mastery gain |
-| `GET /models` | bearer | fitted versions recorded in the database |
-| `POST /fit` | bearer | refits every skill and returns the model document |
-
-```bash
-cp .env.example .env            # set KGO_ML_TOKEN, DATABASE_URL, DATABASE_SCHEMA
-pip install -r requirements.txt
-uvicorn service.app:app --reload --port 8000
-```
-
-Auth is a shared bearer token and the service **refuses to start** without one
-of at least 24 characters — `/fit` can trigger a full refit and `/predict`
-leaks the shape of practice data, so starting wide open is worse than not
-starting. Docs are at `/docs`.
-
-Deploying: the `Dockerfile` runs as a non-root user and honours `$PORT`, so it
-drops onto Render, Railway or Fly as-is. Give it the same `DATABASE_URL` the
-backend uses, and the same `DATABASE_SCHEMA`.
-
-### What `/recommend` is and is not
-
-It ranks by expected movement in the mastery estimate, which under BKT falls
-monotonically as mastery rises — so it is weakest-first, the same ordering the
-backend's `/learning/quests` already uses, but with per-skill fitted parameters
-instead of one global guess. Weakest-first has a real failure mode: it sends a
-learner at the material they are most likely to get wrong, so the response
-returns `probabilityCorrect` alongside the gain for a caller that wants to
-temper it. A genuine recommender needs a prerequisite graph, and the schema has
-no skill prerequisites yet.
-
-## How it reaches learners
-
-`skill_model_params` holds one row per (model version, skill).
-`learning.service.ts` loads the active version once per sync batch and scores
-each attempt with that skill's parameters, falling back to `DEFAULT_PARAMS`
-for any skill without a fitted row. Nothing is recomputed retroactively — a
-new model changes future scoring only, and `attempts` keeps the history, so a
-refit can always be re-derived.
 
 ## What this does not do
 

@@ -29,11 +29,12 @@ from kgo_bkt.fit import MIN_OBSERVATIONS, MIN_SEQUENCES
 
 # A stand-in cohort so the whole path can be exercised before launch.
 SYNTHETIC_SKILLS = {
-    "demo.math5.fractions.equivalent": BktParams(0.30, 0.14, 0.17, 0.06),
-    "demo.math5.fractions.add": BktParams(0.18, 0.10, 0.20, 0.08),
-    "demo.math5.decimals.numberline": BktParams(0.22, 0.09, 0.24, 0.05),
-    "demo.science5.lifecycles": BktParams(0.35, 0.16, 0.15, 0.07),
-    "demo.english5.inference": BktParams(0.12, 0.06, 0.26, 0.09),
+    "math5.fractions.equivalent": BktParams(0.30, 0.14, 0.17, 0.06),
+    "math5.fractions.add": BktParams(0.18, 0.10, 0.20, 0.08),
+    "math5.decimals.place-value": BktParams(0.22, 0.09, 0.24, 0.05),
+    "eng5.reading.main-idea": BktParams(0.12, 0.06, 0.26, 0.09),
+    "fil5.balarila.pangngalan": BktParams(0.20, 0.08, 0.22, 0.08),
+    "sci5.life-cycles.butterfly": BktParams(0.35, 0.16, 0.15, 0.07),
 }
 
 
