@@ -1,5 +1,7 @@
 import type { Attempt } from '../domain/engine';
+import type { DownloadedPack } from '../domain/packs';
 import type { Purchase } from '../domain/shop';
+import type { Pack } from '../domain/types';
 
 export type SqlValue = string | number | null;
 export interface Database {
@@ -17,12 +19,24 @@ CREATE TABLE IF NOT EXISTS attempts (owner TEXT NOT NULL, attempt_id TEXT NOT NU
 CREATE INDEX IF NOT EXISTS attempts_by_owner ON attempts(owner, ordinal);
 CREATE TABLE IF NOT EXISTS purchases (owner TEXT NOT NULL, cosmetic_id TEXT NOT NULL, ordinal INTEGER NOT NULL, cipher TEXT NOT NULL, PRIMARY KEY(owner, cosmetic_id));
 CREATE TABLE IF NOT EXISTS uploads (owner TEXT NOT NULL, attempt_id TEXT NOT NULL, cipher TEXT NOT NULL, PRIMARY KEY(owner, attempt_id));
-PRAGMA user_version = 4;`;
+CREATE TABLE IF NOT EXISTS packs (pack_id TEXT PRIMARY KEY, checksum TEXT NOT NULL, downloaded_at TEXT NOT NULL, payload TEXT NOT NULL);
+PRAGMA user_version = 5;`;
 
 /** What the server said about one uploaded Attempt. An Attempt with no row here has not been uploaded. */
 export interface Upload { state: 'DONE' | 'REVIEW'; detail?: string }
 
 export interface Repository {
+  /**
+   * Downloaded Packs, which the app practises from beside the Starter Pack.
+   *
+   * These rows are the one part of this database kept in the clear. A
+   * downloaded Pack holds no Learner data and no answer key — that is what
+   * `ON_SYNC` means — and the Subjects a tablet offers have to be readable
+   * before any Profile has unlocked, so there is no key to read them under.
+   */
+  downloadedPacks(): Promise<DownloadedPack[]>;
+  /** Saves one Pack, removing the id it supersedes in the same transaction. */
+  saveDownloadedPack(record: DownloadedPack, replaces: string | null): Promise<void>;
   attempts(owner: string): Promise<Attempt[]>;
   record(owner: string, attempt: Attempt): Promise<void>;
   /** Attempts this tablet has not yet uploaded, oldest first. Online Mode only; nothing calls it offline. */
@@ -37,8 +51,40 @@ export class LocalRepository implements Repository {
   constructor(private db: Database, private cipher: Cipher) {}
   async initialize() {
     const version = await this.db.first<{ user_version: number }>('PRAGMA user_version');
-    if ((version?.user_version ?? 0) > 4) throw new Error('This data requires a newer version of K-Go Quests.');
+    if ((version?.user_version ?? 0) > 5) throw new Error('This data requires a newer version of K-Go Quests.');
     await this.db.exec(LOCAL_SCHEMA);
+  }
+  async downloadedPacks() {
+    const rows = await this.db.all<{ checksum: string; downloaded_at: string; payload: string }>(
+      'SELECT checksum, downloaded_at, payload FROM packs ORDER BY downloaded_at, pack_id',
+    );
+    const opened = rows.map((row) => {
+      try {
+        return { checksum: row.checksum, downloadedAt: row.downloaded_at, pack: JSON.parse(row.payload) as Pack };
+      } catch {
+        // One unreadable row must not take the Subjects screen down with it.
+        return null;
+      }
+    });
+    return opened.filter((entry): entry is DownloadedPack => entry !== null);
+  }
+  async saveDownloadedPack(record: DownloadedPack, replaces: string | null) {
+    // A Pack is only usable whole, so the new version and the removal of the
+    // one it supersedes either both happen or neither does. The removal goes
+    // first, so a Pack that supersedes its own id is not deleted after being
+    // written.
+    await this.db.exec('BEGIN IMMEDIATE');
+    try {
+      if (replaces) await this.db.run('DELETE FROM packs WHERE pack_id = ?', [replaces]);
+      await this.db.run(
+        'INSERT INTO packs VALUES (?, ?, ?, ?) ON CONFLICT(pack_id) DO UPDATE SET checksum = excluded.checksum, downloaded_at = excluded.downloaded_at, payload = excluded.payload',
+        [record.pack.id, record.checksum, record.downloadedAt, JSON.stringify(record.pack)],
+      );
+      await this.db.exec('COMMIT');
+    } catch (error) {
+      await this.db.exec('ROLLBACK').catch(() => undefined);
+      throw error;
+    }
   }
   async attempts(owner: string) {
     const rows = await this.db.all<{ attempt_id: string; cipher: string }>('SELECT attempt_id, cipher FROM attempts WHERE owner = ? ORDER BY ordinal', [owner]);

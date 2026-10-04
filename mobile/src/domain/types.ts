@@ -14,5 +14,12 @@ export interface SkillSpec { id: string; parameters: SkillParameters; }
  */
 export type Grading = 'ON_DEVICE' | 'ON_SYNC';
 export interface Pack { id: string; title: string; subject: Subject; grade: number; version: string; grading: Grading; skills: SkillSpec[]; lessons: Lesson[]; }
-export interface Exercise { id: string; lessonId: string; prompt: string; options: string[]; correctOption: number; }
+/**
+ * One multiple-choice question.
+ *
+ * `correctOption` is null when the answer key did not come with the Content
+ * Pack, which is what an `ON_SYNC` Pack looks like on the tablet: the Attempt
+ * is recorded unmarked and the server marks it on upload.
+ */
+export interface Exercise { id: string; lessonId: string; prompt: string; options: string[]; correctOption: number | null; }
 export interface Lesson { id: string; packId: string; title: string; skillCode: string; body: string; hints: Record<string, string>; exercises: Exercise[]; }

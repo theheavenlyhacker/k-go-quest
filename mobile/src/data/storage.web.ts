@@ -1,4 +1,5 @@
 import type { Attempt } from '../domain/engine';
+import type { DownloadedPack } from '../domain/packs';
 import type { Purchase } from '../domain/shop';
 import type { Repository, Upload } from './repository';
 
@@ -6,7 +7,13 @@ import type { Repository, Upload } from './repository';
 const logs = new Map<string, Attempt[]>();
 const bought = new Map<string, Purchase[]>();
 const sent = new Map<string, Map<string, Upload>>();
+const downloaded = new Map<string, DownloadedPack>();
 const repository: Repository = {
+  downloadedPacks: async () => [...downloaded.values()],
+  saveDownloadedPack: async (record, replaces) => {
+    if (replaces) downloaded.delete(replaces);
+    downloaded.set(record.pack.id, record);
+  },
   attempts: async (owner) => [...(logs.get(owner) ?? [])],
   record: async (owner, attempt) => { logs.set(owner, [...(logs.get(owner) ?? []), attempt]); },
   notUploaded: async (owner, limit) => (logs.get(owner) ?? []).filter((a) => !sent.get(owner)?.has(a.id)).slice(0, limit),

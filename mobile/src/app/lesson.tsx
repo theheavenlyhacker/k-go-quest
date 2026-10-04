@@ -4,13 +4,12 @@ import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import { Check, CircleCheck, Play, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react-native';
+import { Check, CircleCheck, CloudUpload, Play, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { subjectTitles } from '@/domain/subjects';
-import { starterPacks } from '@/content/starter-pack';
 import type { Exercise } from '@/domain/types';
-import { Action, BackLink, Card, Empty, Row, T } from '@/ui/primitives';
+import { Action, BackLink, Card, Empty, Info, Row, T } from '@/ui/primitives';
 import { HintCard } from '@/ui/hint-card';
 import { Screen } from '@/ui/screen';
 import { radius, tokens, useTheme } from '@/ui/theme';
@@ -19,7 +18,7 @@ type Verdict = 'correct' | 'wrong' | 'saved';
 
 export default function ModuleScreen() {
   const { lessonId, exerciseId } = useLocalSearchParams<{ lessonId?: string; exerciseId?: string }>();
-  const { attempts, answer, preferences } = useApp();
+  const { attempts, answer, preferences, packs } = useApp();
   const theme = useTheme();
   const router = useRouter();
   const [playlist, setPlaylist] = useState<Exercise[] | null>(null);
@@ -28,7 +27,7 @@ export default function ModuleScreen() {
   const [verdict, setVerdict] = useState<Verdict | null>(null);
 
   const found = (() => {
-    for (const pack of starterPacks) {
+    for (const pack of packs) {
       for (const lesson of pack.lessons) {
         if (lesson.id === lessonId || lesson.exercises.some((item) => item.id === exerciseId)) return { pack, lesson };
       }
@@ -53,6 +52,15 @@ export default function ModuleScreen() {
   return (
     <Screen chrome title="Module" caption="Playing from device storage">
       <BackLink label="Back to modules" onPress={() => router.back()} />
+
+      {pack.grading === 'ON_SYNC' ? (
+        <Info
+          icon={CloudUpload}
+          color={tokens.brand.sky}
+          title="This pack is marked at the school server"
+          text="Answers here are saved on this tablet and marked the next time it reaches the server, so no score or Coins appear yet. Everything else on this tablet works as it always does."
+        />
+      ) : null}
 
       <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
         <LinearGradient colors={['#0c4a3e', '#126655']} start={{ x: 0, y: 0 }} end={{ x: 0.78, y: 1 }} style={{ height: 200, alignItems: 'center', justifyContent: 'center' }}>
@@ -114,7 +122,9 @@ export default function ModuleScreen() {
             if (!verdict) {
               const graded = await answer(exercise.id, choice);
               if (!playlist) { setPlaylist(unanswered); setIndex(0); }
-              setVerdict(graded.correct ? 'correct' : 'wrong');
+              // A Pack graded on sync has no answer key here, so the Learner is
+              // told the answer is saved rather than shown a verdict.
+              setVerdict(!graded.graded ? 'saved' : graded.correct ? 'correct' : 'wrong');
               return;
             }
             setVerdict(null);
@@ -130,7 +140,8 @@ export default function ModuleScreen() {
 }
 
 function optionState(verdict: Verdict | null, exercise: Exercise, optionIndex: number, choice: number | null): 'idle' | 'right' | 'wrong' {
-  if (!verdict || verdict === 'saved') return 'idle';
+  // 'saved' is a Pack graded on sync: nothing on this tablet can mark an option.
+  if (!verdict || verdict === 'saved' || exercise.correctOption === null) return 'idle';
   if (optionIndex === exercise.correctOption) return 'right';
   if (optionIndex === choice) return 'wrong';
   return 'idle';

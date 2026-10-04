@@ -10,7 +10,9 @@ describe('Starter Pack', () => {
     for (const e of exercises) {
       expect(e.options.length, e.id).toBeGreaterThanOrEqual(2);
       expect(e.options.length, e.id).toBeLessThanOrEqual(6);
-      expect(Number.isInteger(e.correctOption) && e.correctOption >= 0 && e.correctOption < e.options.length, e.id).toBe(true);
+      // The Starter Pack is graded on the tablet, so its answer key is never absent.
+      expect(e.correctOption, `${e.id} has no answer key`).not.toBeNull();
+      expect(Number.isInteger(e.correctOption) && e.correctOption! >= 0 && e.correctOption! < e.options.length, e.id).toBe(true);
       expect(new Set(e.options).size, `${e.id} repeats an option`).toBe(e.options.length);
     }
   });

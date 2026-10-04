@@ -6,7 +6,6 @@ import { CircleHelp, Lightbulb, Mic, PenLine, Play, Search, Square, Volume2 } fr
 
 import { useApp } from '@/state/app-context';
 import type { Lesson, Pack } from '@/domain/types';
-import { starterPacks } from '@/content/starter-pack';
 import { subjectTitles } from '@/domain/subjects';
 import { Action, Bar, Card, Empty, Eyebrow, IconTile, Info, Pill, Pills, Row, Sheet, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
@@ -50,7 +49,7 @@ function search(topics: Topic[], question: string): Topic | null {
 }
 
 export default function Tutor() {
-  const { learning, preferences, updatePreferences, toast } = useApp();
+  const { learning, preferences, updatePreferences, toast, packs } = useApp();
   const theme = useTheme();
   const [mode, setMode] = useState<Mode>('voice');
   const [question, setQuestion] = useState('');
@@ -58,7 +57,7 @@ export default function Tutor() {
   const [picking, setPicking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
 
-  const topics: Topic[] = starterPacks.flatMap((pack) =>
+  const topics: Topic[] = packs.flatMap((pack) =>
     pack.lessons.map((lesson) => ({ pack, lesson })),
   );
   // Default to whatever the learner is weakest at and actually has downloaded.

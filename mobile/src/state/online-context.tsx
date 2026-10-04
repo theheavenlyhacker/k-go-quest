@@ -4,15 +4,20 @@ import Constants from 'expo-constants';
 import { randomUUID } from 'expo-crypto';
 
 import { serverExerciseId } from '../content/catalog';
+import { FITTED_SKILL_PARAMETERS } from '../content/fitted-parameters';
+import { DEFAULT_SKILL_PARAMETERS } from '../content/starter-pack';
+import { digest } from '../data/crypto';
 import { AttemptOutbox } from '../data/outbox';
 import { getRepository } from '../data/storage';
 import { vault } from '../data/vault';
+import { useApp } from './app-context';
 import { ApiClient, ApiError, resolveApiUrl, type TokenStore } from '../domain/client';
+import { checksumBody, offers, toPack, type PackOffer } from '../domain/packs';
 import {
   BATCH_LIMIT, CARETAKER_OWNER, LINKS_KEY, onlineState, parseLinks, sessionKey, uploadSummary,
   type OnlineState, type UploadSummary,
 } from '../domain/online';
-import type { Link, Page, ServerClassroom, ServerUser, Session, SyncResponse } from '../domain/server';
+import type { Link, Page, PackPayload, ServerClassroom, ServerPackSummary, ServerUser, Session, SyncResponse } from '../domain/server';
 import { SyncEngine, type SyncSummary } from '../domain/sync';
 
 /**
@@ -25,6 +30,11 @@ import { SyncEngine, type SyncSummary } from '../domain/sync';
  *
  * See `docs/online-mode.md`.
  */
+
+/** The server refuses a page larger than this (`backend/docs/api.md`). */
+const PACK_PAGE_SIZE = 100;
+/** A bound on paging, so a server that keeps claiming more Packs cannot spin here forever. */
+const PACK_PAGES = 20;
 
 /** The backend's refresh tokens last at most seven days, so a session is useless after that without a server. */
 const OFFLINE_WINDOW = 7 * 24 * 60 * 60 * 1000;
@@ -48,6 +58,10 @@ interface OnlineValue {
   unlinkProfile(profileId: string): Promise<void>;
   sync(profileId: string): Promise<SyncSummary>;
   summary(profileId: string): Promise<UploadSummary>;
+  /** The Content Packs the server offers, each with what this tablet can do about it. */
+  serverPacks(): Promise<PackOffer[]>;
+  /** Downloads, checks and saves one Content Pack, superseding the version it continues. */
+  downloadPack(offer: PackOffer): Promise<void>;
   /** Re-asks whether the server is reachable. Safe to call often; it sends one unauthenticated request. */
   check(): Promise<void>;
 }
@@ -64,6 +78,9 @@ function address(): string | null {
 }
 
 export function OnlineProvider({ children }: { children: React.ReactNode }) {
+  // Online Mode reads the offline half, never the other way round: this is the
+  // direction that lets practice keep working when none of this is reachable.
+  const { downloaded, reloadPacks } = useApp();
   const [apiUrl] = useState(address);
   const [server, setServer] = useState<Session | null>(null);
   const [links, setLinks] = useState<Record<string, Link>>({});
@@ -259,6 +276,48 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     return () => { live = false; };
   }, [probe]);
 
+  /**
+   * Every Content Pack the server offers this tablet's jurisdiction.
+   *
+   * Paged to the end rather than to the first hundred: a Caretaker who cannot
+   * see a Pack has no way to tell whether it does not exist or whether the list
+   * simply stopped. The page count is bounded so a server that keeps claiming
+   * more cannot spin here forever.
+   */
+  const serverPacks = useCallback(async (): Promise<PackOffer[]> => {
+    const api = client(CARETAKER_OWNER);
+    const available: ServerPackSummary[] = [];
+    for (let page = 1; page <= PACK_PAGES; page += 1) {
+      const result = await watched(() => api.call<Page<ServerPackSummary>>('GET', `content/packs?page=${page}&limit=${PACK_PAGE_SIZE}`));
+      available.push(...result.items);
+      if (available.length >= result.total || result.items.length < PACK_PAGE_SIZE) break;
+    }
+    return offers(available, downloaded);
+  }, [client, downloaded, watched]);
+
+  /**
+   * Downloads one Content Pack and installs it.
+   *
+   * The checksum is re-computed here rather than trusted: a Pack that arrived
+   * damaged would otherwise be practised from and uploaded against, and the
+   * Attempts would be refused for a reason nobody could see. A Pack that fails
+   * any check is not installed at all, so the tablet keeps the content it had.
+   */
+  const downloadPack = useCallback(async (offer: PackOffer) => {
+    setBusy(true);
+    try {
+      const payload = await watched(() => client(CARETAKER_OWNER).call<PackPayload>('GET', `content/packs/${offer.summary.id}/download`));
+      if (!payload.checksum) throw new Error('That Content Pack came without a checksum, so this tablet cannot tell whether it arrived whole.');
+      // Hex case is not part of the digest, so only the bytes have to agree.
+      if ((await digest(checksumBody(payload))).toLowerCase() !== payload.checksum.toLowerCase())
+        throw new Error('That Content Pack arrived damaged and was not saved. Try again on a steadier connection.');
+      const pack = toPack(payload, (skillCode) => FITTED_SKILL_PARAMETERS[skillCode] ?? DEFAULT_SKILL_PARAMETERS);
+      const repo = await getRepository();
+      await repo.saveDownloadedPack({ checksum: payload.checksum, downloadedAt: new Date().toISOString(), pack }, offer.replaces);
+      await reloadPacks();
+    } finally { setBusy(false); }
+  }, [client, reloadPacks, watched]);
+
   const summary = useCallback(async (profileId: string) => {
     const repo = await getRepository();
     const [attempts, uploads] = await Promise.all([repo.attempts(profileId), repo.uploads(profileId)]);
@@ -277,6 +336,8 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     unlinkProfile,
     sync,
     summary,
+    serverPacks,
+    downloadPack,
     check,
   };
   return <OnlineContext.Provider value={value}>{children}</OnlineContext.Provider>;

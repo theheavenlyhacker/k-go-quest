@@ -59,7 +59,7 @@ email-code sign-in. Never put the Clerk secret key in the app or the repo.
 Not built, in rough order of interest:
 
 - Fitted Skill Parameters and exporting practice data (Default Skill Parameters stay until real data exists).
-- Signed Content Packs, Imported Packs, pack updates, and replaying Mastery when parameters change.
+- Signed Content Packs, Imported Packs, and replaying Mastery when parameters change. (Downloading Content Packs and their updates from a school server is built; see `docs/online-mode.md`.)
 - Teacher and admin roles, classroom reports, printable quizzes, school and user management, an impact dashboard and an audit log.
 - Classroom leagues and vouchers for real goods.
 - Cloud sync or backup, and moving a Profile between tablets.

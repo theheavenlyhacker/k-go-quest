@@ -41,13 +41,19 @@ export function exportCatalog(): ExportedCatalog {
         skillCode: lesson.skillCode,
         body: lesson.body,
         hints: lesson.hints,
-        exercises: lesson.exercises.map((exercise) => ({
-          slug: exercise.id,
-          id: id(exercise.id),
-          prompt: exercise.prompt,
-          options: exercise.options,
-          correctOption: exercise.correctOption,
-        })),
+        exercises: lesson.exercises.map((exercise) => {
+          // The server is seeded from this catalogue, so it needs the key. The
+          // Starter Pack always has one; an absent key is a bug in the authored
+          // content and not something to export as null.
+          if (exercise.correctOption === null) throw new Error(`${exercise.id} has no answer key to export.`);
+          return {
+            slug: exercise.id,
+            id: id(exercise.id),
+            prompt: exercise.prompt,
+            options: exercise.options,
+            correctOption: exercise.correctOption,
+          };
+        }),
       })),
     })),
   };

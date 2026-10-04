@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { useApp } from '@/state/app-context';
 import { pct } from '@/domain/format';
 import { MASTERED_AT, growth, type Attempt, type LearningState } from '@/domain/engine';
-import { starterPacks } from '@/content/starter-pack';
 import { subjectTitles } from '@/domain/subjects';
 import { Bar, Card, Eyebrow, Pill, Row, T } from '@/ui/primitives';
 import { subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -12,7 +12,8 @@ import { subjectTheme, tokens, useTheme } from '@/ui/theme';
 /** The Progress body. `readOnly` is the Caretaker's view: no Lesson links, no Screen chrome. */
 export function ProgressView({ learning, attempts, balance, readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; readOnly?: boolean }) {
   const router = useRouter();
-  const g = useMemo(() => growth(starterPacks, attempts, new Date()), [attempts]);
+  const { packs } = useApp();
+  const g = useMemo(() => growth(packs, attempts, new Date()), [packs, attempts]);
   const theme = useTheme();
 
   return (
@@ -35,11 +36,21 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
         </Row>
       </Card>
 
-      {starterPacks.map((pack) => {
+      {packs.map((pack) => {
         const tone = subjectTheme[pack.subject];
+        // A Pack marked at the server has no Mastery on this tablet yet, so it
+        // says so rather than showing an empty card.
+        const measured = pack.skills.some((spec) => learning.skills.some((s) => s.skillId === spec.id));
         return (
           <View key={pack.id} style={{ gap: 8 }}>
             <Eyebrow>{`${subjectTitles[pack.subject]} ${pack.grade}`}</Eyebrow>
+            {measured ? null : (
+              <Card>
+                <T variant="bodyS" color={theme.muted}>
+                  Answers in this pack are marked at the school server. Mastery appears here once this tablet has sent them.
+                </T>
+              </Card>
+            )}
             <Card style={{ gap: 14 }}>
               {pack.skills.map((spec) => {
                 const skill = learning.skills.find((s) => s.skillId === spec.id);

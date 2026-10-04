@@ -6,7 +6,6 @@ import { useApp } from '@/state/app-context';
 import { meanMastery } from '@/domain/format';
 import type { Subject } from '@/domain/types';
 import { subjectTitles } from '@/domain/subjects';
-import { starterPacks } from '@/content/starter-pack';
 import { BackLink, Card, Empty, Eyebrow, IconTile, Pill, Ring, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -24,11 +23,11 @@ function band(mastery: number | undefined, theme: { muted: string; surfaceAlt: s
 
 export default function SubjectScreen() {
   const { packId } = useLocalSearchParams<{ packId?: string }>();
-  const { learning } = useApp();
+  const { learning, packs } = useApp();
   const theme = useTheme();
   const router = useRouter();
 
-  const pack = starterPacks.find((item) => item.id === packId);
+  const pack = packs.find((item) => item.id === packId);
   if (!pack) {
     return (
       <Screen chrome title="Subject" caption="Not found">

@@ -155,9 +155,16 @@ ends:
 3. Restore `domain/client.ts` and `domain/sync.ts`; add an outbox beside the
    existing Attempt log rather than replacing it.
 4. Caretaker server sign-in, and Profile linking.
-5. Pack download and version checks.
+5. ~~Pack download and version checks.~~ Done. A downloaded Pack is checked
+   against the server's checksum, saved beside the Starter Pack, and supersedes
+   the older version on its own Pack Line. Its Attempts are recorded
+   unmarked and move neither Mastery nor Coins, which is what §3 says they are
+   worth until the server has marked them.
 6. Restore the Teacher and LGU Admin screens, and the server-backed League and
-   Vouchers, behind the role the server reports.
+   Vouchers, behind the role the server reports. This step also closes the
+   correction path in §3: the server's result for an uploaded Attempt is stored
+   beside it and Mastery and Coins are recomputed from it, which is what turns
+   an unmarked `ON_SYNC` Attempt into a Counted Attempt.
 7. Rewrite the `CONTEXT.md` section this document contradicts.
 
 Every step from 2 onward must leave the offline path working on its own. The

@@ -53,6 +53,14 @@ _Avoid_: course, module, download
 **Starter Pack**:
 A Content Pack that ships inside the app, so the app works on first launch.
 
+**Downloaded Pack**:
+A Content Pack a Caretaker has taken from the server onto one Shared Tablet, where it sits beside the Starter Pack rather than replacing it. Its Grading Mode is always On Sync, because the server sends it without its answer key. A Shared Tablet works for its whole life with none.
+_Avoid_: installed pack, imported pack, cached pack
+
+**Pack Line**:
+Every version of one Content Pack. A Pack Line is one Subject, one grade and one title together; the server gives each published version its own identity, so a new version continues a Pack Line instead of changing a Content Pack in place. Downloading a newer version supersedes the older one on the same Pack Line, so a Learner is never left two copies.
+_Avoid_: pack family, pack series, channel
+
 **Grading Mode**:
 How a Content Pack's Exercises are graded, chosen by the Pack Author for the whole Pack. **On Device** ships the answer key inside the Pack, so the tablet grades instantly. **On Sync** withholds the key, so the tablet records the Attempt ungraded and the server grades it on upload. The Starter Pack is always On Device.
 _Avoid_: grading policy, server grading, offline grading
@@ -78,11 +86,11 @@ _Avoid_: tutor, AI tutor
 ### Practice
 
 **Attempt**:
-A Learner's answer to one Exercise. The tablet grades it at once.
+A Learner's answer to one Exercise. The tablet grades it at once when the Content Pack's Grading Mode is On Device. Under On Sync the tablet records it unmarked and says so, and the server grades it on upload.
 _Avoid_: submission, sync event
 
 **Counted Attempt**:
-The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only.
+The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before.
 _Avoid_: retry, score
 
 ### Learning model
@@ -152,6 +160,7 @@ _Avoid_: registered profile, synced account, enrolled profile
 - A **Profile** earns **Coins** and owns the **Cosmetics** it bought
 - A **Caretaker** has one **Caretaker Account**, and in **Online Mode** also one **Server Account**
 - A **Content Pack** has one **Grading Mode**, which decides whether the tablet or the server grades its **Attempts**
+- A **Content Pack** is one version on one **Pack Line**; a **Shared Tablet** holds at most one version of a **Pack Line** as a **Downloaded Pack**
 - A **Linked Profile** is tied to one Learner account on the server and belongs to one **Classroom**
 - A **League** ranks **Classrooms**; **Growth** describes one **Learner**
 
@@ -164,7 +173,7 @@ _Avoid_: registered profile, synced account, enrolled profile
 - *Still open*: the app also shows a month ranking of the **Profiles on one Shared Tablet** against each other, podium and all. That ranks Learners, which is the thing the first League resolution existed to remove. It needs a decision: either that view is **Growth** per Profile with no ranking, or **League** is accepted as something a Learner may see on their own tablet.
 - "Teacher" and "admin" meant separate accounts. Resolved: one **Caretaker** per **Shared Tablet**.
 - "Dummy data for the AI" resolved to **Default Skill Parameters** plus demo Lessons in the **Starter Pack**.
-- "Provisional" correctness and Coins: resolved. Every **Attempt** is graded at once on the tablet, so nothing is provisional.
+- "Provisional" correctness and Coins: resolved, then narrowed by **Grading Mode**. Under On Device — the Starter Pack, and so every tablet that has never downloaded anything — every **Attempt** is graded at once and nothing is provisional. Under On Sync the tablet holds no answer key, so an Attempt waits unmarked rather than being shown a verdict the tablet cannot give; it moves no **Mastery** and earns no **Coins** until the server grades it.
 - "Quest" was first written here as pointing to a Skill; the code makes it one Exercise. Resolved: one **Exercise**.
 - **Hint**: the spec wanted one Hint per Exercise; the code holds one Hint per Lesson. Resolved: one Hint per **Lesson**.
 - "Khan-on-the-Go" and "Khan-Coin" suggested a link with Khan Academy. Resolved: the app is **K-Go Quests**, and its points are **Coins**.

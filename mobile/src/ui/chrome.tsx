@@ -7,7 +7,6 @@ import { BookOpen, ChevronRight, CircleHelp, Coins, Download, Gift, Globe, Lock,
 import { useApp } from '../state/app-context';
 import { initials } from '../domain/format';
 import { HINT_LANGUAGES } from '../domain/hint-voice';
-import { starterPacks } from '../content/starter-pack';
 import { elevation, radius, tokens, useTheme } from './theme';
 import { Eyebrow, Pill, Pills, Row, T } from './primitives';
 
@@ -95,14 +94,15 @@ function NavTab({ label, icon: Icon, active, color, onPress }: { label: string; 
 
 /** Sidebar Menu (455:301): slides in over a scrim. */
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile, balance, preferences, updatePreferences, selectProfile, lock } = useApp();
+  const { profile, balance, preferences, updatePreferences, selectProfile, lock, packs } = useApp();
   const theme = useTheme();
   const shift = useSharedValue(open ? 0 : -SIDEBAR_WIDTH);
   useEffect(() => { shift.value = withSpring(open ? 0 : -SIDEBAR_WIDTH, { damping: 22, stiffness: 210 }); }, [open, shift]);
   const panel = useAnimatedStyle(() => ({ transform: [{ translateX: shift.value }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: 1 - Math.abs(shift.value) / SIDEBAR_WIDTH }));
   const coins = balance;
-  const megabytes = Math.round(JSON.stringify(starterPacks).length / 1024);
+  // Kilobytes, not megabytes: the Starter Pack plus every Downloaded Pack, as stored.
+  const kilobytes = Math.round(JSON.stringify(packs).length / 1024);
 
   if (!open) return null;
   return (
@@ -115,7 +115,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           alias={profile?.alias ?? 'Learner'}
           detail="Grade 5"
           coins={coins}
-          megabytes={megabytes}
+          kilobytes={kilobytes}
           language={preferences.language}
           appearance={preferences.appearance}
           onAppearance={(value) => { void updatePreferences({ appearance: value }); }}
@@ -128,8 +128,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   );
 }
 
-function SidebarBody({ alias, detail, coins, megabytes, language, appearance, onAppearance, onSwitch, onClose, onLock }: {
-  alias: string; detail: string; coins: number; megabytes: number; language: string;
+function SidebarBody({ alias, detail, coins, kilobytes, language, appearance, onAppearance, onSwitch, onClose, onLock }: {
+  alias: string; detail: string; coins: number; kilobytes: number; language: string;
   appearance: 'light' | 'dark' | 'system'; onAppearance: (value: 'light' | 'dark' | 'system') => void;
   onSwitch: () => void; onClose: () => void; onLock: () => void;
 }) {
@@ -138,7 +138,7 @@ function SidebarBody({ alias, detail, coins, megabytes, language, appearance, on
   const languageLabel = HINT_LANGUAGES.find((l) => l.code === language)?.label ?? 'English';
   const items = [
     { icon: Repeat2, label: 'Switch Profile', value: undefined as string | undefined, active: true, onPress: onSwitch },
-    { icon: Download, label: 'Downloaded Content', value: `${megabytes} MB`, active: false, onPress: undefined },
+    { icon: Download, label: 'Content on this tablet', value: `${kilobytes} KB`, active: false, onPress: undefined },
     { icon: Globe, label: 'Language', value: languageLabel, active: false, onPress: undefined },
     { icon: MapPin, label: 'Siklab Hub Locator', value: undefined, active: false, onPress: undefined },
     { icon: CircleHelp, label: 'Help & FAQ', value: undefined, active: false, onPress: undefined },

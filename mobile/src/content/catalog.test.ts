@@ -22,6 +22,15 @@ describe('starter-pack.json', () => {
     expect(slugs.filter((slug) => serverExerciseId(slug) === null)).toEqual([]);
   });
 
+  /**
+   * The Attempts of a superseded Pack version are still waiting to go up, so
+   * this must not depend on which Packs are installed.
+   */
+  it('returns a Downloaded Pack’s Exercise id unchanged, and refuses an id from nowhere', () => {
+    expect(serverExerciseId('4f9a1c2e-5b6d-4a7f-8c9e-0a1b2c3d4e5f')).toBe('4f9a1c2e-5b6d-4a7f-8c9e-0a1b2c3d4e5f');
+    expect(serverExerciseId('not-a-known-slug')).toBeNull();
+  });
+
   it('keeps ids distinct and stable across runs', () => {
     const ids = catalogue.packs.flatMap((p) => [p.id, ...p.lessons.flatMap((l) => [l.id, ...l.exercises.map((e) => e.id)])]);
     expect(new Set(ids).size).toBe(ids.length);

@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
-import type { Profile } from '../domain/types';
+import type { DownloadedPack } from '../domain/packs';
+import type { Pack, Profile } from '../domain/types';
 import { starterPacks } from '../content/starter-pack';
 import { demoHistory, grade, growth, learningState, type Attempt, type Grade, type LearningState } from '../domain/engine';
 import { balance as coinBalance, buy, type Purchase } from '../domain/shop';
@@ -18,6 +19,12 @@ interface Notice { message: string; kind: 'success' | 'error' | 'info'; }
 export interface Standing { id: string; alias: string; up: number; mastered: number; }
 interface AppContextValue {
   ready: boolean; profiles: Profile[]; profile: Profile | null; locked: boolean; caretaker: boolean;
+  /** Everything this tablet can practise from: the Starter Pack, plus every Downloaded Pack. */
+  packs: Pack[];
+  /** The Downloaded Packs with when each was taken from the server. The single reader of the Pack cache. */
+  downloaded: DownloadedPack[];
+  /** Re-reads the Downloaded Packs after one has been saved. */
+  reloadPacks(): Promise<void>;
   attempts: Attempt[]; learning: LearningState; purchases: Purchase[]; balance: number;
   notice: Notice | null; preferences: Preferences;
   toast(message: string, kind?: Notice['kind']): void; dismiss(): void;
@@ -58,19 +65,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(true);
   const [caretaker, setCaretaker] = useState(false);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const learning = useMemo(() => learningState(starterPacks, attempts), [attempts]);
+  // Downloaded Packs sit beside the Starter Pack rather than replacing it, so a
+  // tablet that has never been online keeps exactly the content it shipped with.
+  const [downloaded, setDownloaded] = useState<DownloadedPack[]>([]);
+  const packs = useMemo(() => [...starterPacks, ...downloaded.map((entry) => entry.pack)], [downloaded]);
+  const learning = useMemo(() => learningState(packs, attempts), [packs, attempts]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const balance = coinBalance(learning.coins, purchases);
   const [preferences, setPreferences] = useState<Preferences>(defaults);
   const [saved, setSaved] = useState({ hasCaretaker: false, pinSet: false, done: false });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [demoId, setDemoId] = useState<string | null>(null);
-  const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const purchasesRef = useRef(purchases);
+  const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const purchasesRef = useRef(purchases); const packsRef = useRef(packs);
   const lockedRef = useRef(locked); const caretakerRef = useRef(caretaker); const lastInteraction = useRef(0);
 
   const toast = useCallback((message: string, kind: Notice['kind'] = 'info') => setNotice({ message, kind }), []);
   // Refs mirror committed state so async handlers read fresh values; set after every commit, never during render.
-  useEffect(() => { profileRef.current = profile; attemptsRef.current = attempts; purchasesRef.current = purchases; lockedRef.current = locked; caretakerRef.current = caretaker; });
+  useEffect(() => { profileRef.current = profile; attemptsRef.current = attempts; purchasesRef.current = purchases; lockedRef.current = locked; caretakerRef.current = caretaker; packsRef.current = packs; });
 
   const forget = () => { attemptsRef.current = []; setAttempts([]); purchasesRef.current = []; setPurchases([]); };
   const lock = useCallback(() => { lockedRef.current = true; setLocked(true); }, []);
@@ -79,6 +90,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const [log, bought] = await Promise.all([repo.attempts(owner), repo.purchases(owner)]);
     if (profileRef.current?.id === owner && !lockedRef.current) { attemptsRef.current = log; setAttempts(log); purchasesRef.current = bought; setPurchases(bought); }
   }, []);
+
+  /**
+   * Re-reads the Content Packs this tablet has downloaded.
+   *
+   * A failure here is never fatal: the Starter Pack is compiled into the app,
+   * so practice continues with it alone and the Caretaker is told the rest
+   * could not be read.
+   */
+  const readPacks = useCallback(async () => (await getRepository()).downloadedPacks(), []);
+  const reloadPacks = useCallback(async () => { setDownloaded(await readPacks()); }, [readPacks]);
+
+  // `readPacks` answers rather than writing state, so the Packs land after the
+  // read and never during the effect itself.
+  useEffect(() => {
+    let live = true;
+    void readPacks()
+      .then((next) => { if (live) setDownloaded(next); })
+      .catch(() => { if (live) toast('Downloaded Content Packs could not be read.', 'error'); });
+    return () => { live = false; };
+  }, [readPacks, toast]);
 
   useEffect(() => { void (async () => {
     try {
@@ -129,7 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const seedDemo = async (id: string) => {
     const repo = await getRepository();
     await repo.deleteOwner(id);
-    for (const a of demoHistory(starterPacks, new Date())) await repo.record(id, a);
+    for (const a of demoHistory(packsRef.current, new Date())) await repo.record(id, a);
   };
   const resetDemo = async () => {
     requireCaretaker();
@@ -211,15 +242,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const now = new Date();
     const rows = await Promise.all(profiles.map(async (p) => {
       const log = await repo.attempts(p.id).catch((): Attempt[] => []);
-      const month = growth(starterPacks, log, now).thisMonth;
+      const month = growth(packs, log, now).thisMonth;
       return { id: p.id, alias: p.alias, up: month.up, mastered: month.mastered };
     }));
     return rows.sort((a, b) => b.up - a.up || b.mastered - a.mastered || a.alias.localeCompare(b.alias));
-  }, [profiles]);
+  }, [packs, profiles]);
   const answer = async (exerciseId: string, selectedOption: number) => {
     const active = profileRef.current;
     if (!active || lockedRef.current) throw new Error('Unlock your profile to save an answer.');
-    const result = grade(starterPacks, attemptsRef.current, { id: randomUUID(), exerciseId, selectedOption }, new Date().toISOString());
+    const result = grade(packsRef.current, attemptsRef.current, { id: randomUUID(), exerciseId, selectedOption }, new Date().toISOString());
     await (await getRepository()).record(active.id, result.attempt);
     const next = [...attemptsRef.current, result.attempt];
     attemptsRef.current = next; setAttempts(next);
@@ -228,7 +259,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const buyBadge = async (cosmeticId: string) => {
     const active = profileRef.current;
     if (!active || lockedRef.current) throw new Error('Unlock your profile to use the Shop.');
-    const purchase = buy(learningState(starterPacks, attemptsRef.current).coins, purchasesRef.current, cosmeticId, new Date().toISOString());
+    const purchase = buy(learningState(packsRef.current, attemptsRef.current).coins, purchasesRef.current, cosmeticId, new Date().toISOString());
     // Claim the ref before the await so a second tap sees the spend; roll back if the save fails.
     const before = purchasesRef.current;
     purchasesRef.current = [...before, purchase]; setPurchases(purchasesRef.current);
@@ -239,7 +270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), saveCaretakerId, caretakerSignedOut, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), saveCaretakerId, caretakerSignedOut, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }

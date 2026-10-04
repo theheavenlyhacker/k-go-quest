@@ -9,7 +9,9 @@ const starterPacks = fittedPacks.map((p) => ({ ...p, skills: p.skills.map((s) =>
 const skill = 'math5.fractions.equivalent';
 const exs = starterPacks.flatMap((p) => p.lessons).filter((l) => l.skillCode === skill).flatMap((l) => l.exercises);
 const at = (n: number) => new Date(Date.parse(NOW) + n * 1000).toISOString();
-const answer = (i: number, right: boolean, t = i): Attempt => ({ id: `a${t}`, exerciseId: exs[i].id, selectedOption: right ? exs[i].correctOption : (exs[i].correctOption + 1) % exs[i].options.length, at: at(t) });
+/** The Starter Pack is graded on the tablet, so every answer key is present. */
+const key = (exercise: { correctOption: number | null }) => exercise.correctOption!;
+const answer = (i: number, right: boolean, t = i): Attempt => ({ id: `a${t}`, exerciseId: exs[i].id, selectedOption: right ? key(exs[i]) : (key(exs[i]) + 1) % exs[i].options.length, at: at(t) });
 const mastery = (log: Attempt[], id = skill) => learningState(starterPacks, log).skills.find((s) => s.skillId === id)!.mastery;
 
 describe('updateMastery (ported from backend mastery.spec.ts at v0-fullstack)', () => {
@@ -72,21 +74,76 @@ describe('Coins and grading', () => {
     expect(learningState(starterPacks, [answer(0, true), answer(1, false), answer(2, true)]).coins).toBe(10);
   });
   it('grades a first correct Attempt as counted and worth 5', () => {
-    const r = grade(starterPacks, [], { id: 'n', exerciseId: exs[0].id, selectedOption: exs[0].correctOption }, NOW);
-    expect(r).toMatchObject({ correct: true, counted: true, coins: 5, correctOption: exs[0].correctOption });
-    expect(r.attempt).toEqual({ id: 'n', exerciseId: exs[0].id, selectedOption: exs[0].correctOption, at: NOW });
+    const r = grade(starterPacks, [], { id: 'n', exerciseId: exs[0].id, selectedOption: key(exs[0]) }, NOW);
+    expect(r).toMatchObject({ correct: true, counted: true, coins: 5, correctOption: key(exs[0]) });
+    expect(r.attempt).toEqual({ id: 'n', exerciseId: exs[0].id, selectedOption: key(exs[0]), at: NOW });
   });
   it('grades a wrong Attempt as worth 0 and reveals the correct option', () => {
     const r = grade(starterPacks, [], { id: 'n', exerciseId: exs[0].id, selectedOption: 3 }, NOW);
-    expect(r).toMatchObject({ correct: false, counted: true, coins: 0, correctOption: exs[0].correctOption });
+    expect(r).toMatchObject({ correct: false, counted: true, coins: 0, correctOption: key(exs[0]) });
   });
   it('grades a retry as practice only', () => {
-    const r = grade(starterPacks, [answer(0, false)], { id: 'n', exerciseId: exs[0].id, selectedOption: exs[0].correctOption }, NOW);
+    const r = grade(starterPacks, [answer(0, false)], { id: 'n', exerciseId: exs[0].id, selectedOption: key(exs[0]) }, NOW);
     expect(r).toMatchObject({ correct: true, counted: false, coins: 0 });
   });
   it('rejects unknown Exercises and out-of-range options', () => {
     expect(() => grade(starterPacks, [], { id: 'n', exerciseId: 'nope', selectedOption: 0 }, NOW)).toThrow();
     expect(() => grade(starterPacks, [], { id: 'n', exerciseId: exs[0].id, selectedOption: 99 }, NOW)).toThrow();
+  });
+});
+
+describe('A Content Pack graded on sync', () => {
+  // The same Lessons with the answer key taken out, which is what a Pack
+  // downloaded from the server looks like on this tablet.
+  const onSync = starterPacks.map((p) => ({
+    ...p, id: `${p.id}-sync`, grading: 'ON_SYNC' as const,
+    lessons: p.lessons.map((l) => ({
+      ...l, id: `${l.id}-sync`, packId: `${p.id}-sync`,
+      exercises: l.exercises.map((e) => ({ ...e, id: `${e.id}-sync`, lessonId: `${l.id}-sync`, correctOption: null })),
+    })),
+  }));
+  const target = onSync.flatMap((p) => p.lessons).filter((l) => l.skillCode === skill).flatMap((l) => l.exercises);
+  const unmarked = (n: number): Attempt[] => target.slice(0, n).map((e, i) => ({ id: `s${i}`, exerciseId: e.id, selectedOption: 0, at: at(i) }));
+
+  it('records the Attempt without marking it', () => {
+    const r = grade(onSync, [], { id: 'n', exerciseId: target[0].id, selectedOption: 0 }, NOW);
+    expect(r.graded).toBe(false);
+    expect(r.counted).toBe(true);
+    expect(r.attempt).toEqual({ id: 'n', exerciseId: target[0].id, selectedOption: 0, at: NOW });
+  });
+
+  /**
+   * Not "Mastery of zero" and not the prior either: a Skill nothing has
+   * measured is absent, so every screen reads it as not started rather than
+   * showing a Learner a number that came from a starting guess.
+   */
+  it('reports no Mastery and no Coins at all, because only the server can mark it', () => {
+    const state = learningState(onSync, unmarked(3));
+    expect(state.coins).toBe(0);
+    expect(state.skills.map((s) => s.skillId)).toEqual([]);
+  });
+
+  it('never flags a Plateau on answers nobody has marked', () => {
+    const state = learningState(onSync, unmarked(PLATEAU_ATTEMPTS + 2));
+    expect(state.skills.filter((s) => s.plateau)).toEqual([]);
+  });
+
+  it('offers no Quests, so one download cannot crowd the Starter Pack out of practise-next', () => {
+    const next = quests([...starterPacks, ...onSync], []);
+    expect(next.length).toBeGreaterThan(0);
+    expect(next.filter((q) => target.some((e) => e.id === q.exerciseId))).toEqual([]);
+  });
+
+  it('does not offer again an Exercise the Learner has already answered', () => {
+    expect(quests(onSync, unmarked(1)).map((q) => q.exerciseId)).not.toContain(target[0].id);
+  });
+
+  it('still refuses an option that is not on the Exercise', () => {
+    expect(() => grade(onSync, [], { id: 'n', exerciseId: target[0].id, selectedOption: 99 }, NOW)).toThrow();
+  });
+
+  it('leaves a Pack graded on the tablet working beside it', () => {
+    expect(learningState([...starterPacks, ...onSync], [answer(0, true), ...unmarked(2)]).coins).toBe(COINS_PER_CORRECT);
   });
 });
 
@@ -146,7 +203,7 @@ describe('Plateau Flag', () => {
 describe('quests', () => {
   const exercisesOf = (id: string) => starterPacks.flatMap((p) => p.lessons).filter((l) => l.skillCode === id).flatMap((l) => l.exercises);
   const skillIds = starterPacks.flatMap((p) => p.skills.map((s) => s.id));
-  const answerAll = (id: string, right: boolean): Attempt[] => exercisesOf(id).map((e, i) => ({ id: `${id}${i}`, exerciseId: e.id, selectedOption: right ? e.correctOption : (e.correctOption + 1) % e.options.length, at: at(i) }));
+  const answerAll = (id: string, right: boolean): Attempt[] => exercisesOf(id).map((e, i) => ({ id: `${id}${i}`, exerciseId: e.id, selectedOption: right ? key(e) : (key(e) + 1) % e.options.length, at: at(i) }));
   const quest = (log: Attempt[], limit?: number) => quests(starterPacks, log, limit);
 
   it('gives a new Profile three Quests in pack order', () => {

@@ -1,4 +1,4 @@
-import type { Grading, Pack, SkillParameters } from './types';
+import type { Pack, SkillParameters } from './types';
 
 /** The learning engine: pure, no React or Expo. Mastery and Coins are replayed from the Attempt log, never stored. */
 export const COINS_PER_CORRECT = 5;
@@ -10,7 +10,16 @@ export const PLATEAU_BELOW = 0.4;
 export interface Attempt { id: string; exerciseId: string; selectedOption: number; at: string; }
 export interface SkillMastery { skillId: string; mastery: number; mastered: boolean; counted: number; plateau: boolean; }
 export interface LearningState { skills: SkillMastery[]; coins: number; }
-export interface Grade { correct: boolean; counted: boolean; coins: number; correctOption: number; attempt: Attempt; }
+/**
+ * The outcome of one answer.
+ *
+ * `graded` is false for an `ON_SYNC` Content Pack, whose answer key never
+ * reaches the tablet: the Attempt is saved and the server marks it on upload,
+ * so there is no correctness and no Coins to report here.
+ */
+export type Grade =
+  | { graded: true; correct: boolean; counted: boolean; coins: number; correctOption: number; attempt: Attempt }
+  | { graded: false; counted: boolean; attempt: Attempt };
 
 /** Copied from the backend's BKT function at tag v0-fullstack. */
 export function updateMastery(prior: number, correct: boolean, { guess, slip, learn }: SkillParameters): number {
@@ -22,17 +31,34 @@ export function updateMastery(prior: number, correct: boolean, { guess, slip, le
 }
 
 const exerciseIndex = (packs: Pack[]) => {
-  const byId = new Map<string, { skillId: string; correctOption: number; options: number; grading: Grading }>();
-  for (const p of packs) for (const l of p.lessons) for (const e of l.exercises) byId.set(e.id, { skillId: l.skillCode, correctOption: e.correctOption, options: e.options.length, grading: p.grading });
+  const byId = new Map<string, { skillId: string; correctOption: number | null; options: number }>();
+  for (const p of packs) for (const l of p.lessons) for (const e of l.exercises) byId.set(e.id, { skillId: l.skillCode, correctOption: e.correctOption, options: e.options.length });
   return byId;
 };
 
 /** Time order; ties keep log order (Array.sort is stable). */
 const inTimeOrder = (log: Attempt[]) => [...log].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
+/**
+ * Skills with at least one Exercise whose answer key is on this tablet.
+ *
+ * A Skill practised only through an unmarked Pack is left out entirely rather
+ * than reported at its prior: the prior is a starting guess, and showing it as
+ * Mastery would put a number in front of a Learner that nothing has measured.
+ * It appears once the server's results arrive.
+ */
+const measurableSkills = (packs: Pack[]) => {
+  const measurable = new Set<string>();
+  for (const p of packs) for (const l of p.lessons) {
+    if (l.exercises.some((e) => e.correctOption !== null)) measurable.add(l.skillCode);
+  }
+  return measurable;
+};
+
 export function learningState(packs: Pack[], log: Attempt[]): LearningState {
   const exercises = exerciseIndex(packs);
-  const params = new Map(packs.flatMap((p) => p.skills.map((s) => [s.id, s.parameters] as const)));
+  const measurable = measurableSkills(packs);
+  const params = new Map(packs.flatMap((p) => p.skills.filter((s) => measurable.has(s.id)).map((s) => [s.id, s.parameters] as const)));
   const mastery = new Map([...params].map(([id, p]) => [id, p.prior]));
   const seen = new Set<string>();
   const counted = new Map<string, number>();
@@ -40,6 +66,10 @@ export function learningState(packs: Pack[], log: Attempt[]): LearningState {
   for (const a of inTimeOrder(log)) {
     const ex = exercises.get(a.exerciseId);
     if (!ex || seen.has(a.exerciseId)) continue;
+    // An Attempt nobody has marked moves nothing: no answer key came with the
+    // Pack, so this tablet cannot say whether it was right. It becomes a
+    // Counted Attempt when the server's result comes back.
+    if (ex.correctOption === null) continue;
     seen.add(a.exerciseId);
     counted.set(ex.skillId, (counted.get(ex.skillId) ?? 0) + 1);
     const correct = a.selectedOption === ex.correctOption;
@@ -76,11 +106,14 @@ export function grade(packs: Pack[], log: Attempt[], answer: Omit<Attempt, 'at'>
   const ex = exerciseIndex(packs).get(answer.exerciseId);
   if (!ex) throw new Error('That Exercise is not on this tablet.');
   if (!Number.isInteger(answer.selectedOption) || answer.selectedOption < 0 || answer.selectedOption >= ex.options) throw new Error('Choose one of the options.');
-  // Only an ON_DEVICE Pack carries its answer key; an ON_SYNC one is recorded unmarked and graded on upload.
-  if (ex.grading !== 'ON_DEVICE') throw new Error('This Content Pack is graded when the tablet next connects.');
-  const correct = answer.selectedOption === ex.correctOption;
   const counted = !log.some((a) => a.exerciseId === answer.exerciseId);
-  return { correct, counted, coins: correct && counted ? COINS_PER_CORRECT : 0, correctOption: ex.correctOption, attempt: { ...answer, at: now } };
+  const attempt = { ...answer, at: now };
+  // The answer key decides, not the Pack's Grading Mode: the key is what the
+  // tablet either has or has not, and a Learner is told the answer is saved
+  // rather than shown a verdict the tablet is in no position to give.
+  if (ex.correctOption === null) return { graded: false, counted, attempt };
+  const correct = answer.selectedOption === ex.correctOption;
+  return { graded: true, correct, counted, coins: correct && counted ? COINS_PER_CORRECT : 0, correctOption: ex.correctOption, attempt };
 }
 
 export interface Quest { exerciseId: string; lessonId: string; skillId: string; mastery: number; }
@@ -107,7 +140,12 @@ export function quests(packs: Pack[], log: Attempt[], limit = 3): Quest[] {
  */
 export function demoHistory(packs: Pack[], now: Date): Attempt[] {
   const bySkill = new Map<string, { id: string; correctOption: number; options: number }[]>();
-  for (const p of packs) for (const l of p.lessons) for (const e of l.exercises) bySkill.set(l.skillCode, [...(bySkill.get(l.skillCode) ?? []), { id: e.id, correctOption: e.correctOption, options: e.options.length }]);
+  // Only Exercises whose answer key is on the tablet: a fabricated history has
+  // to contain right and wrong answers, which an unmarked Exercise cannot give.
+  for (const p of packs) for (const l of p.lessons) for (const e of l.exercises) {
+    if (e.correctOption === null) continue;
+    bySkill.set(l.skillCode, [...(bySkill.get(l.skillCode) ?? []), { id: e.id, correctOption: e.correctOption, options: e.options.length }]);
+  }
   const pick = (n: number, taken: string[]) => {
     const found = [...bySkill].find(([id, ex]) => ex.length >= n && !taken.includes(id));
     if (!found) throw new Error('The packs have too few Exercises for a demo history.');

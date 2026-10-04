@@ -25,7 +25,22 @@ for (const pack of catalogue.packs) {
   }
 }
 
-/** The server's id for an Exercise, or null when this tablet has content the server has not been given. */
-export const serverExerciseId = (slug: string): string | null => exerciseIds.get(slug) ?? null;
+/**
+ * Every id the server issues is a UUID (`backend/docs/api.md`), so a Downloaded
+ * Pack's Exercise already carries the server's own id.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The server's id for an Exercise on this tablet, or null when the server has
+ * not been given the content it belongs to.
+ *
+ * A Downloaded Pack's Exercise needs no translation and is returned unchanged.
+ * Deliberately not a question about which Packs are installed now: an Attempt
+ * waiting to be uploaded must still resolve after its Pack has been superseded
+ * by a newer version, or a Learner's unsent work would be discarded for a
+ * reason that was never true.
+ */
+export const serverExerciseId = (slug: string): string | null => exerciseIds.get(slug) ?? (UUID.test(slug) ? slug : null);
 export const serverLessonId = (slug: string): string | null => lessonIds.get(slug) ?? null;
 export const serverPackId = (slug: string): string | null => packIds.get(slug) ?? null;

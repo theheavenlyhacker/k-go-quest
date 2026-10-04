@@ -4,15 +4,16 @@ import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
-import { starterPacks } from '@/content/starter-pack';
 import { learningState } from '@/domain/engine';
+import type { Pack } from '@/domain/types';
 import { isValidPin } from '@/domain/pin-lock';
 import { Action, BackLink, Button, Card, Eyebrow, Field, Pill, Row, Sheet, T } from '@/ui/primitives';
+import { PackLibrary } from '@/ui/pack-library';
 import { ProfileSync, ServerPanel } from '@/ui/server-panel';
 import { Screen } from '@/ui/screen';
 import { tokens, useTheme } from '@/ui/theme';
 
-const lessonTitle = (skillId: string) => starterPacks.flatMap((p) => p.lessons).find((l) => l.skillCode === skillId)?.title ?? skillId;
+const lessonTitle = (packs: Pack[], skillId: string) => packs.flatMap((p) => p.lessons).find((l) => l.skillCode === skillId)?.title ?? skillId;
 
 /** Every Profile with its Plateau Flags, and the Caretaker's Profile actions. */
 export default function Caretaker() {
@@ -25,6 +26,8 @@ export default function Caretaker() {
       <BackLink label="Close Caretaker screen" onPress={closeCaretaker} />
       <Eyebrow>School server</Eyebrow>
       <ServerPanel />
+      <Eyebrow>Content Packs</Eyebrow>
+      <PackLibrary />
       <Eyebrow>Profiles</Eyebrow>
       {profiles.map((p) => (
         <ProfileCard key={p.id} id={p.id} alias={p.alias} onOpen={() => router.push({ pathname: '/caretaker-profile', params: { id: p.id } })}
@@ -43,7 +46,7 @@ export default function Caretaker() {
 }
 
 function ProfileCard({ id, alias, onOpen, onDelete }: { id: string; alias: string; onOpen: () => void; onDelete: () => void }) {
-  const { viewProfile, resetProfilePin, demoId, resetDemo, toast } = useApp();
+  const { viewProfile, resetProfilePin, demoId, resetDemo, toast, packs } = useApp();
   const theme = useTheme();
   const [flags, setFlags] = useState<string[] | 'error' | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -51,9 +54,9 @@ function ProfileCard({ id, alias, onOpen, onDelete }: { id: string; alias: strin
   // ponytail: one read per card; fine for the handful of Profiles on one tablet.
   useEffect(() => {
     void viewProfile(id)
-      .then(({ attempts }) => setFlags(learningState(starterPacks, attempts).skills.filter((s) => s.plateau).map((s) => lessonTitle(s.skillId))))
+      .then(({ attempts }) => setFlags(learningState(packs, attempts).skills.filter((s) => s.plateau).map((s) => lessonTitle(packs, s.skillId))))
       .catch(() => setFlags('error'));
-  }, [id, viewProfile, history]);
+  }, [id, viewProfile, history, packs]);
   return (
     <Card onPress={onOpen} style={{ gap: 8 }}>
       <T variant="titleS">{alias}</T>

@@ -72,3 +72,48 @@ export interface Link {
   classroomId: string;
   serverAlias: string;
 }
+
+/**
+ * A Content Pack as `GET content/packs` lists it.
+ *
+ * `subject` is the server's own string and not this app's `Subject` union: the
+ * server may well carry a Subject this app has no screens for, and that is a
+ * Pack to refuse politely rather than a response to reject.
+ */
+export interface ServerPackSummary {
+  id: string;
+  title: string;
+  subject: string;
+  grade: number;
+  version: string;
+}
+
+/** An Exercise as a download carries it: prompt and options, never `correctOption`. */
+export interface ServerExercise { id: string; lessonId: string; prompt: string; options: string[]; coinAward?: number }
+
+export interface ServerLesson {
+  id: string;
+  packId: string;
+  title: string;
+  skillCode: string;
+  body: string;
+  hints: Record<string, string> | null;
+  exercises: ServerExercise[];
+}
+
+/**
+ * The body of `GET content/packs/:id/download`.
+ *
+ * `checksum` is the server's SHA-256 over `{ pack, lessons }` only; the
+ * metadata beside it is excluded. See `backend/docs/offline-contract.md`.
+ *
+ * The response carries more than this — a `gradingMode` string among it — and
+ * the tablet reads none of it: the Grading Mode of a Downloaded Pack follows
+ * from the answer key being absent, which cannot be got wrong, rather than from
+ * a field that could disagree with the content beside it.
+ */
+export interface PackPayload {
+  pack: ServerPackSummary;
+  lessons: ServerLesson[];
+  checksum: string;
+}
