@@ -11,7 +11,7 @@ Three things, and only the first two are needed:
 |---|---|---|
 | **The tablets** | Android tablets in a classroom | Always. This is the product. |
 | **The backend** | One container, one PostgreSQL database | Only for Online Mode: uploads, league, teacher and admin screens, vouchers |
-| **The model service** (`ml/service`) | A container, occasionally | No. Training is offline and the tablet runs its own models. |
+| **The model service** (`ml/service`) | A container, occasionally | No — see §6.4. Training is offline and the tablet runs its own models. |
 
 A tablet with the app installed and no server is a complete product: practice,
 grading, Mastery, Coins, Cosmetics and Growth all work. Everything in §4 is for
@@ -51,7 +51,20 @@ None of these stop a demo. All of them would hurt in a classroom.
 
 **Untested**
 
-8. The ink pad has never run on real hardware. It uses the view responder rather
+8. **The sync chain has never run over HTTP.** Every piece has tests and the
+   database half is now verified — the schema is ready and the Starter Pack is
+   imported — but login to classroom to upload has not been exercised end to
+   end. One command does it, from a machine with the toolchain installed
+   natively:
+
+   ```bash
+   cd backend && npm run smoke:configured
+   ```
+
+   It starts a temporary compiled API against the configured database, checks
+   all three demo roles and logs them out. Run it before the pilot.
+
+9. The ink pad has never run on real hardware. It uses the view responder rather
    than a gesture library precisely so it would be boring — but boring is a
    prediction until a finger touches glass.
 
@@ -164,6 +177,11 @@ npm run pack:import -- --file ../mobile/src/content/starter-pack.json
 If you ever change the Starter Pack, run `npm run export:pack` in `mobile/`
 first; CI fails if the two drift.
 
+The import is idempotent: run again on an unchanged Pack and it reports
+`already imported` and writes nothing, so it is safe in a deployment script. The
+demo database already has all four Packs loaded this way — 6 Lessons, 33
+Exercises.
+
 Fitted BKT parameters are a separate import and are optional — without them
 every Skill uses the Default Skill Parameters, which are a starting guess and
 are labelled as such in the app:
@@ -264,19 +282,117 @@ whose first bug is permanent.
 
 ## 6. The models
 
-**BKT** runs on the tablet from parameters shipped in the Content Pack, and on
-the server for the league. Retraining is §4.6 and does not need an app release.
+Two models, both trained from scratch, both running on the tablet. Neither needs
+a server at practice time, which is the whole point. What follows is how each
+one gets from `ml/` onto a tablet.
 
-**Handwriting** ships inside the APK — 279 KB of weights in
-`mobile/src/content/handwriting-model.json`. Retraining it therefore *does* need
-an app release today. If that becomes a problem, move the weights into the
-Content Pack so they download like content; the model file already carries its
-own version string for exactly that reason.
+### 6.1 Where the work happens
 
-Every mastery figure records the model version that produced it, and any fitted
-model can be re-derived from the immutable `attempts` table plus a version tag.
-Keep `attempts` immutable; it is the only training data this system will ever
-generate for free.
+Training is a laptop job, not a deployment. `ml/` needs Python 3.11 and NumPy
+and nothing else:
+
+```bash
+cd ml
+python -m venv .venv && . .venv/bin/activate      # .venv\Scripts\activate on Windows
+pip install -r requirements.txt pytest
+python -m pytest -q                                # 18 tests, no dataset needed
+```
+
+The tests deliberately need no data: CI has no MNIST and no practice logs, and
+the properties worth pinning — that the gradients are right, that normalisation
+is what it claims, that BKT recovers known parameters — do not depend on either.
+
+### 6.2 BKT — the mastery estimate
+
+Fitted from real practice logs, so it only improves once learners have used the
+app. Until then every Skill runs on Default Skill Parameters, which the app
+labels as a starting guess rather than a measurement.
+
+```bash
+cd ml
+python scripts/fit_model.py --database-url "$DATABASE_URL" --schema kgo --out model.json
+cd ../backend && npm run model:import -- --file ../ml/model.json --activate
+```
+
+Two refusals are deliberate and should not be worked around: the fitter will not
+fit a Skill with fewer than 25 sequences or 150 observations, and the importer
+rejects degenerate parameters (`guess + slip >= 1`) and synthetic ones without
+`--allow-synthetic`. A model fitted on nothing is worse than no model.
+
+Exactly one model version is active at a time, enforced by a partial unique
+index. Every Mastery figure records the version that produced it, so a bad fit
+is traceable and reversible: import the previous version and activate it.
+
+**This does not need an app release.** The parameters travel in the Content Pack.
+
+### 6.3 Handwriting — reading what a Learner writes
+
+MNIST is not in the repository. Fetch it once:
+
+```bash
+cd ml && mkdir -p data/mnist && cd data/mnist
+for f in train-images-idx3-ubyte train-labels-idx1-ubyte t10k-images-idx3-ubyte t10k-labels-idx1-ubyte; do
+  curl -LO "https://ossci-datasets.s3.amazonaws.com/mnist/$f.gz"
+done
+```
+
+Train — about eight minutes on a laptop — and write the weights straight into
+the app:
+
+```bash
+cd ml
+python scripts/train_ink.py --mnist data/mnist --out ../mobile/src/content/handwriting-model.json
+python scripts/train_ink.py --export-only --out ../mobile/src/content/handwriting-model.json
+```
+
+The second form re-exports from the saved checkpoint without retraining. Both
+print per-class held-out accuracy; that number goes into the model file and onto
+the screen the Learner sees, so it is never a claim, only a measurement.
+
+**This does need an app release.** The 279 KB of weights ship inside the APK.
+If retraining becomes frequent — and it should, once real handwriting is being
+collected — move the weights into the Content Pack so they download like
+content. The model file already carries its own version string for that.
+
+### 6.4 The model service is optional
+
+`ml/service/` is a FastAPI app that exposes prediction and fitting over HTTP.
+**Nothing in the product needs it.** The tablet runs its own models and the
+backend scores attempts itself; the service exists for dashboards and for
+experimenting against real data without a laptop.
+
+Deploy it only if you have a use for it, and if you do:
+
+```bash
+docker build -t kgo-ml ml
+docker run -d -p 8000:8000 \
+  -e KGO_ML_TOKEN="$(python3 -c 'import secrets;print(secrets.token_urlsafe(32))')" \
+  -e DATABASE_URL="$DATABASE_URL" -e DATABASE_SCHEMA=kgo \
+  kgo-ml
+```
+
+It fails closed: it refuses to start without a `KGO_ML_TOKEN` of at least 24
+characters, and every endpoint except `/health` requires it. It deliberately
+does not score attempts — that would be a second implementation of the thing the
+backend already does — and it never writes to the database, so the importer
+stays the single writer. Keep it off the public internet; it has no multi-tenant
+isolation and was never meant to face one.
+
+### 6.5 Keeping the two implementations honest
+
+Both models are written twice: once in Python to train, once in TypeScript to
+run on the tablet. That is two chances to disagree, so both are pinned:
+
+- **BKT** — a golden-value test ties `ml/kgo_bkt/model.py` to the scorer in the
+  app. Change the arithmetic in one and the other fails.
+- **Handwriting** — the model file carries three fixed inputs and the
+  probabilities NumPy produced for them. The tablet's test suite runs the same
+  inputs through its own port and compares.
+- **Normalisation** — the half of the handwriting system that is not a model is
+  pinned the same way, down to Python's round-half-to-even.
+
+If you change either model, run both test suites. A drift here is silent: the
+tablet simply starts reading something different from what was measured.
 
 ## 7. Data protection — this is not optional
 
