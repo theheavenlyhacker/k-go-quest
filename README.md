@@ -17,6 +17,20 @@ estimate, never a grade.
 
 ## Run it
 
+Setting up a fresh clone? Run the wizard instead of following the steps by hand:
+
+```bash
+bash scripts/setup.sh
+```
+
+It walks you through all of it in nine stages — the Clerk publishable key, the
+database (hosted Aiven or the local container), the backend secrets, the schema
+and the first admin, and the ML service — writing each value to the right
+`.env` and confirming before anything irreversible. Re-running it is safe:
+every value offers what you already have as the default.
+
+The manual path, if you prefer it:
+
 ```bash
 cd mobile
 cp .env.example .env.local   # set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY (publishable key only)
