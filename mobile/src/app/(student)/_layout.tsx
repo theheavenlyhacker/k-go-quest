@@ -11,7 +11,7 @@ export default function StudentTabs() {
       <Tabs.Screen name="league" options={{ title: 'League' }} />
       <Tabs.Screen name="tutor" options={{ title: 'Tutor' }} />
       <Tabs.Screen name="progress" options={{ title: 'Progress' }} />
-      <Tabs.Screen name="rewards" options={{ title: 'Shop' }} />
+      <Tabs.Screen name="rewards" options={{ title: 'Rewards' }} />
     </Tabs>
   );
 }

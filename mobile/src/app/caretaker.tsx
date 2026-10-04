@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus } from 'lucide-react-native';
+import { LockKeyhole, Plus } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { learningState } from '@/domain/engine';
@@ -46,17 +46,24 @@ export default function Caretaker() {
 }
 
 function ProfileCard({ id, alias, onOpen, onDelete }: { id: string; alias: string; onOpen: () => void; onDelete: () => void }) {
-  const { viewProfile, resetProfilePin, demoId, resetDemo, toast, packs } = useApp();
+  const { viewProfile, resetProfilePin, lockoutFor, clearLockout, demoId, resetDemo, toast, packs } = useApp();
   const theme = useTheme();
   const [flags, setFlags] = useState<string[] | 'error' | null>(null);
   const [resetting, setResetting] = useState(false);
   const [history, setHistory] = useState(0);
+  const [locked, setLocked] = useState(0);
   // ponytail: one read per card; fine for the handful of Profiles on one tablet.
   useEffect(() => {
     void viewProfile(id)
       .then(({ attempts }) => setFlags(learningState(packs, attempts).skills.filter((s) => s.plateau).map((s) => lessonTitle(packs, s.skillId))))
       .catch(() => setFlags('error'));
   }, [id, viewProfile, history, packs]);
+  // Re-read on every refresh so a wait that has expired stops being advertised.
+  useEffect(() => {
+    let live = true;
+    lockoutFor(id).then((minutes) => { if (live) setLocked(minutes); }).catch(() => { if (live) setLocked(0); });
+    return () => { live = false; };
+  }, [id, lockoutFor, history]);
   return (
     <Card onPress={onOpen} style={{ gap: 8 }}>
       <T variant="titleS">{alias}</T>
@@ -66,6 +73,23 @@ function ProfileCard({ id, alias, onOpen, onDelete }: { id: string; alias: strin
           : flags.length ? flags.map((f) => <Pill key={f} color={tokens.state.critical} tint={tokens.tint.warning}>{`Plateau Flag: ${f}`}</Pill>)
           : <T size={12} color={theme.muted}>No Plateau Flags</T>}
       </Row>
+      {locked ? (
+        <Row style={{ gap: 9 }}>
+          <LockKeyhole size={16} color={tokens.state.critical} />
+          <T size={12} color={theme.secondary} style={{ flex: 1 }}>
+            {`Locked out for ${locked} more minute${locked === 1 ? '' : 's'} after too many wrong PINs.`}
+          </T>
+          <Action
+            title="Let back in"
+            variant="soft"
+            task={async () => {
+              await clearLockout(id);
+              setHistory((n) => n + 1);
+              toast(`${alias} can try their PIN again.`, 'success');
+            }}
+          />
+        </Row>
+      ) : null}
       <ProfileSync id={id} alias={alias} />
       <Row style={{ gap: 8 }}>
         <Button title="Reset PIN" variant="outline" onPress={() => setResetting(true)} style={{ flex: 1 }} />
