@@ -7,10 +7,32 @@ import { InitialSchema1790800000000 } from './migrations/1790800000000-initial-s
 import { ModelParams1790900000000 } from './migrations/1790900000000-model-params';
 import { databaseSchema } from './schema';
 
+/**
+ * The database CA, from a file or straight from the environment.
+ *
+ * `DATABASE_CA_PATH` is the right answer on a server where a file can be put
+ * somewhere. A platform that only hands you environment variables — Railway,
+ * Render, Fly — has nowhere to put one, so `DATABASE_CA` carries the PEM
+ * itself. Escaped newlines are accepted because most dashboards mangle real
+ * ones. Certificate verification is never disabled either way.
+ */
+export function databaseCertificate(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const inline = env.DATABASE_CA?.trim();
+  if (inline) {
+    const pem = inline.includes('\\n') ? inline.replace(/\\n/g, '\n') : inline;
+    // A PEM wants a closing newline, and trimming the pasted value took it off.
+    return `${pem.trimEnd()}\n`;
+  }
+  const path = env.DATABASE_CA_PATH?.trim();
+  return path ? readFileSync(path, 'utf8') : undefined;
+}
+
 export function databaseOptions(
   url: string,
   ssl: boolean,
-  caPath?: string,
+  ca?: string,
   schemaName = 'kgo',
 ): DataSourceOptions {
   const schema = databaseSchema(schemaName);
@@ -32,7 +54,7 @@ export function databaseOptions(
     ssl: ssl
       ? {
           rejectUnauthorized: true,
-          ...(caPath ? { ca: readFileSync(caPath, 'utf8') } : {}),
+          ...(ca ? { ca } : {}),
         }
       : false,
     entities: ENTITIES,
@@ -55,7 +77,7 @@ export function cliDataSource() {
     databaseOptions(
       process.env.DATABASE_URL ?? '',
       process.env.DATABASE_SSL === 'true',
-      process.env.DATABASE_CA_PATH || undefined,
+      databaseCertificate(),
       process.env.DATABASE_SCHEMA || 'kgo',
     ),
   );

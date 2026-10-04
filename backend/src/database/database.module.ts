@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { databaseOptions } from './data-source';
+import { databaseCertificate, databaseOptions } from './data-source';
 import { ScopeService } from '../common/scope.service';
 import { AuditService } from '../common/audit.service';
 
@@ -14,7 +14,10 @@ import { AuditService } from '../common/audit.service';
         databaseOptions(
           config.getOrThrow<string>('DATABASE_URL'),
           config.getOrThrow<boolean>('DATABASE_SSL'),
-          config.get<string>('DATABASE_CA_PATH') || undefined,
+          databaseCertificate({
+            DATABASE_CA: config.get<string>('DATABASE_CA'),
+            DATABASE_CA_PATH: config.get<string>('DATABASE_CA_PATH'),
+          }),
           config.getOrThrow<string>('DATABASE_SCHEMA'),
         ),
     }),

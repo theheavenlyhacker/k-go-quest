@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Client, type ClientConfig } from 'pg';
 import { DataSource } from 'typeorm';
-import { databaseOptions } from './data-source';
+import { databaseCertificate, databaseOptions } from './data-source';
 import { databaseSchema, inspectSchema } from './schema';
 
 async function main() {
@@ -9,7 +9,7 @@ async function main() {
   const options = databaseOptions(
     process.env.DATABASE_URL ?? '',
     process.env.DATABASE_SSL === 'true',
-    process.env.DATABASE_CA_PATH || undefined,
+    databaseCertificate(),
     schema,
   ) as Extract<ReturnType<typeof databaseOptions>, { type: 'postgres' }>;
   const client = new Client({

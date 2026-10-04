@@ -114,7 +114,9 @@ The app validates its environment at boot and refuses to start if production is
 misconfigured. In production it requires:
 
 - `NODE_ENV=production`
-- `DATABASE_SSL=true` and a CA at `DATABASE_CA_PATH`
+- `DATABASE_SSL=true` and the database CA — either `DATABASE_CA_PATH` pointing at
+  a file, or `DATABASE_CA` holding the PEM itself for a platform that only gives
+  you environment variables (§4.8)
 - `SWAGGER_ENABLED=false`
 - every entry in `CORS_ORIGINS` an explicit `https://` origin with no path and no `*`
 - a `JWT_SECRET` that does not start with `replace-`
@@ -138,6 +140,8 @@ docker run -d --name kgo-api -p 3000:3000 \
 ```
 
 The image carries no secrets and no certificate; both are mounted at run time.
+On a platform with nowhere to mount a file — Railway, Render, Fly — the CA goes
+into `DATABASE_CA` instead; see §4.8.
 Put it behind a reverse proxy that terminates HTTPS — the app does not do TLS
 itself, and the tablets will refuse a plain-HTTP address in a production build.
 
@@ -201,6 +205,61 @@ model fitted on nothing is worse than no model.
 |---|---|
 | `GET /api/v1/health` | the process is up |
 | `GET /api/v1/health/ready` | **503 until the schema is complete** — use this as the readiness probe |
+
+### 4.8 Railway, specifically
+
+Railway builds the Dockerfile, terminates HTTPS for you and hands the process
+environment variables — nothing else. It is a reasonable home for this backend.
+Six things differ from §4.4, and the second and third will bite you.
+
+1. **Set the service root directory to `backend`.** Railway looks for a
+   Dockerfile at the repository root; this one lives in `backend/`. Settings →
+   Source → Root Directory → `backend`. Do not move the file.
+2. **The CA goes in a variable, not a file.** There is nowhere to mount a PEM,
+   so paste the Aiven CA into `DATABASE_CA` and leave `DATABASE_CA_PATH` empty.
+   Newlines typed into Railway's editor survive; a value with escaped `\n` is
+   accepted too. Certificate verification stays on either way — if the handshake
+   fails, the CA is wrong, and `DATABASE_SSL=false` is not the fix.
+3. **`TRUST_PROXY_HOPS=1`.** Railway's edge forwards every request, so at the
+   default of 0 the app sees one client address for the whole country: the rate
+   limiter then counts everyone together, and one Learner retrying a PIN can
+   lock out a province. Exactly 1 — one proxy, one hop.
+4. **Leave `PORT` alone.** Railway injects it and the app reads it. Setting it
+   yourself is how you get a deploy that builds and never answers.
+5. **Keep replicas at 1.** Rate limits live in process memory (§4.4). Two
+   replicas each enforce half the limit.
+6. **Migrations are yours to run.** Railway has no release phase, so the first
+   deploy comes up against an empty database and `/api/v1/health/ready` answers
+   503 until you run §4.5 from your laptop against the same `DATABASE_URL`. For
+   that reason point Railway's own health check at `/api/v1/health`, not
+   `/health/ready`, or the first deploy will roll itself back before you get the
+   chance.
+
+The variables, in full:
+
+```
+NODE_ENV=production
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:12590/kgo
+DATABASE_SSL=true
+DATABASE_SCHEMA=kgo
+DATABASE_CA=-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----
+JWT_SECRET=<48+ random characters>
+CORS_ORIGINS=https://your-admin-site
+TRUST_PROXY_HOPS=1
+SWAGGER_ENABLED=false
+```
+
+`CORS_ORIGINS` must be explicit `https://` origins — the validator rejects `*`
+and refuses to start. The tablets do not use CORS at all, so if there is no web
+admin yet, the Railway URL itself is a harmless placeholder.
+
+**The models do not go on Railway.** Neither model is a service: training is a
+laptop job that writes BKT parameters into the database and handwriting weights
+into the APK, and both run on the tablet afterwards. There is nothing to host —
+see §6. `ml/service/` is optional and no part of the product calls it (§6.4); if
+you ever do deploy it, keep it off the public internet.
 
 ## 5. The tablets
 

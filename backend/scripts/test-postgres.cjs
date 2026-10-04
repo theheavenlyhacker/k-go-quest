@@ -46,6 +46,7 @@ async function smokeBuilt(options) {
     DATABASE_SSL: 'false',
     DATABASE_SCHEMA: 'kgo',
     DATABASE_CA_PATH: '',
+    DATABASE_CA: '',
     JWT_SECRET: randomBytes(48).toString('hex'),
     SWAGGER_ENABLED: 'true',
     BOOTSTRAP_LOGIN: 'smoke-admin',

@@ -15,7 +15,7 @@ The ignored `.env` contains your supplied Aiven connection and generated applica
 7. Verify connection and schema: `npm run db:check`. `ready: true` confirms the required columns and migration record exist in the configured schema. `GET /api/v1/health/ready` returns 503 when the application schema is incomplete, even if PostgreSQL accepts a connection.
 8. Optional configured-database verification: `npm run smoke:configured`. This starts a temporary compiled API, checks all three demo roles, and logs them out. It uses `.env`, creates authentication/audit records, and requires bootstrap and demo seed. It does not award coins or redeem rewards.
 
-Do not replace configured `.env` with `.env.example`. The example is for a new setup and contains placeholders. TLS certificate verification is enabled. Do not add SSL query parameters to DATABASE_URL; node-postgres can override explicit TLS settings if those parameters are present. Containers need the CA mounted at DATABASE_CA_PATH.
+Do not replace configured `.env` with `.env.example`. The example is for a new setup and contains placeholders. TLS certificate verification is enabled. Do not add SSL query parameters to DATABASE_URL; node-postgres can override explicit TLS settings if those parameters are present. Containers need the CA mounted at DATABASE_CA_PATH, or the PEM itself in DATABASE_CA where there is nowhere to mount a file.
 
 For Expo on a physical device, use your computer's LAN IP instead of localhost. Add an exact browser development origin to CORS_ORIGINS for Expo web. Native clients do not rely on browser CORS.
 

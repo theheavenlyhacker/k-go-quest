@@ -72,6 +72,7 @@ describe('K-Go API on real PostgreSQL', () => {
     process.env.DATABASE_SSL = 'false';
     process.env.DATABASE_SCHEMA = 'kgo';
     process.env.DATABASE_CA_PATH = '';
+    process.env.DATABASE_CA = '';
     process.env.JWT_SECRET =
       'integration-test-secret-is-at-least-forty-eight-characters-123456';
     process.env.SWAGGER_ENABLED = 'false';

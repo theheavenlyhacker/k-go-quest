@@ -15,6 +15,8 @@ export function validateEnvironment(input: Record<string, unknown>) {
       .invalid('pg_catalog', 'pg_temp', 'pg_toast')
       .default('kgo'),
     DATABASE_CA_PATH: Joi.string().allow('').optional(),
+    // The CA itself, for platforms that only give you environment variables.
+    DATABASE_CA: Joi.string().allow('').optional(),
     JWT_SECRET: Joi.string().min(48).required(),
     JWT_ISSUER: Joi.string().default('kgo-quests'),
     CORS_ORIGINS: Joi.string().default(
