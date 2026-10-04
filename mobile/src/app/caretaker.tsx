@@ -8,6 +8,7 @@ import { starterPacks } from '@/content/starter-pack';
 import { learningState } from '@/domain/engine';
 import { isValidPin } from '@/domain/pin-lock';
 import { Action, BackLink, Button, Card, Eyebrow, Field, Pill, Row, Sheet, T } from '@/ui/primitives';
+import { ProfileSync, ServerPanel } from '@/ui/server-panel';
 import { Screen } from '@/ui/screen';
 import { tokens, useTheme } from '@/ui/theme';
 
@@ -22,6 +23,8 @@ export default function Caretaker() {
   return (
     <Screen title="Caretaker" caption="Profiles on this tablet">
       <BackLink label="Close Caretaker screen" onPress={closeCaretaker} />
+      <Eyebrow>School server</Eyebrow>
+      <ServerPanel />
       <Eyebrow>Profiles</Eyebrow>
       {profiles.map((p) => (
         <ProfileCard key={p.id} id={p.id} alias={p.alias} onOpen={() => router.push({ pathname: '/caretaker-profile', params: { id: p.id } })}
@@ -60,6 +63,7 @@ function ProfileCard({ id, alias, onOpen, onDelete }: { id: string; alias: strin
           : flags.length ? flags.map((f) => <Pill key={f} color={tokens.state.critical} tint={tokens.tint.warning}>{`Plateau Flag: ${f}`}</Pill>)
           : <T size={12} color={theme.muted}>No Plateau Flags</T>}
       </Row>
+      <ProfileSync id={id} alias={alias} />
       <Row style={{ gap: 8 }}>
         <Button title="Reset PIN" variant="outline" onPress={() => setResetting(true)} style={{ flex: 1 }} />
         <Button title="Delete" variant="danger" onPress={onDelete} style={{ flex: 1 }} />

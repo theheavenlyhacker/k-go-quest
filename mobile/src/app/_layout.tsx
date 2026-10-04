@@ -12,6 +12,7 @@ import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
 import { CircleCheck, Info, TriangleAlert, X } from 'lucide-react-native';
 
 import { AppProvider, useApp } from '@/state/app-context';
+import { OnlineProvider } from '@/state/online-context';
 import { T } from '@/ui/primitives';
 import { palette, useTheme } from '@/ui/theme';
 
@@ -23,7 +24,11 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   return (
     <AppProvider>
-      <Shell />
+      {/* Online Mode wraps the app but never gates it: with no server, every
+          screen below behaves exactly as it does offline. */}
+      <OnlineProvider>
+        <Shell />
+      </OnlineProvider>
     </AppProvider>
   );
 }

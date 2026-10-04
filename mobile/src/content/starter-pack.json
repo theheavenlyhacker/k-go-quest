@@ -1,0 +1,536 @@
+{
+  "namespace": "6f1c7f36-4f1e-5b2a-9a7a-2f1f0d5b9c31",
+  "generatedFrom": "mobile/src/content/starter-pack.ts",
+  "packs": [
+    {
+      "slug": "math5",
+      "id": "a8812383-1518-56e4-98eb-61d9cfb07136",
+      "title": "Fractions & Decimals",
+      "subject": "MATH",
+      "grade": 5,
+      "version": "1.0.0",
+      "grading": "ON_DEVICE",
+      "lessons": [
+        {
+          "slug": "math5.equivalent",
+          "id": "a44cff80-4700-5467-956d-92fda3adf4a5",
+          "title": "Equivalent fractions",
+          "skillCode": "math5.fractions.equivalent",
+          "body": "Two fractions are equivalent when they name the same amount. Multiply or divide the top and the bottom by the same number and the value does not change. 1/2 = 2/4 = 3/6.",
+          "hints": {
+            "en": "Do the same thing to the numerator and the denominator. 1/2 times 2/2 gives 2/4.",
+            "tl": "Gawin ang parehong operasyon sa itaas at ibaba ng fraction. Ang 1/2 na i-multiply sa 2/2 ay 2/4.",
+            "ceb": "Himoa ang parehas nga operasyon sa ibabaw ug sa ubos sa fraction. Ang 1/2 nga gi-multiply sa 2/2 mao ang 2/4.",
+            "ilo": "Aramidem ti agpapada nga operasyon iti ngato ken baba ti fraction. Ti 1/2 a pinaadu iti 2/2 ket 2/4."
+          },
+          "exercises": [
+            {
+              "slug": "math5.equivalent.q1",
+              "id": "c536a5ab-1fd3-5e68-8caa-45fbc543a075",
+              "prompt": "Which fraction is equivalent to 1/2?",
+              "options": [
+                "2/4",
+                "2/3",
+                "1/3",
+                "3/4"
+              ],
+              "correctOption": 0
+            },
+            {
+              "slug": "math5.equivalent.q2",
+              "id": "b76a9166-f058-5c42-a80a-470cc16e311e",
+              "prompt": "Which fraction is equivalent to 3/4?",
+              "options": [
+                "6/10",
+                "6/8",
+                "4/6",
+                "3/8"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.equivalent.q3",
+              "id": "366a7218-7877-515d-8737-92f141a07c94",
+              "prompt": "What number completes 2/3 = ?/12?",
+              "options": [
+                "6",
+                "8",
+                "9",
+                "10"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.equivalent.q4",
+              "id": "5f8360ad-cb87-5023-9d11-582ba814752a",
+              "prompt": "Which fraction is equivalent to 4/6?",
+              "options": [
+                "1/2",
+                "3/4",
+                "2/3",
+                "4/12"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "math5.equivalent.q5",
+              "id": "6d769120-40b2-580a-ba95-46467810b1b6",
+              "prompt": "Simplify 6/8.",
+              "options": [
+                "2/3",
+                "3/4",
+                "1/2",
+                "6/4"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.equivalent.q6",
+              "id": "e55df0f5-011e-58fc-b0da-ac227c7dbd94",
+              "prompt": "Which pair of fractions is equivalent?",
+              "options": [
+                "1/3 and 2/5",
+                "2/5 and 4/10",
+                "3/4 and 4/5",
+                "1/2 and 2/3"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.equivalent.q7",
+              "id": "2ecd82dd-877b-5a69-b0b5-fcd9799c6d0c",
+              "prompt": "What number completes 5/10 = 1/?",
+              "options": [
+                "2",
+                "4",
+                "5",
+                "10"
+              ],
+              "correctOption": 0
+            },
+            {
+              "slug": "math5.equivalent.q8",
+              "id": "7d9c8a61-b3e3-534f-b4c9-a445ef8a6748",
+              "prompt": "Which fraction is NOT equivalent to 1/4?",
+              "options": [
+                "2/8",
+                "3/12",
+                "4/16",
+                "2/6"
+              ],
+              "correctOption": 3
+            }
+          ]
+        },
+        {
+          "slug": "math5.add",
+          "id": "1c8c822c-caf1-55f9-a4d7-26e379ef71e3",
+          "title": "Adding fractions",
+          "skillCode": "math5.fractions.add",
+          "body": "To add fractions with the same denominator, add the numerators and keep the denominator: 1/5 + 2/5 = 3/5. With different denominators, first rewrite both with a common denominator.",
+          "hints": {
+            "en": "Same bottom number: add the top numbers only. Different bottoms: make them match first.",
+            "tl": "Pareho ang ibaba: idagdag lang ang mga itaas. Magkaiba ang ibaba: gawin muna silang magkapareho.",
+            "ceb": "Parehas ang ubos: hiwa-a lang ang mga ibabaw. Lahi ang ubos: himoa una nga parehas.",
+            "ilo": "Agpada ti baba: ayatenyo laeng dagiti ngato. Agsuopen ti baba: pagpadaenyo nga umuna."
+          },
+          "exercises": [
+            {
+              "slug": "math5.add.q1",
+              "id": "1b1283d1-db08-538b-b6c4-1940d23eb635",
+              "prompt": "1/5 + 2/5 = ?",
+              "options": [
+                "3/5",
+                "3/10",
+                "2/5",
+                "1/5"
+              ],
+              "correctOption": 0
+            },
+            {
+              "slug": "math5.add.q2",
+              "id": "8f8e20c5-2199-5a36-a3f9-c05df822451d",
+              "prompt": "3/8 + 2/8 = ?",
+              "options": [
+                "5/16",
+                "5/8",
+                "1/8",
+                "6/8"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.add.q3",
+              "id": "629ac218-403c-5f0a-b576-a10f6610f105",
+              "prompt": "1/2 + 1/4 = ?",
+              "options": [
+                "2/6",
+                "2/4",
+                "3/4",
+                "1/6"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "math5.add.q4",
+              "id": "fd31ce7c-b8cb-5bb1-ace3-4d770c0a818e",
+              "prompt": "2/3 + 1/6 = ?",
+              "options": [
+                "3/9",
+                "5/6",
+                "3/6",
+                "2/9"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.add.q5",
+              "id": "bef183b8-2cd1-503b-b862-73a2d03b8a45",
+              "prompt": "4/9 + 3/9 = ?",
+              "options": [
+                "7/18",
+                "1/9",
+                "7/9",
+                "12/9"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "math5.add.q6",
+              "id": "ff32a2a9-697e-5148-ac6c-aa47804233a6",
+              "prompt": "1/3 + 1/3 + 1/3 = ?",
+              "options": [
+                "3/9",
+                "1",
+                "1/9",
+                "3"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.add.q7",
+              "id": "0f0f93cb-3dca-5966-963e-bdf1b3d728bf",
+              "prompt": "Maria ate 1/4 of a pizza and Ben ate 2/4. How much did they eat together?",
+              "options": [
+                "3/8",
+                "1/4",
+                "2/4",
+                "3/4"
+              ],
+              "correctOption": 3
+            },
+            {
+              "slug": "math5.add.q8",
+              "id": "0dddbacb-1d8b-5ff0-8f81-5cc24ce5e356",
+              "prompt": "1/2 + 1/3 = ?",
+              "options": [
+                "2/5",
+                "5/6",
+                "1/5",
+                "2/6"
+              ],
+              "correctOption": 1
+            }
+          ]
+        },
+        {
+          "slug": "math5.decimals",
+          "id": "3c9191f9-3745-5f79-be55-75abb3dc6436",
+          "title": "Decimal place value",
+          "skillCode": "math5.decimals.place-value",
+          "body": "In a decimal, each place to the right of the point is ten times smaller. The first place is tenths, the second is hundredths, the third is thousandths. In 3.47, the 4 means 4 tenths.",
+          "hints": {
+            "en": "Read the places after the point as tenths, then hundredths, then thousandths.",
+            "tl": "Basahin ang mga lugar pagkatapos ng tuldok bilang tenths, hundredths, at thousandths.",
+            "ceb": "Basaha ang mga lugar human sa tuldok isip tenths, hundredths, ug thousandths.",
+            "ilo": "Basaem dagiti lugar kalpasan ti tuldok kas tenths, hundredths, ken thousandths."
+          },
+          "exercises": [
+            {
+              "slug": "math5.decimals.q1",
+              "id": "995f5d5f-8dec-5312-aeef-ac542379465e",
+              "prompt": "In 3.47, what is the value of the digit 4?",
+              "options": [
+                "4 ones",
+                "4 tenths",
+                "4 hundredths",
+                "4 tens"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.decimals.q2",
+              "id": "1d093dc5-7212-5ab9-82f7-6ca5172591ea",
+              "prompt": "In 6.28, what is the value of the digit 8?",
+              "options": [
+                "8 tenths",
+                "8 hundredths",
+                "8 ones",
+                "8 thousandths"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.decimals.q3",
+              "id": "d5b105c5-193a-5901-b889-f81598f1dacd",
+              "prompt": "Which decimal is the same as 3/10?",
+              "options": [
+                "0.03",
+                "0.3",
+                "3.0",
+                "0.13"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.decimals.q4",
+              "id": "2202a76f-0b8c-5b32-9b52-20578020ca8a",
+              "prompt": "Which decimal is the same as 7/100?",
+              "options": [
+                "0.7",
+                "0.07",
+                "7.0",
+                "0.007"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "math5.decimals.q5",
+              "id": "307bfd32-42f4-50e6-8d60-d7d1166042aa",
+              "prompt": "Which is greater?",
+              "options": [
+                "0.5",
+                "0.45",
+                "0.405",
+                "0.05"
+              ],
+              "correctOption": 0
+            },
+            {
+              "slug": "math5.decimals.q6",
+              "id": "01c6144b-e506-5853-9f9a-cc8cc6b1dab5",
+              "prompt": "Which is the smallest?",
+              "options": [
+                "0.9",
+                "0.19",
+                "0.09",
+                "0.91"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "math5.decimals.q7",
+              "id": "ed9547b8-f261-58c7-9d36-dd614eb9fbea",
+              "prompt": "0.25 is the same as how many hundredths?",
+              "options": [
+                "2",
+                "5",
+                "25",
+                "250"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "math5.decimals.q8",
+              "id": "d0f22cd9-f43d-5f21-8fd7-dc8600ce040a",
+              "prompt": "Which number is 2 ones, 0 tenths and 5 hundredths?",
+              "options": [
+                "2.5",
+                "2.05",
+                "2.005",
+                "25.0"
+              ],
+              "correctOption": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "eng5",
+      "id": "60d51f1b-379b-5845-baad-d44105c0acee",
+      "title": "Reading Comprehension",
+      "subject": "ENGLISH",
+      "grade": 5,
+      "version": "1.0.0",
+      "grading": "ON_DEVICE",
+      "lessons": [
+        {
+          "slug": "eng5.main-idea",
+          "id": "f244b360-54b5-5c1f-b5a3-8e54c47e5a35",
+          "title": "Finding the main idea",
+          "skillCode": "eng5.reading.main-idea",
+          "body": "The main idea is what a passage is mostly about. Details support the main idea. Ask yourself: what is the one big point the writer wants me to remember?",
+          "hints": {
+            "en": "The main idea covers the whole passage, not just one sentence.",
+            "tl": "Sinasaklaw ng pangunahing ideya ang buong talata, hindi lang isang pangungusap.",
+            "ceb": "Ang main idea naglakip sa tibuok pasahe, dili lang usa ka sentence.",
+            "ilo": "Ti main idea ket mangkaskaso iti intero a pasahe, saan laeng a maysa a sentence."
+          },
+          "exercises": [
+            {
+              "slug": "eng5.main-idea.q1",
+              "id": "fbca8f96-0bc2-5b23-8176-3dcfb6e4f243",
+              "prompt": "Ana waters the plants, feeds the hens and sweeps the yard every morning. What is the main idea?",
+              "options": [
+                "Ana has hens",
+                "Ana does chores at home",
+                "Ana likes plants",
+                "Mornings are cool"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "eng5.main-idea.q2",
+              "id": "4179fad8-639e-505f-89fa-8dab0de8fba0",
+              "prompt": "What do the details in a passage do?",
+              "options": [
+                "Support the main idea",
+                "Replace the title",
+                "End the story",
+                "Ask a question"
+              ],
+              "correctOption": 0
+            },
+            {
+              "slug": "eng5.main-idea.q3",
+              "id": "b3853d81-8fb0-50fb-9ea4-d261ff31ecb5",
+              "prompt": "Which is the best title for a passage about how bees make honey?",
+              "options": [
+                "Busy Bees at Work",
+                "My Garden",
+                "A Rainy Day",
+                "Sweet Fruits"
+              ],
+              "correctOption": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "fil5",
+      "id": "f6c6b300-ded6-52c7-9738-697279b4c585",
+      "title": "Panitikan at Balarila",
+      "subject": "FILIPINO",
+      "grade": 5,
+      "version": "1.0.0",
+      "grading": "ON_DEVICE",
+      "lessons": [
+        {
+          "slug": "fil5.pangngalan",
+          "id": "a17b28e6-a8b3-5f10-9c8e-293004088af2",
+          "title": "Ang pangngalan",
+          "skillCode": "fil5.balarila.pangngalan",
+          "body": "Ang pangngalan ay salitang tumutukoy sa tao, hayop, bagay, lugar o pangyayari. Halimbawa: guro, aso, lapis, paaralan, pista.",
+          "hints": {
+            "en": "Itanong: ito ba ay pangalan ng tao, hayop, bagay, lugar o pangyayari?",
+            "tl": "Ang pangngalan ay pangalan ng tao, hayop, bagay, lugar o pangyayari.",
+            "ceb": "Ang pangngalan ngalan sa tawo, hayop, butang, lugar o panghitabo.",
+            "ilo": "Ti pangngalan ket nagan ti tao, animal, banag, lugar wenno pasamak."
+          },
+          "exercises": [
+            {
+              "slug": "fil5.pangngalan.q1",
+              "id": "b9b35eb0-5f88-5174-92bd-918e7ffecbff",
+              "prompt": "Alin ang pangngalan?",
+              "options": [
+                "tumakbo",
+                "mabilis",
+                "paaralan",
+                "masaya"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "fil5.pangngalan.q2",
+              "id": "8f782884-0ebc-5706-9f99-28bf6304757b",
+              "prompt": "Alin ang pangngalang tumutukoy sa hayop?",
+              "options": [
+                "kalabaw",
+                "upuan",
+                "Maynila",
+                "guro"
+              ],
+              "correctOption": 0
+            },
+            {
+              "slug": "fil5.pangngalan.q3",
+              "id": "d651a76a-e773-5bd7-a0fa-37a73b1cfab6",
+              "prompt": "Alin ang pangngalang tumutukoy sa lugar?",
+              "options": [
+                "lapis",
+                "palengke",
+                "kumain",
+                "maganda"
+              ],
+              "correctOption": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sci5",
+      "id": "78dedd2c-cb33-5398-9ac0-53f82ed80f17",
+      "title": "Life Cycles & Ecosystems",
+      "subject": "SCIENCE",
+      "grade": 5,
+      "version": "1.0.0",
+      "grading": "ON_DEVICE",
+      "lessons": [
+        {
+          "slug": "sci5.butterfly",
+          "id": "82997a84-8e0f-5f91-8b28-713d8a53c49b",
+          "title": "Life cycle of a butterfly",
+          "skillCode": "sci5.life-cycles.butterfly",
+          "body": "A butterfly changes form as it grows. This is called complete metamorphosis. The stages are egg, larva (caterpillar), pupa (chrysalis) and adult butterfly.",
+          "hints": {
+            "en": "Remember the order: egg, larva, pupa, adult.",
+            "tl": "Tandaan ang pagkakasunod-sunod: itlog, larva, pupa, matandang paru-paro.",
+            "ceb": "Hinumdomi ang han-ay: itlog, larva, pupa, hamtong nga alibangbang.",
+            "ilo": "Laglagipem ti urnos: itlog, larva, pupa, nataengan a kulibangbang."
+          },
+          "exercises": [
+            {
+              "slug": "sci5.butterfly.q1",
+              "id": "081fcbcc-2003-548a-a871-6c585bdfb124",
+              "prompt": "What is the first stage of a butterfly life cycle?",
+              "options": [
+                "Pupa",
+                "Egg",
+                "Adult",
+                "Larva"
+              ],
+              "correctOption": 1
+            },
+            {
+              "slug": "sci5.butterfly.q2",
+              "id": "6c93bb6a-1f0a-5bd6-860d-332a4bb925d0",
+              "prompt": "What is a caterpillar?",
+              "options": [
+                "An egg",
+                "A pupa",
+                "A larva",
+                "An adult"
+              ],
+              "correctOption": 2
+            },
+            {
+              "slug": "sci5.butterfly.q3",
+              "id": "8077d5b1-1e10-5096-86df-283a280be4d5",
+              "prompt": "Which stage comes right before the adult butterfly?",
+              "options": [
+                "Egg",
+                "Larva",
+                "Pupa",
+                "Seed"
+              ],
+              "correctOption": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

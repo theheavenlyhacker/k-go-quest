@@ -8,7 +8,15 @@ import { Card, IconBox, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { palette, useTheme } from '@/ui/theme';
 
-const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
+/** Phone keypad: three columns, with 0 centred on the last row and delete to its right. */
+const KEYPAD = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['', '0', 'del'],
+];
+const KEY_WIDTH = 76;
+const KEY_GAP = 12;
 
 export default function LockScreen() {
   const { profile, unlock, selectProfile, toast } = useApp();
@@ -69,23 +77,31 @@ export default function LockScreen() {
         ))}
       </Row>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-        {keys.map((key, index) => (
-          <Pressable
-            key={`${key}-${index}`}
-            disabled={!key || working}
-            accessibilityRole="button"
-            accessibilityLabel={key === 'del' ? 'Delete last digit' : key || undefined}
-            onPress={() => press(key)}
-            style={({ pressed }) => ({
-              width: 76, height: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
-              backgroundColor: key ? theme.card : 'transparent',
-              borderWidth: key ? 1 : 0, borderColor: theme.border,
-              opacity: pressed && key ? 0.6 : 1,
-            })}
-          >
-            {key === 'del' ? <Delete size={21} color={theme.text} /> : <T heading size={22}>{key}</T>}
-          </Pressable>
+      <View style={{ alignSelf: 'center', gap: KEY_GAP }}>
+        {KEYPAD.map((row, rowIndex) => (
+          <View key={rowIndex} style={{ flexDirection: 'row', gap: KEY_GAP }}>
+            {row.map((key, index) =>
+              key ? (
+                <Pressable
+                  key={key}
+                  disabled={working}
+                  accessibilityRole="button"
+                  accessibilityLabel={key === 'del' ? 'Delete last digit' : key}
+                  onPress={() => press(key)}
+                  style={({ pressed }) => ({
+                    width: KEY_WIDTH, height: 62, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border,
+                    opacity: pressed ? 0.6 : 1,
+                  })}
+                >
+                  {key === 'del' ? <Delete size={21} color={theme.text} /> : <T heading size={22}>{key}</T>}
+                </Pressable>
+              ) : (
+                // Holds the empty corner so 0 stays centred; not a target, so it is hidden from the reader.
+                <View key={`gap-${index}`} style={{ width: KEY_WIDTH, height: 62 }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden />
+              ),
+            )}
+          </View>
         ))}
       </View>
 

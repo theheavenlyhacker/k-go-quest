@@ -17,8 +17,16 @@ The adult who manages a Shared Tablet. Only the Caretaker can create or delete P
 _Avoid_: teacher, admin, parent
 
 **Caretaker Account**:
-The Caretaker's online identity. It is used at Setup and to reset a forgotten Caretaker PIN, and both need the tablet to be online. Only the Caretaker Account that did Setup can reset the Caretaker PIN. Learners never have one.
+The identity that answers *who owns this Shared Tablet*. It is used at Setup and to reset a forgotten Caretaker PIN, and both need the tablet to be online. Only the Caretaker Account that did Setup can reset the Caretaker PIN. Learners never have one. It is not the Server Account.
 _Avoid_: login, user account
+
+**Server Account**:
+The identity that answers *which school and jurisdiction this Shared Tablet reports to*. It carries a role, and signing in to it is what opens Online Mode. A Shared Tablet works for its whole life without one.
+_Avoid_: login, server login, cloud account
+
+**Classroom**:
+A group of Learners on the server, taught by one Teacher. A Classroom exists only on the server; a Shared Tablet has no Classroom of its own.
+_Avoid_: class, section, group
 
 **Setup**:
 The first launch of the app on a Shared Tablet. The Caretaker signs in to their Caretaker Account, sets the Caretaker PIN and creates the first Profiles.
@@ -44,6 +52,10 @@ _Avoid_: course, module, download
 
 **Starter Pack**:
 A Content Pack that ships inside the app, so the app works on first launch.
+
+**Grading Mode**:
+How a Content Pack's Exercises are graded, chosen by the Pack Author for the whole Pack. **On Device** ships the answer key inside the Pack, so the tablet grades instantly. **On Sync** withholds the key, so the tablet records the Attempt ungraded and the server grades it on upload. The Starter Pack is always On Device.
+_Avoid_: grading policy, server grading, offline grading
 
 **Subject**:
 One school subject, such as Math or Science. Each Content Pack covers one Subject.
@@ -110,7 +122,21 @@ A badge built into the app that a Learner buys with Coins. A Cosmetic never chan
 
 **Growth**:
 Two counts for one month: the Learner's Skills whose Mastery went up, and the Skills that became Mastered. Each count is shown next to last month's. Growth compares a Learner only with their own past, never with other Learners, and it is never negative.
-_Avoid_: league, rank, leaderboard, score
+_Avoid_: rank, leaderboard, score
+
+**League**:
+A ranking of Classrooms against one another by how much their Learners' Mastery improved over a month, never by totals. A League is what a Classroom sees about itself, and it exists only when a Shared Tablet has reached the server. Growth remains the only thing a Learner sees about their own progress.
+_Avoid_: leaderboard, standings, ranking of Learners
+
+### Going online
+
+**Online Mode**:
+What the app can do while the Shared Tablet has a connection. It is always extra: nothing a Learner does requires it, and every part of it is lost cleanly when the connection goes.
+_Avoid_: sync mode, cloud mode, online version
+
+**Linked Profile**:
+A Profile the Caretaker has tied to a Learner account on the server, so its Counted Attempts can be uploaded. A Profile that is not linked works exactly as any other and uploads nothing.
+_Avoid_: registered profile, synced account, enrolled profile
 
 ## Relationships
 
@@ -124,13 +150,18 @@ _Avoid_: league, rank, leaderboard, score
 - A **Quest** points to one **Exercise**
 - A **Plateau Flag** belongs to one **Profile** and one **Skill**
 - A **Profile** earns **Coins** and owns the **Cosmetics** it bought
+- A **Caretaker** has one **Caretaker Account**, and in **Online Mode** also one **Server Account**
+- A **Content Pack** has one **Grading Mode**, which decides whether the tablet or the server grades its **Attempts**
+- A **Linked Profile** is tied to one Learner account on the server and belongs to one **Classroom**
+- A **League** ranks **Classrooms**; **Growth** describes one **Learner**
 
 ## Flagged ambiguities
 
-- "AI" meant both the Mastery estimate and a conversational tutor. Resolved: the only on-device model is Mastery. The tutor screen becomes **Hints**.
+- "AI" meant both the Mastery estimate and a conversational tutor. Resolved: the only on-device model is Mastery, and nothing is generated at practice time. The screen shows the **Hints** written by the Pack Author and reads them aloud. *Still open*: that screen is labelled "Tutor" in the app, a word this glossary avoids.
 - "Student" and "learner" were used interchangeably. Resolved: **Learner**.
 - "Reward" meant both Coins and vouchers for real goods. Resolved: only **Coins** exist, and they buy **Cosmetics**. Vouchers are gone.
-- "League" meant ranking classrooms against each other. Resolved: replaced by **Growth**, which compares a Learner only with themselves.
+- "League" meant ranking classrooms against each other. First resolved as: replaced by **Growth**. **Reversed.** The original reason was that without a server there is nobody to rank against, which holds only offline. Both terms now stand and do not overlap: **Growth** is what a Learner sees about themselves, a **League** is what a Classroom sees about itself, and a Learner never sees their position in one.
+- *Still open*: the app also shows a month ranking of the **Profiles on one Shared Tablet** against each other, podium and all. That ranks Learners, which is the thing the first League resolution existed to remove. It needs a decision: either that view is **Growth** per Profile with no ranking, or **League** is accepted as something a Learner may see on their own tablet.
 - "Teacher" and "admin" meant separate accounts. Resolved: one **Caretaker** per **Shared Tablet**.
 - "Dummy data for the AI" resolved to **Default Skill Parameters** plus demo Lessons in the **Starter Pack**.
 - "Provisional" correctness and Coins: resolved. Every **Attempt** is graded at once on the tablet, so nothing is provisional.

@@ -1,4 +1,4 @@
-import type { Pack, SkillParameters } from './types';
+import type { Grading, Pack, SkillParameters } from './types';
 
 /** The learning engine: pure, no React or Expo. Mastery and Coins are replayed from the Attempt log, never stored. */
 export const COINS_PER_CORRECT = 5;
@@ -22,8 +22,8 @@ export function updateMastery(prior: number, correct: boolean, { guess, slip, le
 }
 
 const exerciseIndex = (packs: Pack[]) => {
-  const byId = new Map<string, { skillId: string; correctOption: number; options: number }>();
-  for (const p of packs) for (const l of p.lessons) for (const e of l.exercises) byId.set(e.id, { skillId: l.skillCode, correctOption: e.correctOption, options: e.options.length });
+  const byId = new Map<string, { skillId: string; correctOption: number; options: number; grading: Grading }>();
+  for (const p of packs) for (const l of p.lessons) for (const e of l.exercises) byId.set(e.id, { skillId: l.skillCode, correctOption: e.correctOption, options: e.options.length, grading: p.grading });
   return byId;
 };
 
@@ -76,6 +76,8 @@ export function grade(packs: Pack[], log: Attempt[], answer: Omit<Attempt, 'at'>
   const ex = exerciseIndex(packs).get(answer.exerciseId);
   if (!ex) throw new Error('That Exercise is not on this tablet.');
   if (!Number.isInteger(answer.selectedOption) || answer.selectedOption < 0 || answer.selectedOption >= ex.options) throw new Error('Choose one of the options.');
+  // Only an ON_DEVICE Pack carries its answer key; an ON_SYNC one is recorded unmarked and graded on upload.
+  if (ex.grading !== 'ON_DEVICE') throw new Error('This Content Pack is graded when the tablet next connects.');
   const correct = answer.selectedOption === ex.correctOption;
   const counted = !log.some((a) => a.exerciseId === answer.exerciseId);
   return { correct, counted, coins: correct && counted ? COINS_PER_CORRECT : 0, correctOption: ex.correctOption, attempt: { ...answer, at: now } };

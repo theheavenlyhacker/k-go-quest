@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpen, ChevronRight, CircleHelp, Coins, Download, Gift, Globe, Lock, MapPin, Repeat2, ChartColumn } from 'lucide-react-native';
+import { BookOpen, ChevronRight, CircleHelp, Coins, Download, Gift, Globe, Lock, MapPin, Repeat2, Sparkles, Trophy, ChartColumn } from 'lucide-react-native';
 
 import { useApp } from '../state/app-context';
 import { initials } from '../domain/format';
@@ -37,6 +37,8 @@ export function AppBar({ title, subtitle, onMenu }: { title: string; subtitle?: 
 const TABS = [
   // Nav Bar · Student (472:152)
   { name: 'learn', label: 'Learn', icon: BookOpen },
+  { name: 'league', label: 'League', icon: Trophy },
+  { name: 'tutor', label: 'Tutor', icon: Sparkles },
   { name: 'progress', label: 'Progress', icon: ChartColumn },
   { name: 'rewards', label: 'Shop', icon: Gift },
 ] as const;

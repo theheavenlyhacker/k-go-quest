@@ -17,7 +17,8 @@ function lesson(packId: string, slug: string, title: string, skillCode: string, 
 }
 
 function pack(id: string, subject: Subject, title: string, skills: string[], lessons: Lesson[]): Pack {
-  return { id, subject, title, grade: 5, version: '1.0.0', skills: skills.map(skill), lessons };
+  // The Starter Pack ships inside the app, so its answer key is already here and grading is instant.
+  return { id, subject, title, grade: 5, version: '1.0.0', grading: 'ON_DEVICE', skills: skills.map(skill), lessons };
 }
 
 const math = pack('math5', 'MATH', 'Fractions & Decimals', ['math5.fractions.equivalent', 'math5.fractions.add', 'math5.decimals.place-value'], [
