@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24.9.0"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -30,6 +33,9 @@
     "smoke:configured": "node scripts/smoke-configured.cjs",
     "migration:run": "ts-node ./node_modules/typeorm/cli.js migration:run -d src/database/typeorm-cli.ts",
     "migration:revert": "ts-node ./node_modules/typeorm/cli.js migration:revert -d src/database/typeorm-cli.ts",
+    "prod:migrate": "node dist/database/migrate.js",
+    "prod:check": "node dist/database/check.js",
+    "prod:bootstrap": "node dist/database/bootstrap.js",
     "bootstrap": "ts-node src/database/bootstrap.ts",
     "seed": "ts-node src/database/seed.ts",
     "model:import": "ts-node src/database/import-model.ts",

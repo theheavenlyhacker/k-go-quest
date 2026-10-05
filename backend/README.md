@@ -96,6 +96,12 @@ The tests include a conflicting `public.users` table to verify schema isolation,
 
 `npm run db:export` regenerates SQL from the migration. `npm run db:revert` removes the initial schema and is intended only for disposable development databases.
 
+**Node 24.9 or newer.** `package.json` says so, and it is the test suite that needs it: Jest loads `@nestjs/testing` through `require(esm)`, which earlier versions cannot do, and the failure reads as a confusing "Must use import to load ES Module" rather than a version complaint. CI and the Dockerfile are both on 24.
+
+## In a deployed container
+
+The production image carries only `dist/`, `package.json` and `node_modules`, so every script that calls `ts-node src/...` fails there. Use the compiled equivalents instead: `npm run prod:migrate` applies migrations under the deployment lock, `npm run prod:check` prints the same readiness report as `db:check`, and `npm run prod:bootstrap` creates the first LGU admin. All three read the same environment variables as their development counterparts and are safe to re-run; migrate reports `0 migration(s) applied` when there is nothing to do. See `docs/deployment.md` §4.8.
+
 ## Next integrations
 
 Python training, on-device speech/OCR/essay evaluation, verified MATATAG mapping, camera paper grading, printable PDF generation, chat moderation, hubs, MDM commands, avatars, guardian messaging, accredited credentials, funding workflows and offline voucher claiming are not implemented. Quiz building selects existing items and returns teacher-only JSON. Reward issuance and claiming are online to centrally check stock and wallet balances. Khan Academy ingestion and branding require appropriate permissions.

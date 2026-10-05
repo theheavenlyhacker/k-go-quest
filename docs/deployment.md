@@ -34,7 +34,8 @@ None of these stop a demo. All of them would hurt in a classroom.
 3. **The League is exhibition-grade.** There are no cohort-stability rules, no
    skill-coverage requirement and no anti-collusion checks. Do not let funding
    or a prize depend on a rank until `SPEC.md` GM-9 is closed.
-4. **`feat/online-mode` is not merged.** Everything in §4 lives on that branch.
+4. ~~**`feat/online-mode` is not merged.**~~ Merged. Everything in §4 is on
+   `main`.
 
 **Known defects worth fixing first**
 
@@ -51,11 +52,18 @@ None of these stop a demo. All of them would hurt in a classroom.
 
 **Untested**
 
-8. **The sync chain has never run over HTTP.** Every piece has tests and the
-   database half is now verified — the schema is ready and the Starter Pack is
-   imported — but login to classroom to upload has not been exercised end to
-   end. One command does it, from a machine with the toolchain installed
-   natively:
+8. ~~**The sync chain has never run over HTTP.**~~ It has now, against a
+   disposable PostgreSQL 16. The compiled artefact — `dist/` and a pruned
+   `node_modules`, which is exactly what the image carries — ran its
+   migrations, first-admin bootstrap and demo seed from `dist/`, and then, over
+   real HTTP: all three roles signing in, scoped reports, an upload retried to
+   prove it is idempotent, checksum verification, the wallet and voucher path
+   and the Teacher quiz. The backend's own 27-test end-to-end suite passed
+   against a second disposable database on the same server.
+
+   What has still not been exercised is that chain against **your** database:
+   that run had no Aiven in it, no TLS and no real Content Pack. One command
+   closes it, from a machine with the toolchain installed natively:
 
    ```bash
    cd backend && npm run smoke:configured
@@ -203,14 +211,17 @@ model fitted on nothing is worse than no model.
 
 | Endpoint | Means |
 |---|---|
-| `GET /api/v1/health` | the process is up |
+| `GET /api/v1/health/live` | the process is listening — use this as the liveness probe |
 | `GET /api/v1/health/ready` | **503 until the schema is complete** — use this as the readiness probe |
+
+There is no `GET /api/v1/health`. It answers 404, and a platform health check
+pointed at it fails every deploy.
 
 ### 4.8 Railway, specifically
 
 Railway builds the Dockerfile, terminates HTTPS for you and hands the process
 environment variables — nothing else. It is a reasonable home for this backend.
-Six things differ from §4.4, and the second and third will bite you.
+Seven things differ from §4.4, and the second, third and sixth will bite you.
 
 1. **Set the service root directory to `backend`.** Railway looks for a
    Dockerfile at the repository root; this one lives in `backend/`. Settings →
@@ -228,12 +239,24 @@ Six things differ from §4.4, and the second and third will bite you.
    yourself is how you get a deploy that builds and never answers.
 5. **Keep replicas at 1.** Rate limits live in process memory (§4.4). Two
    replicas each enforce half the limit.
-6. **Migrations are yours to run.** Railway has no release phase, so the first
-   deploy comes up against an empty database and `/api/v1/health/ready` answers
-   503 until you run §4.5 from your laptop against the same `DATABASE_URL`. For
-   that reason point Railway's own health check at `/api/v1/health`, not
-   `/health/ready`, or the first deploy will roll itself back before you get the
-   chance.
+6. **Point the health check at `/api/v1/health/live`.** Not `/health/ready`:
+   the first deploy comes up against a database with no schema, readiness
+   answers 503 until migrations run, and Railway would roll the deploy back
+   before you got the chance. `live` says only that the process is listening,
+   which is all a platform check should ask.
+7. **Migrations are yours to run.** Railway has no release phase, so run them
+   once the service is up — from your laptop against the same `DATABASE_URL`
+   (§4.5), or as a one-off command on the service:
+
+   ```bash
+   railway run --service <name> npm run prod:migrate     # node dist/database/migrate.js
+   railway run --service <name> npm run prod:check       # must print ready: true
+   railway run --service <name> npm run prod:bootstrap   # the first LGU admin
+   ```
+
+   Use the `prod:` scripts there, not `npm run migration:run`. That one calls
+   `ts-node` over `src/`, and the final image carries only `dist/` and
+   `node_modules` — there is no TypeScript left in it to run.
 
 The variables, in full:
 
@@ -254,6 +277,27 @@ SWAGGER_ENABLED=false
 `CORS_ORIGINS` must be explicit `https://` origins — the validator rejects `*`
 and refuses to start. The tablets do not use CORS at all, so if there is no web
 admin yet, the Railway URL itself is a harmless placeholder.
+
+**There is no config file to commit.** Railway's `railway.json` and
+`railway.toml` are deprecated — they keep working until 1 December 2026, but a
+service created now cannot use them, so this repository deliberately carries
+neither. Set the seven things above in the dashboard. The replacement, if you
+would rather keep configuration in the repository, is Infrastructure as Code: a
+`.railway/railway.ts` at the repository root. That is more machinery than one
+service needs, and it would be the first thing at the root of this repository to
+depend on npm.
+
+**What of this has actually been run.** The production artefact — `npm ci`,
+`npm run build`, `npm prune --omit=dev`, then `dist/`, `package.json` and
+`node_modules` alone, which is exactly what the image's final stage carries —
+was booted with `NODE_ENV=production` against PostgreSQL 16 over TLS, with the
+CA supplied inline in `DATABASE_CA` with its newlines escaped. Migrations, the
+schema check and the first-admin bootstrap all ran from `dist/`.
+`health/live` answered 200 throughout; `health/ready` answered 503 before
+migrations and 200 after; a deliberately wrong CA was refused with "unable to
+verify the first certificate" rather than quietly accepted. `nest build` also
+succeeds without `test/` and `docs/`, which `.dockerignore` strips. Not run
+here: `docker build` itself, and Railway's own edge.
 
 **The models do not go on Railway.** Neither model is a service: training is a
 laptop job that writes BKT parameters into the database and handwriting weights
@@ -481,7 +525,8 @@ not backed up by anything — a lost tablet is a lost Learner history unless tha
 Profile was linked and synced. Say this plainly to the school rather than
 discovering it after a theft.
 
-**Watch.** `/health/ready` for liveness, database connection count and disk, and
+**Watch.** `/health/live` for liveness and `/health/ready` for readiness,
+database connection count and disk, and
 the `audit_events` table, which already records every mutation. Failed-login
 patterns are in there too.
 
