@@ -78,6 +78,18 @@ A Profile becomes Linked when the Caretaker, while signed in, ties it to a
 Learner account the LGU Admin has already provisioned. Nothing is uploaded for
 an unlinked Profile — a tablet can run its whole life with none.
 
+**Setup no longer needs a network at all.** The Clerk sign-in is offered first,
+but a Caretaker with no signal can choose *Set up without a network* and go
+straight to the Caretaker PIN and the first Profiles. The tablet then has a
+Caretaker but no Caretaker Account, and that costs exactly one thing: Forgot
+Caretaker PIN works by signing in to prove who you are, so until an account is
+linked there is nothing to prove it against and a forgotten PIN means erasing
+the tablet. The Setup screen says so before the choice is made, the Caretaker
+screen carries a *Link a Caretaker Account* card until it is done, and the
+Forgot-PIN screen says plainly that nothing is linked rather than offering a
+sign-in that cannot succeed. Linking later needs a network once and nothing
+else.
+
 Two identities is a cost, and it is taken deliberately: the Caretaker Account
 answers *who owns this tablet* and works at Setup with no K-Go server at all,
 while the server account answers *which school and jurisdiction this tablet

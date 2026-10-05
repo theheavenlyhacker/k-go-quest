@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LockKeyhole, Plus } from 'lucide-react-native';
@@ -13,17 +13,21 @@ import { ProfileSync, ServerPanel } from '@/ui/server-panel';
 import { Screen } from '@/ui/screen';
 import { tokens, useTheme } from '@/ui/theme';
 
+// Clerk is loaded only when a Caretaker actually chooses to link an account.
+const CaretakerSignIn = lazy(() => import('@/ui/caretaker-sign-in'));
+
 const lessonTitle = (packs: Pack[], skillId: string) => packs.flatMap((p) => p.lessons).find((l) => l.skillCode === skillId)?.title ?? skillId;
 
 /** Every Profile with its Plateau Flags, and the Caretaker's Profile actions. */
 export default function Caretaker() {
-  const { profiles, closeCaretaker, createProfile, deleteProfile, toast } = useApp();
+  const { profiles, closeCaretaker, createProfile, deleteProfile, accountLinked, toast } = useApp();
   const [adding, setAdding] = useState(false);
   const router = useRouter();
   const theme = useTheme();
   return (
     <Screen title="Caretaker" caption="Profiles on this tablet">
       <BackLink label="Close Caretaker screen" onPress={closeCaretaker} />
+      {accountLinked ? null : <LinkAccountCard />}
       <Eyebrow>School server</Eyebrow>
       <ServerPanel />
       <Eyebrow>Content Packs</Eyebrow>
@@ -42,6 +46,37 @@ export default function Caretaker() {
         <AddProfileForm onCreate={async (alias, pin) => { await createProfile(alias, pin, false); setAdding(false); }} />
       </Sheet>
     </Screen>
+  );
+}
+
+/**
+ * Shown only on a tablet set up with no network. Linking is the one thing that
+ * makes a forgotten Caretaker PIN recoverable, so this sits at the top until
+ * it is done rather than hiding in a settings list.
+ */
+function LinkAccountCard() {
+  const { linkCaretakerAccount, toast } = useApp();
+  const [signingIn, setSigningIn] = useState(false);
+  return (
+    <>
+      <Eyebrow>Caretaker Account</Eyebrow>
+      <Card style={{ gap: 8 }}>
+        <T size={12}>
+          This tablet was set up without one. Until an account is linked, a forgotten
+          Caretaker PIN cannot be recovered — the only way back would be erasing the tablet.
+        </T>
+        <Button title="Link a Caretaker Account" icon={LockKeyhole} variant="soft" onPress={() => setSigningIn(true)} />
+      </Card>
+      <Sheet visible={signingIn} title="Link a Caretaker Account" onClose={() => setSigningIn(false)}>
+        <T size={12}>This needs a network once. Use the email of your Caretaker Account.</T>
+        <Suspense fallback={<T size={12}>Loading sign-in...</T>}>
+          <CaretakerSignIn onSignedIn={async (id, signOut) => {
+            await linkCaretakerAccount(id, signOut);
+            setSigningIn(false); toast('Caretaker Account linked.', 'success');
+          }} />
+        </Suspense>
+      </Sheet>
+    </>
   );
 }
 

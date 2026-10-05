@@ -45,7 +45,10 @@ None of these stop a demo. All of them would hurt in a classroom.
 6. Two identity systems: Clerk for the Caretaker Account at Setup, the backend's
    own accounts for Online Mode. Deliberate and documented in
    `online-mode.md`, but it is two things to operate, two things to pay for and
-   two places a sign-in can fail.
+   two places a sign-in can fail. It no longer blocks a tablet with no signal:
+   Setup can be finished without a network and the account linked later. The
+   price of not linking is that a forgotten Caretaker PIN cannot be recovered,
+   which every screen involved says out loud.
 7. The handwriting model has never seen a Filipino learner's handwriting. 98.3%
    on held-out MNIST says nothing about a Grade 5 fingertip. Collect a few
    hundred labelled samples from the pilot before trusting it anywhere it counts.
@@ -371,7 +374,10 @@ own identifier, not anything a Learner sees.
 Build the release once and check these by hand, because a release build differs
 from Expo Go in ways that only show up at runtime: the ink pad, the voice hints
 (`expo-speech` needs a Filipino voice installed on the device), the encrypted
-SQLite cache surviving an app restart, and the first launch of Setup.
+SQLite cache surviving an app restart, and the first launch of Setup. Do that
+last one **twice** — once signed in, and once with the radio switched off, all
+the way through to a Learner answering a question — because a school with no
+signal is the case this product exists for.
 
 ### 5.4 Getting it onto DepEd tablets
 

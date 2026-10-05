@@ -20,23 +20,36 @@ export default function Setup() {
 }
 
 function SignInStep() {
-  const { saveCaretakerId, caretakerSignedOut } = useApp();
+  const { saveCaretakerId, caretakerSignedOut, setUpWithoutAccount } = useApp();
   // Only after the Clerk sign-out has finished does Setup leave this step and unmount Clerk.
   const onSignedIn = async (id: string, signOut: () => Promise<void>) => { await keepCaretaker(id, saveCaretakerId, signOut); caretakerSignedOut(); };
   return (
     <>
       <T size={12}>Setup needs a network only for this sign-in. Use the email of your Caretaker Account.</T>
       <Suspense fallback={<T size={12}>Loading sign-in...</T>}><CaretakerSignIn onSignedIn={onSignedIn} /></Suspense>
+      <Eyebrow>No network here</Eyebrow>
+      <T size={12}>
+        Set this tablet up now and link a Caretaker Account later, from the Caretaker screen.
+        Everything a Learner does works the same either way.
+      </T>
+      <T size={12} bold>Until an account is linked, a forgotten Caretaker PIN cannot be recovered.</T>
+      <Action title="Set up without a network" variant="soft" task={setUpWithoutAccount} />
     </>
   );
 }
 
 function PinStep() {
-  const { setCaretakerPin } = useApp();
+  const { setCaretakerPin, accountLinked } = useApp();
   const [pin, setPin] = useState('');
   return (
     <>
-      <T size={12}>Signed in. Choose a 6-digit Caretaker PIN. You will use it offline to manage profiles.</T>
+      <T size={12}>
+        {accountLinked ? 'Signed in. ' : ''}
+        Choose a 6-digit Caretaker PIN. You will use it offline to manage profiles.
+      </T>
+      {accountLinked ? null : (
+        <T size={12} bold>This tablet has no Caretaker Account, so write this PIN down somewhere safe.</T>
+      )}
       <Field label="Caretaker PIN" value={pin} onChangeText={(v) => setPin(v.replace(/\D/g, ''))} keyboardType="number-pad" secureTextEntry maxLength={6} />
       <Action title="Save PIN" disabled={!isValidPin(pin)} task={() => setCaretakerPin(pin)} />
     </>
