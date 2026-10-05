@@ -336,29 +336,37 @@ available in this project.
 
 ### 5.3 Build
 
-`eas.json` currently has only a `preview` profile that makes an internal APK.
-Add a production profile:
-
-```json
-"production": {
-  "android": { "buildType": "app-bundle" },
-  "env": { "EXPO_PUBLIC_API_URL": "https://api.your-domain.ph/api/v1" }
-}
-```
+`eas.json` has three profiles:
 
 ```bash
 cd mobile
-npx eas-cli build --platform android --profile preview      # APK, for sideloading
-npx eas-cli build --platform android --profile production   # AAB, for the Play Store
+npx eas-cli build --platform android --profile preview      # APK, internal, for testing
+npx eas-cli build --platform android --profile production   # APK, for the tablets
+npx eas-cli build --platform android --profile play-store   # AAB, only for the Play Store
 ```
 
-Use the **APK** for DepEd tablets you install by hand or through an MDM. Use the
-**AAB** only if you are going through the Play Store.
+Use the **APK** for DepEd tablets you install by hand or through an MDM. The
+**AAB** is only for the Play Store, which this is not going through yet.
 
-Before the first build, bump `version` in `app.json` and set `android.versionCode`
-— or let `eas.json`'s `appVersionSource` manage it, but pick one and be
-consistent, because a tablet will refuse an update whose versionCode is not
-higher.
+**Set `EXPO_PUBLIC_API_URL` for the build.** Without it a release APK stays
+offline permanently and says nothing about it: practice, grading, Mastery,
+Coins, Cosmetics and Growth all work, but nothing uploads, the League is empty
+and no Content Pack can be downloaded. `resolveApiUrl` refuses a plain-HTTP
+address outside development and the tablet treats the refusal as "no server",
+which is the right behaviour and an easy thing to ship by accident. Set it as
+an EAS environment variable on the profile, or in `.env.local` for a local
+build. `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` is needed the same way for the
+Caretaker sign-in; that screen at least says so on itself.
+
+`app.json` carries `android.versionCode: 1`. **Bump it on every build** — a
+tablet refuses an update whose versionCode is not higher than the one
+installed.
+
+The application id is `ph.kgoquests.app` and the label under the icon is
+`K-Go Quests`. **Neither can change after the first install** — a tablet
+treats a different package as a different app, with its own data and no upgrade
+path. The `slug` stays `k-go-quests-mobile` because that is the EAS project's
+own identifier, not anything a Learner sees.
 
 Build the release once and check these by hand, because a release build differs
 from Expo Go in ways that only show up at runtime: the ink pad, the voice hints
@@ -452,7 +460,15 @@ The second form re-exports from the saved checkpoint without retraining. Both
 print per-class held-out accuracy; that number goes into the model file and onto
 the screen the Learner sees, so it is never a claim, only a measurement.
 
-**This does need an app release.** The 279 KB of weights ship inside the APK.
+**This does need an app release.** The 279 KB of weights ship inside the APK —
+verified, not assumed: an Android production export inlines all 26,731 of them
+into the JavaScript bundle, and Hermes compiles that bundle to bytecode without
+complaint. The fitted BKT parameters in `src/content/fitted-parameters.ts` and
+the Starter Pack ride along the same way. Loading the model costs a few
+milliseconds at startup, which is why it is a plain import and not a lazy one.
+`recognise.test.ts` re-checks the shipped weights against the probabilities
+NumPy produced on every push, so a truncated or stale model file fails CI
+rather than the classroom.
 If retraining becomes frequent — and it should, once real handwriting is being
 collected — move the weights into the Content Pack so they download like
 content. The model file already carries its own version string for that.
