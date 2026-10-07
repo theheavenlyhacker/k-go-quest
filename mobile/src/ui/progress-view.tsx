@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CircleCheck, Clock, Flame, TriangleAlert } from 'lucide-react-native';
+import { Award, Flame, Gauge, TriangleAlert } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { meanMastery, pct } from '@/domain/format';
 import { MASTERED_AT, growth, learningState, type Attempt, type LearningState } from '@/domain/engine';
 import type { Pack } from '@/domain/types';
+import { badges, dailyAnswers, recentAchievements, streak } from '@/domain/progress';
+import type { Purchase } from '@/domain/shop';
 import { subjectTitles } from '@/domain/subjects';
 import { Bar, Card, Eyebrow, Pill, Ring, Row, T, Trend } from '@/ui/primitives';
 import { radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -25,25 +27,13 @@ function weekly(packs: Pack[], log: Attempt[], now: number): number[] {
   return points;
 }
 
-/** Consecutive days up to today on which the Learner answered at least once. */
-function streak(log: Attempt[], now: number): number {
-  const days = new Set(log.map((a) => new Date(a.at).toDateString()));
-  let count = 0;
-  for (let back = 0; back < 365; back += 1) {
-    const day = new Date(now - back * 24 * 60 * 60 * 1000).toDateString();
-    if (days.has(day)) count += 1;
-    else if (back > 0) break;
-  }
-  return count;
-}
-
 /**
  * My Progress — 04 · My Progress (450:154).
  *
  * `readOnly` is the Caretaker's view of someone else's Profile: same numbers,
  * no Lesson links.
  */
-export function ProgressView({ learning, attempts, balance, readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; readOnly?: boolean }) {
+export function ProgressView({ learning, attempts, balance, purchases = [], readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; purchases?: Purchase[]; readOnly?: boolean }) {
   const router = useRouter();
   const { packs } = useApp();
   const theme = useTheme();
@@ -56,12 +46,20 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
   const overall = meanMastery(learning.skills);
   // Percentage points gained across the window the sparkline draws.
   const gained = Math.round((trend[trend.length - 1] - trend[0]) * 100);
-  const mastered = learning.skills.filter((skill) => skill.mastered).length;
-  const thisWeek = attempts.filter((a) => now - Date.parse(a.at) < WEEK).length;
+  const days = dailyAnswers(attempts, now);
+  const busiest = Math.max(1, ...days.map((d) => d.count));
+  const achievements = recentAchievements(purchases);
   const flagged = learning.skills.filter((skill) => skill.plateau);
 
   return (
     <>
+      {/* stats (450:226) */}
+      <Row style={{ gap: 10, alignItems: 'stretch' }}>
+        <Stat icon={Gauge} color={tokens.brand.limeDeep} value={pct(overall)} label="Mastery" index={0} />
+        <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="Day streak" index={1} />
+        <Stat icon={Award} color={tokens.brand.grape} value={`${badges(purchases).length}`} label="Badges" index={2} />
+      </Row>
+
       {/* mastery (450:156) */}
       <Card style={{ gap: 12 }}>
         <Row style={{ gap: 10 }}>
@@ -124,7 +122,7 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
             const title = lesson?.title ?? skill.skillId;
             if (readOnly || !lesson) return <T key={skill.skillId} variant="bodyS" color={theme.secondary}>{`${title} · ${pct(skill.mastery)}`}</T>;
             return (
-              <Pressable key={skill.skillId} accessibilityRole="link" onPress={() => router.push({ pathname: '/lesson', params: { lessonId: lesson.id } })}>
+              <Pressable key={skill.skillId} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="link" onPress={() => router.push({ pathname: '/lesson', params: { lessonId: lesson.id } })}>
                 <T variant="bodyS" color={theme.navActive}>{`${title} · ${pct(skill.mastery)} — open the Lesson`}</T>
               </Pressable>
             );
@@ -132,12 +130,44 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
         </Card>
       ) : null}
 
-      {/* stats (450:226) */}
-      <Row style={{ gap: 10, alignItems: 'stretch' }}>
-        <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="day answer streak" />
-        <Stat icon={CircleCheck} color={tokens.state.success} value={`${mastered}`} label="skills mastered" />
-        <Stat icon={Clock} color={tokens.brand.sky} value={`${thisWeek}`} label="answers this week" />
-      </Row>
+      <Eyebrow>This week</Eyebrow>
+
+      <Card index={4} style={{ gap: 10 }}>
+        <View
+          accessible
+          accessibilityLabel={`Answers each day this week: ${days.map((d) => d.count).join(', ')}`}
+          style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 84 }}
+        >
+          {days.map((d, i) => (
+            <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: '100%' }}>
+              <View style={{ width: '100%', height: Math.max(3, (d.count / busiest) * 58), borderRadius: radius.sm / 2, backgroundColor: d.count ? tokens.brand.sky : theme.surfaceAlt }} />
+              <T variant="dataS" color={theme.muted}>{d.label}</T>
+            </View>
+          ))}
+        </View>
+        <T variant="bodyS" color={theme.muted}>Answers saved each day. This tablet counts answers, not minutes.</T>
+      </Card>
+
+      <Eyebrow>Recent achievements</Eyebrow>
+
+      {achievements.length ? (
+        <Card index={5} style={{ gap: 11 }}>
+          {achievements.map((a) => (
+            <Row key={a.id} style={{ gap: 11 }}>
+              <Award size={18} color={tokens.brand.grape} />
+              <T variant="titleS" style={{ flex: 1 }}>{a.name}</T>
+              <T variant="bodyS" color={theme.muted}>{new Date(a.at).toLocaleDateString()}</T>
+            </Row>
+          ))}
+        </Card>
+      ) : (
+        <Card index={5}>
+          <Row style={{ gap: 11 }}>
+            <Award size={18} color={theme.muted} />
+            <T variant="bodyS" color={theme.muted} style={{ flex: 1 }}>No badges yet. Coins from first answers buy them in My Rewards.</T>
+          </Row>
+        </Card>
+      )}
 
       <T variant="bodyS" color={theme.muted}>
         {`${balance} Coins earned from first answers. Mastery is an estimate from your first answer to each question, never a grade.`}
@@ -147,10 +177,10 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
 }
 
 /** stat/… (450:227): one number, one word, nothing invented. */
-function Stat({ icon: Icon, color, value, label }: { icon: typeof Flame; color: string; value: string; label: string }) {
+function Stat({ icon: Icon, color, value, label, index }: { icon: typeof Flame; color: string; value: string; label: string; index: number }) {
   const theme = useTheme();
   return (
-    <Card style={{ flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 14 }}>
+    <Card index={index} style={{ flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 14 }}>
       <Icon size={21} color={color} strokeWidth={1.9} />
       <T variant="displayL">{value}</T>
       <T variant="bodyS" color={theme.muted} style={{ textAlign: 'center' }}>{label}</T>

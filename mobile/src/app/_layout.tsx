@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { PublicSans_400Regular, PublicSans_700Bold } from '@expo-google-fonts/public-sans';
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
+import { ReduceMotion, ReducedMotionConfig } from 'react-native-reanimated';
 import { CircleCheck, Info, TriangleAlert, X } from 'lucide-react-native';
 
 import { AppProvider, useApp } from '@/state/app-context';
@@ -25,6 +26,8 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   return (
     <AppProvider>
+      {/* Entrance motion and bar fills drop to nothing when the system asks for reduced motion. */}
+      <ReducedMotionConfig mode={ReduceMotion.System} />
       {/* Online Mode wraps the app but never gates it: with no server, every
           screen below behaves exactly as it does offline. */}
       <OnlineProvider>
