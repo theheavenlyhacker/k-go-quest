@@ -1,5 +1,4 @@
-import { Image } from 'expo-image';
-import type { ViewStyle } from 'react-native';
+import { Image, type ImageProps } from 'expo-image';
 
 const assets: Record<string, Record<string, number>> = {
   '34:10': {
@@ -366,7 +365,7 @@ const assets: Record<string, Record<string, number>> = {
 };
 
 /** Original, locally bundled SVG artwork from the live Figma frames. */
-export function FigmaAsset({ frame, name, width, height, style }: { frame: string; name: string; width: number; height: number; style?: ViewStyle }) {
+export function FigmaAsset({ frame, name, width, height, style }: { frame: string; name: string; width: number; height: number; style?: ImageProps['style'] }) {
   const source = assets[frame]?.[name];
   if (!source) return null;
   return <Image source={source} contentFit="contain" accessible={false} style={[{ width, height }, style]} />;
