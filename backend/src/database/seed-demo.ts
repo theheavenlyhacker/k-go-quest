@@ -253,6 +253,17 @@ export async function seedDemo(
   const catalogue = readCatalogue(resolve(options.file ?? DEMO_PACK_FILE));
   if (options.reset) await resetDemo(db);
   const passwordHash = await hashPassword(options.password);
+  /**
+   * A loginId is unique across the whole server, so a name this seed wants may
+   * already belong to a row `db:seed` made under a different id. Adopt that row
+   * instead of inserting beside it: the insert fails on users_loginId_key and
+   * leaves the seed half done, which is how a demo database ends up with two
+   * schools, no classrooms and no learners.
+   */
+  const existingIds = new Map(
+    (await db.getRepository(User).find({ select: { id: true, loginId: true } }))
+      .map((u) => [u.loginId, u.id] as const),
+  );
   const account = (
     loginId: string,
     alias: string,
@@ -260,7 +271,7 @@ export async function seedDemo(
     schoolId: string | null,
   ) =>
     Object.assign(new User(), {
-      id: id(`user:${loginId}`),
+      id: existingIds.get(loginId) ?? id(`user:${loginId}`),
       loginId,
       alias,
       role,
@@ -270,19 +281,19 @@ export async function seedDemo(
       lockedUntil: null,
       createdAt: new Date(now - 70 * DAY),
     });
+  // The Jurisdiction is not the admin's to create: every demo account points at
+  // it, so it has to exist even on a database where `db:bootstrap` already made
+  // the admin and this block is skipped. Creating it only alongside the admin is
+  // how the seed fails on users_jurisdictionId_fkey instead.
+  if (!(await db.getRepository(Jurisdiction).existsBy({ id: LGU })))
+    await db
+      .getRepository(Jurisdiction)
+      .save(Object.assign(new Jurisdiction(), { id: LGU, name: 'Demo LGU' }));
   // The admin and the Starter Pack come first: import-pack needs an admin to publish under.
   if (!(await db.getRepository(User).existsBy({ loginId: DEMO_ADMIN })))
-    await db.transaction(async (m) => {
-      if (!(await m.existsBy(Jurisdiction, { id: LGU })))
-        await m.save(
-          Jurisdiction,
-          Object.assign(new Jurisdiction(), { id: LGU, name: 'Demo LGU' }),
-        );
-      await m.save(
-        User,
-        account(DEMO_ADMIN, 'LGU administrator', Role.LGU_ADMIN, null),
-      );
-    });
+    await db
+      .getRepository(User)
+      .save(account(DEMO_ADMIN, 'LGU administrator', Role.LGU_ADMIN, null));
   const admin = await db
     .getRepository(User)
     .findOneByOrFail({ loginId: DEMO_ADMIN });
