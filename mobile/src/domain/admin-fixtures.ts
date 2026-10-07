@@ -1,4 +1,5 @@
 import type { ServerUser } from './server';
+import { fixtureLibrary } from './admin-library';
 import type { AdminData, DeviceRecord, EngagementDay, ReachRecord } from './admin';
 
 /**
@@ -60,8 +61,9 @@ export function fixtureAdminData(today: string): AdminData {
       attempts: 18420,
       disclaimer: 'Practice estimates, not measured learning impact. No cost or hours-saved claims are inferred.',
     },
-    users: [...Array.from({ length: 42 }, (_, i) => user(i + 1, 'TEACHER')), user(100, 'LGU_ADMIN')],
+    users: [...Array.from({ length: 42 }, (_, i) => user(i + 1, 'TEACHER')), user(100, 'LGU_ADMIN'), ...Array.from({ length: 8 }, (_, i) => ({ ...user(200 + i, 'STUDENT'), active: i % 4 !== 3 }))],
     devices: fixtureDevices(today),
+    library: fixtureLibrary(),
     engagement: fixtureEngagement(today),
     reach: fixtureReach(today),
   };
