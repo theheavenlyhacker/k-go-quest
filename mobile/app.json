@@ -14,7 +14,7 @@
       "package": "ph.kgoquests.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0C4A3E",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -32,7 +32,7 @@
         {
           "backgroundColor": "#0C4A3E",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 190
         }
       ],
       "expo-sqlite",
@@ -48,6 +48,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "expo-navigation-bar": {
+        "style": "light",
+        "hidden": true
+      },
+      "eas": {
+        "projectId": "029dd0bc-351a-4a15-b937-17fa85d621cf"
+      }
     }
   }
 }

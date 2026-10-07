@@ -28,3 +28,22 @@ export function signInProblem(error: unknown): SignInProblem {
 
 export const canSubmit = (email: string, password: string, busy: boolean) =>
   !busy && email.trim().length >= 3 && password.length >= 8;
+
+/**
+ * What to add under "No connection", so the message names the address that was
+ * actually tried.
+ *
+ * Without this the screen blames the Wi-Fi for a build that has no server
+ * address compiled into it at all: `EXPO_PUBLIC_API_URL` is inlined at bundle
+ * time, so a release built without it silently falls back to a development
+ * address on the machine the tablet is holding, which nothing is listening on.
+ * The Wi-Fi is fine; the build is wrong, and only the address can tell them
+ * apart.
+ */
+export function connectionDetail(apiUrl: string | null, configured: boolean): string {
+  if (!apiUrl) return 'This tablet has no school server address, so there is nothing to reach.';
+  const host = apiUrl.replace(/^https?:\/\//, '').split('/')[0];
+  return configured
+    ? `Tried ${host}.`
+    : `This build has no server address compiled into it, so it tried a development one at ${host}. Set EXPO_PUBLIC_API_URL and build again.`;
+}

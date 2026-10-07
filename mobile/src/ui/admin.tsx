@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { ClipboardList, CircleHelp, Download, Folder, LayoutDashboard, LogOut, Settings, Tablet, TrendingUp, User, Users, type LucideIcon } from 'lucide-react-native';
+import { ClipboardList, CircleHelp, CloudOff, Download, Folder, LayoutDashboard, LogOut, Settings, Tablet, TrendingUp, User, Users, type LucideIcon } from 'lucide-react-native';
 
+import { ago } from '../domain/format';
 import { useOnline } from '../state/online-context';
 import type { AdminLoad } from '../state/admin-data';
 import { Sidebar, type NavTabSpec } from './chrome';
@@ -80,5 +81,17 @@ export function LoadGate({ load, children }: { load: AdminLoad & { reload: () =>
         <Button title="Try again" variant="soft" onPress={load.reload} />
       </>
     );
-  return <>{children(load)}</>;
+  return (
+    <>
+      {load.data.stale ? (
+        <Info
+          icon={CloudOff}
+          color={tokens.state.warning}
+          title={load.data.loadedAt ? `Last updated ${ago(load.data.loadedAt)}` : 'Last updated'}
+          text="The school server cannot be reached, so this is the last report saved on this tablet. It refreshes when the connection returns."
+        />
+      ) : null}
+      {children(load)}
+    </>
+  );
 }

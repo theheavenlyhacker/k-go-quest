@@ -5,7 +5,8 @@ import { randomUUID } from 'expo-crypto';
 
 import { serverExerciseId } from '../content/catalog';
 import { FITTED_SKILL_PARAMETERS } from '../content/fitted-parameters';
-import { DEFAULT_SKILL_PARAMETERS } from '../content/starter-pack';
+import { DEFAULT_SKILL_PARAMETERS, starterPacks } from '../content/starter-pack';
+import { buildCheckInPayload, sendDeviceCheckIn } from '../domain/device-checkin';
 import { digest } from '../data/crypto';
 import { AttemptOutbox } from '../data/outbox';
 import { getRepository } from '../data/storage';
@@ -175,6 +176,32 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     return { ...result, deviceId, offlineUntil: Date.now() + OFFLINE_WINDOW };
   }, [apiUrl, client, device, watched]);
 
+  const checkIn = useCallback(async (session: Session) => {
+    if (!apiUrl) return;
+    try {
+      const deviceId = await device();
+      const repo = await getRepository();
+      let pendingAttempts = 0;
+      for (const pid of Object.keys(links)) {
+        try {
+          const [att, upl] = await Promise.all([repo.attempts(pid), repo.uploads(pid)]);
+          pendingAttempts += uploadSummary(att, upl).pending;
+        } catch { /* ignore */ }
+      }
+      const packs = [...starterPacks, ...downloaded.map((d) => d.pack)];
+      const payload = buildCheckInPayload(
+        deviceId,
+        Constants.expoConfig?.version ?? '1.0.0',
+        packs,
+        42,
+        pendingAttempts,
+      );
+      await sendDeviceCheckIn(apiUrl, session, payload);
+    } catch {
+      // Best effort: a failed check-in never blocks sign-in or sync.
+    }
+  }, [apiUrl, device, downloaded, links]);
+
   const signIn = useCallback(async (loginId: string, password: string) => {
     setBusy(true);
     try {
@@ -182,8 +209,9 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
       if (session.user.role === 'STUDENT')
         throw new LearnerAccountError();
       await store(CARETAKER_OWNER).write(session);
+      await checkIn(session);
     } finally { setBusy(false); }
-  }, [login, store]);
+  }, [checkIn, login, store]);
 
   const signOut = useCallback(async () => {
     const current = sessions.current.get(CARETAKER_OWNER);
@@ -263,8 +291,10 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     const summary = await engine.run(profileId);
     // The server's verdicts are now on disk; let Mastery and Coins catch up with them.
     await reloadVerdicts(profileId);
+    const session = sessions.current.get(profileId);
+    if (session) await checkIn(session);
     return summary;
-  }, [client, links, reloadVerdicts, watched]);
+  }, [checkIn, client, links, reloadVerdicts, watched]);
 
   /**
    * Asks the server whether it is there.

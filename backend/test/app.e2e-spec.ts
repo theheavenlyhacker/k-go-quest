@@ -113,7 +113,7 @@ describe('K-Go API on real PostgreSQL', () => {
     await app.init();
     db = app.get(DataSource);
     await db.query(
-      'TRUNCATE audit_events, quizzes, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
+      'TRUNCATE audit_events, quiz_papers, quizzes, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
     );
     const lgu = await db.manager.save(
       Jurisdiction,
@@ -637,6 +637,7 @@ describe('K-Go API on real PostgreSQL', () => {
       .send({ title: 'Mine now' })
       .expect(403);
     await http().get(`/api/v1/quizzes/${id}`).set(auth(student.accessToken)).expect(403);
+    await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(409);
     await http()
       .get(`/api/v1/quizzes?classroomId=${data.classroom.id}`)
       .set(auth(student.accessToken))
@@ -663,6 +664,21 @@ describe('K-Go API on real PostgreSQL', () => {
       .send({ title: 'Too late' })
       .expect(409);
     await http().post(`/api/v1/quizzes/${id}/publish`).set(auth(teacher.accessToken)).expect(409);
+    // Paper issuance: student and other teacher blocked, assigned teacher gets paper IDs for active learners
+    await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(student.accessToken)).expect(403);
+    await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(other.accessToken)).expect(403);
+    const papersRes = await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(201);
+    expect(papersRes.body).toHaveLength(1);
+    expect(papersRes.body[0]).toMatchObject({
+      quizId: id,
+      studentId: data.student.id,
+      alias: data.student.alias,
+    });
+    expect(papersRes.body[0].id).toBeDefined();
+
+    // Idempotent: issuing again returns the identical paper ID
+    const papersRes2 = await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(201);
+    expect(papersRes2.body[0].id).toBe(papersRes.body[0].id);
   });
   it('deducts coins once, scopes vouchers, prevents double claims and voucher login', async () => {
     const student = await login('student-test');
@@ -1025,5 +1041,57 @@ describe('K-Go API on real PostgreSQL', () => {
       .get('/api/v1/auth/me')
       .set(auth(teacher.accessToken))
       .expect(401);
+  });
+  it('manages device check-ins and lists devices with derived status for LGU Admin', async () => {
+    const teacher = await login('teacher-test');
+    const admin = await login('admin-test');
+    const otherAdmin = await login('other-admin');
+
+    const checkInPayload = {
+      deviceId: 'device-e2e-001',
+      appVersion: '1.0.0',
+      packVersions: [
+        {
+          id: data.pack.id,
+          version: data.pack.version,
+          subject: data.pack.subject,
+          grade: data.pack.grade,
+          title: data.pack.title,
+        },
+      ],
+      storageUsedPercent: 45,
+      pendingAttempts: 3,
+    };
+
+    // Teacher check-in
+    await request(app.getHttpServer())
+      .post('/api/v1/devices/check-in')
+      .set(auth(teacher.accessToken))
+      .send(checkInPayload)
+      .expect(201);
+
+    // LGU Admin can see the device as Online
+    const listRes = await request(app.getHttpServer())
+      .get('/api/v1/devices')
+      .set(auth(admin.accessToken))
+      .expect(200);
+
+    expect(listRes.body.items).toHaveLength(1);
+    expect(listRes.body.items[0].deviceId).toBe('device-e2e-001');
+    expect(listRes.body.items[0].status).toBe('Online');
+    expect(listRes.body.items[0].storageUsedPercent).toBe(45);
+
+    // Other jurisdiction admin cannot see this device
+    const otherRes = await request(app.getHttpServer())
+      .get('/api/v1/devices')
+      .set(auth(otherAdmin.accessToken))
+      .expect(200);
+    expect(otherRes.body.items).toHaveLength(0);
+
+    // Non-admin (teacher) cannot list devices
+    await request(app.getHttpServer())
+      .get('/api/v1/devices')
+      .set(auth(teacher.accessToken))
+      .expect(403);
   });
 });

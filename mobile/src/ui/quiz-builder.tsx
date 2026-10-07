@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Check, Replace, Trash2 } from 'lucide-react-native';
+import { Check, Printer, Replace, Trash2 } from 'lucide-react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+
+import { generateQuizPdfHtml, type QuizPaperLearner } from '../domain/quiz-paper-layout';
 
 import { skillLabel, suggestedSkills, toggleSkill, type ServerQuiz, type SkillChoice } from '../domain/quiz';
 import { subjects, subjectTitles } from '../domain/subjects';
@@ -21,6 +25,7 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
   const [quiz, setQuiz] = useState<ServerQuiz | null>(null);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const show = useCallback((next: ServerQuiz) => { setQuiz(next); setTitle(next.title); }, []);
@@ -40,6 +45,41 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
     if (quiz && pending && pending !== quiz.title) void caretakerCall('PATCH', `quizzes/${quizId}`, { title: pending }).then(finish, (e: unknown) => setError(message(e)));
     else finish();
   };
+
+  const printPapers = async () => {
+    if (!quiz) return;
+    setPrinting(true);
+    setError(null);
+    try {
+      const papers = await caretakerCall<QuizPaperLearner[]>('POST', `quizzes/${quizId}/papers`);
+      if (!papers || !papers.length) {
+        throw new Error('No active Learners found in this Classroom to issue papers.');
+      }
+      const html = generateQuizPdfHtml({
+        quizId: quiz.id,
+        title: quiz.title,
+        subject: quiz.subject,
+        learners: papers,
+        questions: quiz.questions,
+        answerKey: quiz.answerKey,
+      });
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          UTI: '.pdf',
+          mimeType: 'application/pdf',
+          dialogTitle: `Print ${quiz.title} Papers`,
+        });
+      } else {
+        await Print.printAsync({ html });
+      }
+    } catch (e: unknown) {
+      setError(message(e));
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const published = quiz?.status === 'PUBLISHED';
 
   if (!quiz) return error ? <Info title="Could not open this quiz" text={error} color={tokens.state.critical} /> : <ActivityIndicator accessibilityLabel="Loading" color={theme.navActive} />;
@@ -67,7 +107,14 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
       {published ? (
         <>
           <Info icon={Check} title="Published" text="This quiz is final. Print it for the paper test." />
-          <Button title="Done" onPress={saveAndClose} />
+          <Button
+            title="Print Quiz Papers"
+            icon={Printer}
+            loading={printing}
+            disabled={busy || printing}
+            onPress={() => void printPapers()}
+          />
+          <Button title="Done" variant="soft" onPress={saveAndClose} />
         </>
       ) : (
         <>

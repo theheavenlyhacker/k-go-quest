@@ -14,6 +14,7 @@ import { LearningModule } from './modules/learning/learning.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
+import { DevicesModule } from './modules/devices/devices.module';
 import { HealthModule } from './modules/health/health.module';
 import { RequestLoggingMiddleware } from './common/http';
 
@@ -31,6 +32,7 @@ import { RequestLoggingMiddleware } from './common/http';
     RewardsModule,
     ReportsModule,
     QuizzesModule,
+    DevicesModule,
     HealthModule,
   ],
   providers: [

@@ -38,8 +38,8 @@ export default function RootLayout() {
 }
 
 function Shell() {
-  const { ready, profile, locked, caretaker, step, introSeen } = useApp();
-  const route = appRoute({ ready, introSeen, step, hasProfile: Boolean(profile), locked, caretaker });
+  const { ready, profile, locked, caretaker, step, introSeen, signInSeen } = useApp();
+  const route = appRoute({ ready, introSeen, signInSeen, step, hasProfile: Boolean(profile), locked, caretaker });
   const { server, state } = useOnline();
   // The Teacher shell is Online Mode only: losing the session or the connection drops this guard, which returns the tablet to the Caretaker area.
   const teacherShell = route === 'caretaker' && state === 'READY' && allows(server, 'TEACHER') && server?.user.role === 'TEACHER';
@@ -59,6 +59,9 @@ function Shell() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.page } }}>
         <Stack.Protected guard={route === 'intro'}>
           <Stack.Screen name="intro" />
+        </Stack.Protected>
+        <Stack.Protected guard={route === 'signIn'}>
+          <Stack.Screen name="sign-in" />
         </Stack.Protected>
         <Stack.Protected guard={route === 'setup'}>
           <Stack.Screen name="setup" />
