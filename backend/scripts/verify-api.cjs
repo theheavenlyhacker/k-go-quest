@@ -102,6 +102,14 @@ async function verifyApi(base, credentials, exerciseFlow = false) {
       undefined,
       teacher.accessToken,
     );
+    const suggestions = await call(
+      'GET',
+      `reports/classrooms/${classroom.id}/suggestions`,
+      undefined,
+      teacher.accessToken,
+    );
+    if (!suggestions.groups || !['model', 'fallback'].includes(suggestions.method))
+      throw new Error('Suggestions contract mismatch');
     await call('GET', 'reports/impact', undefined, admin.accessToken);
     await call('GET', 'reports/league', undefined, admin.accessToken);
     await call('GET', 'reports/impact', undefined, student.accessToken, 403);

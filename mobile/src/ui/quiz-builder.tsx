@@ -80,13 +80,25 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
 }
 
 /** Create flow: Subject, then Skills (the weakest pre-ticked), then item count, then the draft preview. */
-export function CreateQuizSheet({ visible, classroomId, onClose }: { visible: boolean; classroomId: string; onClose: () => void }) {
+export function CreateQuizSheet({
+  visible,
+  classroomId,
+  initialSkill,
+  initialSubject,
+  onClose,
+}: {
+  visible: boolean;
+  classroomId: string;
+  initialSkill?: string | null;
+  initialSubject?: Subject | null;
+  onClose: () => void;
+}) {
   const theme = useTheme();
   const { caretakerGet, caretakerCall } = useOnline();
   const { reload } = useTeacher();
-  const [subject, setSubject] = useState<Subject>('MATH');
+  const [subject, setSubject] = useState<Subject>(initialSubject ?? 'MATH');
   const [choices, setChoices] = useState<SkillChoice[] | null>(null);
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<string[]>(initialSkill ? [initialSkill] : []);
   const [count, setCount] = useState<(typeof COUNTS)[number]>('10');
   const [draftId, setDraftId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -96,10 +108,19 @@ export function CreateQuizSheet({ visible, classroomId, onClose }: { visible: bo
     if (!visible) return;
     let live = true;
     caretakerGet<SkillChoice[]>(`quizzes/skills?classroomId=${classroomId}&subject=${subject}`)
-      .then((list) => { if (live) { setChoices(list); setPicked(suggestedSkills(list)); } })
+      .then((list) => {
+        if (live) {
+          setChoices(list);
+          if (initialSkill && list.some((c) => c.skillCode === initialSkill)) {
+            setPicked([initialSkill]);
+          } else {
+            setPicked(suggestedSkills(list));
+          }
+        }
+      })
       .catch((e: unknown) => { if (live) setError(message(e)); });
     return () => { live = false; };
-  }, [visible, caretakerGet, classroomId, subject]);
+  }, [visible, caretakerGet, classroomId, subject, initialSkill]);
 
   const close = () => { setDraftId(null); onClose(); };
   const build = async () => {

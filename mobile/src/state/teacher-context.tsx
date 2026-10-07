@@ -3,8 +3,8 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { getRepository } from '../data/storage';
 import { dataSource } from '../domain/data-source';
 import type { ServerClassroom } from '../domain/server';
-import { parseClassroomReport, type ClassroomReport } from '../domain/teacher';
-import { classroomFixture, classroomReportFixture, classroomsFixture, teacherExtrasFixture } from '../domain/teacher-fixture';
+import { parseClassroomReport, parseClassroomSuggestions, type ClassroomReport, type ClassroomSuggestions } from '../domain/teacher';
+import { classroomFixture, classroomReportFixture, classroomsFixture, classroomSuggestionsFixture, teacherExtrasFixture } from '../domain/teacher-fixture';
 import { loadCached, parseClassrooms, type Cache } from '../domain/teacher-load';
 import type { QuizRecord, TeacherRewardsRecord } from '../domain/teacher-rewards';
 import { parseQuizSummaries, quizRecord } from '../domain/quiz';
@@ -19,6 +19,7 @@ export interface TeacherData {
   /** Every Classroom this Teacher teaches; the sidebar offers a picker when there is more than one. */
   classrooms: ServerClassroom[];
   report: ClassroomReport;
+  suggestions: ClassroomSuggestions;
   /** Demo: Impact Points have no backend concept, so they stay fixture-backed and are tagged "Demo" on screen. */
   impactPoints: number;
   /** Live Quizzes for the Classroom; credentials are still a fixture (#31). */
@@ -79,7 +80,7 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
     void (async (): Promise<TeacherData> => {
       if (TEACHER_DATA_SOURCE === 'fixture') {
         const classroom = classroomsFixture.find((c) => c.id === selected) ?? classroomFixture;
-        return { classroom, classrooms: classroomsFixture, report: classroomReportFixture, ...teacherExtrasFixture, quizzes: quizzesFixture, rewards: teacherRewardsFixture, loadedAt: new Date().toISOString(), stale: false };
+        return { classroom, classrooms: classroomsFixture, report: classroomReportFixture, suggestions: classroomSuggestionsFixture, ...teacherExtrasFixture, quizzes: quizzesFixture, rewards: teacherRewardsFixture, loadedAt: new Date().toISOString(), stale: false };
       }
       const repo = await getRepository();
       const cache = <T,>(key: string): Cache<T> => ({ get: () => repo.cacheGet(owner, key), put: (entry) => repo.cachePut(owner, key, entry) });
@@ -88,9 +89,10 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
       if (!classroom) throw new Error('No Classroom is assigned to this Teacher account yet. Ask your LGU Admin.');
       const report = await loadCached(() => caretakerGet(`reports/classrooms/${classroom.id}`), parseClassroomReport, cache(`report:${classroom.id}`));
       const quizzes = await loadCached(() => caretakerGet(`quizzes?classroomId=${classroom.id}`), parseQuizSummaries, cache(`quizzes:${classroom.id}`));
+      const suggestions = await loadCached(() => caretakerGet(`reports/classrooms/${classroom.id}/suggestions`), parseClassroomSuggestions, cache(`suggestions:${classroom.id}`));
       return {
-        classroom, classrooms: rooms.value, report: report.value, ...teacherExtrasFixture, quizzes: quizzes.value.map(quizRecord), rewards: teacherRewardsFixture,
-        loadedAt: report.fetchedAt, stale: report.stale || rooms.stale || quizzes.stale,
+        classroom, classrooms: rooms.value, report: report.value, suggestions: suggestions.value, ...teacherExtrasFixture, quizzes: quizzes.value.map(quizRecord), rewards: teacherRewardsFixture,
+        loadedAt: report.fetchedAt, stale: report.stale || rooms.stale || quizzes.stale || suggestions.stale,
       };
     })()
       .then((data) => { if (live) setLoad({ status: 'ready', data }); })

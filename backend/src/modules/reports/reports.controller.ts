@@ -17,6 +17,12 @@ export class ReportsController {
   ) {
     return this.reports.classroom(actor, id);
   }
+  @Get('classrooms/:id/suggestions') @Roles(Role.TEACHER) suggestions(
+    @CurrentUser() actor: Principal,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reports.suggestions(actor, id);
+  }
   @Get('impact') @Roles(Role.LGU_ADMIN) impact(
     @CurrentUser() actor: Principal,
   ) {

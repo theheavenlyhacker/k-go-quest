@@ -4,17 +4,27 @@ import {
   Attempt,
   AuditEvent,
   Classroom,
+  ContentPack,
   Enrollment,
   GrowthSnapshot,
+  Lesson,
   Role,
   School,
   SkillProgress,
+  Subject,
   User,
 } from '../../database/entities';
 import { ScopeService } from '../../common/scope.service';
 import type { Principal } from '../../common/security';
 import type { PaginationDto } from '../../common/pagination.dto';
 import { manilaMonth, manilaStreak } from '../learning/mastery';
+import {
+  formatSkillTitle,
+  groupLearnersByTopSkill,
+  lowestNonMasteredSkill,
+  type LearnerInput,
+  type SuggestionsResult,
+} from './suggestions';
 
 @Injectable()
 export class ReportsService {
@@ -87,6 +97,141 @@ export class ReportsService {
       learners,
       decisionPolicy:
         'Supplementary rule-based signals; teacher decides next action',
+    };
+  }
+  async suggestions(actor: Principal, id: string): Promise<SuggestionsResult> {
+    await this.scope.classroom(actor, id);
+    const memberships = await this.db
+      .getRepository(Enrollment)
+      .findBy({ classroomId: id, active: true });
+
+    const learnersWithSkills: LearnerInput[] = [];
+    const allSkillCodes = new Set<string>();
+
+    for (const member of memberships) {
+      const student = await this.db
+        .getRepository(User)
+        .findOneBy({ id: member.studentId, active: true });
+      if (!student) continue;
+      const skills = await this.db
+        .getRepository(SkillProgress)
+        .findBy({ studentId: student.id });
+      for (const s of skills) allSkillCodes.add(s.skillCode);
+      learnersWithSkills.push({
+        id: student.id,
+        alias: student.alias,
+        skills: skills.map((s) => ({
+          skillCode: s.skillCode,
+          mastery: s.mastery,
+          subject: s.subject,
+        })),
+      });
+    }
+
+    const skillMetadata = new Map<string, { title: string; subject: Subject }>();
+    if (allSkillCodes.size > 0) {
+      const lessons = await this.db
+        .getRepository(Lesson)
+        .createQueryBuilder('l')
+        .innerJoin(ContentPack, 'p', 'p.id = l.packId')
+        .where('l.skillCode IN (:...codes)', { codes: Array.from(allSkillCodes) })
+        .andWhere('p.jurisdictionId = :jurisdictionId', {
+          jurisdictionId: actor.jurisdictionId,
+        })
+        .select([
+          'l.skillCode AS "skillCode"',
+          'l.title AS "title"',
+          'p.subject AS "subject"',
+        ])
+        .getRawMany<{ skillCode: string; title: string; subject: Subject }>();
+
+      for (const l of lessons) {
+        skillMetadata.set(l.skillCode, { title: l.title, subject: l.subject });
+      }
+      for (const learner of learnersWithSkills) {
+        for (const s of learner.skills) {
+          if (!skillMetadata.has(s.skillCode) && s.subject) {
+            skillMetadata.set(s.skillCode, {
+              title: formatSkillTitle(s.skillCode),
+              subject: s.subject,
+            });
+          }
+        }
+      }
+    }
+
+    const mlUrl = process.env.ML_SERVICE_URL?.trim();
+    const mlToken = (
+      process.env.ML_SERVICE_TOKEN ||
+      process.env.KGO_ML_TOKEN ||
+      ''
+    ).trim();
+
+    let method: 'model' | 'fallback' = 'fallback';
+    const learnerTopSkills: {
+      id: string;
+      alias: string;
+      topSkill: string | null;
+    }[] = [];
+
+    if (mlUrl) {
+      try {
+        const topSkills = await Promise.all(
+          learnersWithSkills.map(async (learner) => {
+            if (!learner.skills.length)
+              return { id: learner.id, alias: learner.alias, topSkill: null };
+            const payload = {
+              skills: learner.skills.map((s) => ({
+                skillCode: s.skillCode,
+                mastery: s.mastery,
+              })),
+              limit: 1,
+            };
+            const res = await fetch(`${mlUrl.replace(/\/+$/, '')}/recommend`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(mlToken ? { Authorization: `Bearer ${mlToken}` } : {}),
+              },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(3000),
+            });
+            if (!res.ok)
+              throw new Error(`ML service responded with ${res.status}`);
+            const data = (await res.json()) as { skillCode: string }[];
+            return {
+              id: learner.id,
+              alias: learner.alias,
+              topSkill: data[0]?.skillCode ?? null,
+            };
+          }),
+        );
+        method = 'model';
+        learnerTopSkills.push(...topSkills);
+      } catch {
+        method = 'fallback';
+        learnerTopSkills.length = 0;
+      }
+    }
+
+    if (method === 'fallback') {
+      for (const learner of learnersWithSkills) {
+        learnerTopSkills.push({
+          id: learner.id,
+          alias: learner.alias,
+          topSkill: lowestNonMasteredSkill(learner.skills),
+        });
+      }
+    }
+
+    const groups = groupLearnersByTopSkill(learnerTopSkills, skillMetadata);
+
+    return {
+      classroomId: id,
+      method,
+      groups,
+      decisionPolicy:
+        'Suggested practice groups; teacher decides next action',
     };
   }
   async impact(actor: Principal) {

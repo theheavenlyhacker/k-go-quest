@@ -344,6 +344,10 @@ describe('K-Go API on real PostgreSQL', () => {
       .set(auth(accessToken))
       .expect(403);
     await request(app.getHttpServer())
+      .get(`/api/v1/reports/classrooms/${data.classroom.id}/suggestions`)
+      .set(auth(accessToken))
+      .expect(403);
+    await request(app.getHttpServer())
       .get(`/api/v1/learning/learners/${data.student.id}/progress`)
       .set(auth(accessToken))
       .expect(403);
@@ -540,6 +544,36 @@ describe('K-Go API on real PostgreSQL', () => {
       -4,
     );
     expect(learner.subjects).toEqual([{ subject: 'MATH', mastery: 0.6 }]);
+  });
+  it('returns suggested practice groups with fallback when ML service is unreachable', async () => {
+    await db.getRepository(SkillProgress).save(
+      db.getRepository(SkillProgress).create({
+        studentId: data.student.id,
+        skillCode: 'math5.fractions',
+        subject: Subject.MATH,
+        mastery: 0.6,
+        attempts: 2,
+        correctAttempts: 2,
+      }),
+    );
+    const { accessToken } = await login('teacher-test');
+    const res = await request(app.getHttpServer())
+      .get(`/api/v1/reports/classrooms/${data.classroom.id}/suggestions`)
+      .set(auth(accessToken))
+      .expect(200);
+
+    expect(res.body.classroomId).toBe(data.classroom.id);
+    expect(res.body.method).toBe('fallback');
+    expect(res.body.decisionPolicy).toBe(
+      'Suggested practice groups; teacher decides next action',
+    );
+    expect(Array.isArray(res.body.groups)).toBe(true);
+    expect(res.body.groups.length).toBeGreaterThanOrEqual(1);
+    const group = res.body.groups[0];
+    expect(group.skillCode).toBe('math5.fractions');
+    expect(group.subject).toBe(Subject.MATH);
+    expect(group.count).toBe(1);
+    expect(group.learners[0].alias).toBe(data.student.alias);
   });
   it('returns aggregate LGU impact reports', async () => {
     const { accessToken } = await login('admin-test');

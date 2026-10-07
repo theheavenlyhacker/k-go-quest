@@ -41,6 +41,7 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET rewards/redemptions/me                   | Student                                       |
 | POST rewards/redemptions/:id/claim           | Own LGU admin                                 |
 | GET reports/classrooms/:id                   | Assigned teacher                              |
+| GET reports/classrooms/:id/suggestions       | Assigned teacher; practice groups from ML service with fallback |
 | GET reports/impact, reports/audit            | Own LGU admin                                 |
 | GET reports/league                           | Own LGU aggregates; optional month YYYY-MM    |
 
@@ -87,6 +88,19 @@ The response has `results` with clientAttemptId, correct, awardedCoins, and dupl
 - `connectivityStatus`, `learningStatus`, `reason`: the rule-based signals behind Teacher Alerts.
 
 The tablet's contract test (`mobile/src/domain/recorded/classroom-report.json`) parses a recorded response; change the shape and re-record it.
+
+## Suggested practice groups
+
+`GET reports/classrooms/:id/suggestions` returns `{ classroomId, method, groups, decisionPolicy }`. Groups are suggested practice clusters for the Teacher:
+
+- `method`: `"model"` when computed via the model service's `/recommend` endpoint (configured via `ML_SERVICE_URL` and `ML_SERVICE_TOKEN`), or `"fallback"` when the model service is unreachable (grouping by lowest non-Mastered Skill, `< 0.95`).
+- `groups`: array of practice groups, sorted by learner count descending:
+  - `skillCode`: the Skill where learners gain most.
+  - `skillTitle`: human-readable title of the Skill.
+  - `subject`: curriculum Subject.
+  - `learners`: `[{ id, alias }]`, aliases only.
+  - `count`: number of learners in this group.
+- `decisionPolicy`: `"Suggested practice groups; teacher decides next action"`.
 
 ## Administration
 

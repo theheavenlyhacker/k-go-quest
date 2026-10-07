@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Award, CloudOff, Download, GraduationCap, Pencil, Plus, ClipboardList } from 'lucide-react-native';
 
 import { credentialRows, levelCard, quizCards } from '../domain/teacher-rewards';
+import type { Subject } from '../domain/types';
 import { useTeacher, type TeacherData } from '../state/teacher-context';
 import { ComingSoonSheet } from './admin';
 import { CreateQuizSheet, EditQuizSheet } from './quiz-builder';
@@ -33,15 +35,22 @@ function TeacherGate({ children }: { children: (data: TeacherData) => React.Reac
 /** Quiz Builder (277:199): the list and the create and edit sheets. */
 export function QuizBuilderBody() {
   const theme = useTheme();
-  const [creating, setCreating] = useState(false);
+  const params = useLocalSearchParams<{ skillCode?: string; subject?: Subject }>();
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [manualCreating, setManualCreating] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+
+  const activePreset = params.skillCode && params.skillCode !== dismissed ? params.skillCode : null;
+  const activeSubject = activePreset ? params.subject ?? null : null;
+  const creating = manualCreating || Boolean(activePreset);
+
   return (
     <TeacherGate>
       {(data) => {
         const cards = quizCards(data.quizzes);
         return (
           <>
-            <Card index={0} onPress={() => setCreating(true)} accessibilityLabel="Create New Quiz" style={{ borderStyle: 'dashed', borderColor: theme.borderStrong }}>
+            <Card index={0} onPress={() => setManualCreating(true)} accessibilityLabel="Create New Quiz" style={{ borderStyle: 'dashed', borderColor: theme.borderStrong }}>
               <Row style={{ minHeight: MIN_TOUCH }}>
                 <IconTile icon={Plus} color={theme.navActive} tint={tokens.tint.forestBright} size={40} />
                 <View style={{ flex: 1 }}>
@@ -77,7 +86,17 @@ export function QuizBuilderBody() {
                 </Card>
               );
             }) : <Empty icon={ClipboardList} title="No quizzes yet" text="Create your first quiz and it appears here as a Draft." />}
-            <CreateQuizSheet visible={creating} classroomId={data.classroom.id} onClose={() => setCreating(false)} />
+            <CreateQuizSheet
+              key={activePreset ?? 'manual'}
+              visible={creating}
+              classroomId={data.classroom.id}
+              initialSkill={activePreset}
+              initialSubject={activeSubject}
+              onClose={() => {
+                setManualCreating(false);
+                if (params.skillCode) setDismissed(params.skillCode);
+              }}
+            />
             <EditQuizSheet quizId={editing} onClose={() => setEditing(null)} />
           </>
         );
