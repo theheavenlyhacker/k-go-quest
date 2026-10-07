@@ -34,7 +34,7 @@ export default function RootLayout() {
 }
 
 function Shell() {
-  const { ready, profile, locked, caretaker, step } = useApp();
+  const { ready, profile, locked, caretaker, step, introSeen } = useApp();
   const setUp = step === 'done';
   const theme = useTheme();
   useEffect(() => { void SystemUI.setBackgroundColorAsync(theme.page).catch(() => undefined); }, [theme.page]);
@@ -50,21 +50,24 @@ function Shell() {
       <StatusBar style="light" />
       <NavigationBar hidden style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.page } }}>
-        <Stack.Protected guard={!setUp}>
+        <Stack.Protected guard={!introSeen}>
+          <Stack.Screen name="intro" />
+        </Stack.Protected>
+        <Stack.Protected guard={introSeen && !setUp}>
           <Stack.Screen name="setup" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && !profile && !caretaker}>
+        <Stack.Protected guard={introSeen && setUp && !profile && !caretaker}>
           <Stack.Screen name="index" />
           <Stack.Screen name="caretaker-pin" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && !profile && caretaker}>
+        <Stack.Protected guard={introSeen && setUp && !profile && caretaker}>
           <Stack.Screen name="caretaker" />
           <Stack.Screen name="caretaker-profile" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && Boolean(profile) && locked}>
+        <Stack.Protected guard={introSeen && setUp && Boolean(profile) && locked}>
           <Stack.Screen name="lock" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && Boolean(profile) && !locked}>
+        <Stack.Protected guard={introSeen && setUp && Boolean(profile) && !locked}>
           <Stack.Screen name="(student)" />
           <Stack.Screen name="subject" />
           <Stack.Screen name="lesson" />
