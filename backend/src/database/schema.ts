@@ -75,6 +75,7 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'awardedCoins',
     'occurredAt',
     'receivedAt',
+    'source',
   ],
   skill_progress: [
     'id',

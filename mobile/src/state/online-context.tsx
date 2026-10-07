@@ -85,7 +85,7 @@ function address(): string | null {
 export function OnlineProvider({ children }: { children: React.ReactNode }) {
   // Online Mode reads the offline half, never the other way round: this is the
   // direction that lets practice keep working when none of this is reachable.
-  const { downloaded, reloadPacks } = useApp();
+  const { downloaded, reloadPacks, reloadVerdicts, attempts } = useApp();
   const [apiUrl] = useState(address);
   const [server, setServer] = useState<Session | null>(null);
   const [links, setLinks] = useState<Record<string, Link>>({});
@@ -253,8 +253,11 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
       );
       engines.current.set(profileId, engine);
     }
-    return engine.run(profileId);
-  }, [client, links, watched]);
+    const summary = await engine.run(profileId);
+    // The server's verdicts are now on disk; let Mastery and Coins catch up with them.
+    await reloadVerdicts(profileId);
+    return summary;
+  }, [client, links, reloadVerdicts, watched]);
 
   /**
    * Asks the server whether it is there.
@@ -338,6 +341,17 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     if (!links[profileId] || !sessions.current.get(profileId)) return null;
     return watched(() => client(profileId).call<LeagueReport>('GET', 'reports/league'));
   }, [client, links, watched]);
+
+  // Auto-sync: whenever the server is reachable, any Linked Profile with Attempts to send sends them.
+  // Background only: nothing waits on it and a failure is left for the manual Sync button to report.
+  // Unlinked Profiles are never in `links`, so they make no network call.
+  useEffect(() => {
+    if (!reachable) return;
+    for (const profileId of Object.keys(links)) {
+      if (!sessions.current.get(profileId)) continue;
+      void summary(profileId).then((counts) => (counts.pending > 0 ? sync(profileId) : undefined)).catch(() => undefined);
+    }
+  }, [reachable, links, attempts, summary, sync]);
 
   const value: OnlineValue = {
     apiUrl,

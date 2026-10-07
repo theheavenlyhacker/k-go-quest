@@ -68,8 +68,11 @@ export class AttemptOutbox implements Outbox {
 
   /** A duplicate is still settled: the server already holds it, so it must leave the outbox. */
   async acknowledge(owner: string, response: SyncResponse): Promise<void> {
+    // Each row carries the verdict and the balance it arrived with, so a crash part-way
+    // through leaves every settled Attempt whole and the rest to be sent again.
+    const ackedAt = Date.now();
     for (const result of response.results) {
-      await this.repo.markUpload(owner, result.clientAttemptId, { state: 'DONE' });
+      await this.repo.markUpload(owner, result.clientAttemptId, { state: 'DONE', correct: result.correct, balance: response.coinBalance, ackedAt });
     }
   }
 

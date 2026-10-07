@@ -38,6 +38,7 @@
     "prod:bootstrap": "node dist/database/bootstrap.js",
     "bootstrap": "ts-node src/database/bootstrap.ts",
     "seed": "ts-node src/database/seed.ts",
+    "db:seed:demo": "ts-node src/database/seed-demo.ts",
     "model:import": "ts-node src/database/import-model.ts",
     "pack:import": "ts-node src/database/import-pack.ts"
   },

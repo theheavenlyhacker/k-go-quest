@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { DataSource } from 'typeorm';
 import dataSource from './data-source';
 import { ContentPack, Exercise, Lesson, Role, Subject, User } from './entities';
 
@@ -20,7 +21,7 @@ import { ContentPack, Exercise, Lesson, Role, Subject, User } from './entities';
 interface ExportedExercise { slug: string; id: string; prompt: string; options: string[]; correctOption: number }
 interface ExportedLesson { slug: string; id: string; title: string; skillCode: string; body: string; hints: Record<string, string>; exercises: ExportedExercise[] }
 interface ExportedPack { slug: string; id: string; title: string; subject: string; grade: number; version: string; grading: string; lessons: ExportedLesson[] }
-interface ExportedCatalog { namespace: string; generatedFrom: string; packs: ExportedPack[] }
+export interface ExportedCatalog { namespace: string; generatedFrom: string; packs: ExportedPack[] }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -32,7 +33,7 @@ function option(name: string): string | undefined {
   return index === -1 ? undefined : process.argv[index + 1];
 }
 
-function read(path: string): ExportedCatalog {
+export function readCatalogue(path: string): ExportedCatalog {
   const catalogue = JSON.parse(readFileSync(resolve(path), 'utf8')) as ExportedCatalog;
   if (!Array.isArray(catalogue.packs) || catalogue.packs.length === 0)
     throw new Error('That file contains no packs.');
@@ -52,16 +53,14 @@ function read(path: string): ExportedCatalog {
   return catalogue;
 }
 
-async function main() {
-  const file = option('file');
-  if (!file) throw new Error('Pass --file <path to starter-pack.json>');
-  const catalogue = read(file);
-  const dryRun = flag('dry-run');
+export interface ImportOptions { dryRun?: boolean; allowRepublish?: boolean; adminLoginId?: string }
 
-  const db = dataSource();
-  await db.initialize();
-  try {
-    const admin = await db.getRepository(User).findOneBy({ role: Role.LGU_ADMIN });
+/** Imports every pack in the file; a pack already at the same version is left alone. */
+export async function importPack(db: DataSource, catalogue: ExportedCatalog, options: ImportOptions = {}) {
+  const { dryRun = false, allowRepublish = false } = options;
+    const admin = await db.getRepository(User).findOneBy(
+      options.adminLoginId ? { loginId: options.adminLoginId, role: Role.LGU_ADMIN } : { role: Role.LGU_ADMIN },
+    );
     if (!admin) throw new Error('Bootstrap an LGU admin first: npm run db:bootstrap');
 
     for (const pack of catalogue.packs) {
@@ -71,7 +70,7 @@ async function main() {
         console.log(`= ${pack.slug} ${pack.version} already imported (${pack.lessons.length} lessons, ${exercises} exercises)`);
         continue;
       }
-      if (existing && !flag('allow-republish'))
+      if (existing && !allowRepublish)
         throw new Error(
           `${pack.slug} is already published as ${existing.version} and this file is ${pack.version}. ` +
             'Published content is meant to be immutable; pass --allow-republish if you really mean to overwrite it.',
@@ -112,13 +111,25 @@ async function main() {
         }
       });
     }
+}
+
+async function main() {
+  const file = option('file');
+  if (!file) throw new Error('Pass --file <path to starter-pack.json>');
+  const catalogue = readCatalogue(file);
+  const dryRun = flag('dry-run');
+  const db = dataSource();
+  await db.initialize();
+  try {
+    await importPack(db, catalogue, { dryRun, allowRepublish: flag('allow-republish') });
     console.log(dryRun ? 'Dry run: nothing was written.' : 'Import complete.');
   } finally {
     await db.destroy();
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (require.main === module)
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });

@@ -112,6 +112,8 @@ export class Attempt extends RecordEntity {
   @Column() awardedCoins: number;
   @Column({ type: 'timestamptz' }) occurredAt: Date;
   @Column({ type: 'timestamptz' }) receivedAt: Date;
+  /** 'device' for real practice, 'demo' for synthetic seed history. */
+  @Column({ length: 20, default: 'device' }) source: string;
 }
 @Entity('skill_progress')
 @Index(['studentId', 'skillCode'], { unique: true })

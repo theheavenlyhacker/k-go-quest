@@ -4,7 +4,7 @@ import { randomUUID } from 'expo-crypto';
 import type { DownloadedPack } from '../domain/packs';
 import type { Pack, Profile } from '../domain/types';
 import { starterPacks } from '../content/starter-pack';
-import { demoHistory, grade, learningState, type Attempt, type Grade, type LearningState } from '../domain/engine';
+import { demoHistory, grade, learningState, type Attempt, type Grade, type LearningState, type UploadRecord } from '../domain/engine';
 import { balance as coinBalance, buy, type Purchase } from '../domain/shop';
 import { caretakerState, confirmCaretaker, keepCaretaker, setupStep, type SetupStep } from '../domain/setup';
 import { isIdle, isValidPin, lockedOut, recordFailure, remaining, type Lockout } from '../domain/pin-lock';
@@ -23,7 +23,9 @@ interface AppContextValue {
   downloaded: DownloadedPack[];
   /** Re-reads the Downloaded Packs after one has been saved. */
   reloadPacks(): Promise<void>;
-  attempts: Attempt[]; learning: LearningState; purchases: Purchase[]; balance: number;
+  attempts: Attempt[]; learning: LearningState;
+  /** Re-reads what the server said about this Profile's Attempts, after a sync, so Mastery and Coins catch up. */
+  reloadVerdicts(profileId: string): Promise<void>; uploads: Map<string, UploadRecord>; purchases: Purchase[]; balance: number;
   notice: Notice | null; preferences: Preferences;
   toast(message: string, kind?: Notice['kind']): void; dismiss(): void;
   /** False until the intro has been finished or skipped once on this Shared Tablet. */
@@ -47,7 +49,7 @@ interface AppContextValue {
   /** Caretaker: let a locked-out Learner back in, keeping their PIN. */
   clearLockout(id: string): Promise<void>;
   /** Read-only look at one Profile's data, for the Caretaker. */
-  viewProfile(id: string): Promise<{ attempts: Attempt[]; purchases: Purchase[] }>;
+  viewProfile(id: string): Promise<{ attempts: Attempt[]; purchases: Purchase[]; uploads: Map<string, UploadRecord> }>;
   selectProfile(id: string | null): void; lock(): void; unlock(pin: string): Promise<void>;
   answer(exerciseId: string, selectedOption: number): Promise<Grade>;
   buyBadge(cosmeticId: string): Promise<void>;
@@ -83,7 +85,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // tablet that has never been online keeps exactly the content it shipped with.
   const [downloaded, setDownloaded] = useState<DownloadedPack[]>([]);
   const packs = useMemo(() => [...starterPacks, ...downloaded.map((entry) => entry.pack)], [downloaded]);
-  const learning = useMemo(() => learningState(packs, attempts), [packs, attempts]);
+  const [uploads, setUploads] = useState<Map<string, UploadRecord>>(new Map());
+  const learning = useMemo(() => learningState(packs, attempts, uploads), [packs, attempts, uploads]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const balance = coinBalance(learning.coins, purchases);
   const [preferences, setPreferences] = useState<Preferences>(defaults);
@@ -92,19 +95,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [introSeen, setIntroSeen] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [demoId, setDemoId] = useState<string | null>(null);
-  const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const purchasesRef = useRef(purchases); const packsRef = useRef(packs);
+  const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const uploadsRef = useRef(uploads); const purchasesRef = useRef(purchases); const packsRef = useRef(packs);
   const lockedRef = useRef(locked); const caretakerRef = useRef(caretaker); const lastInteraction = useRef(0);
 
   const toast = useCallback((message: string, kind: Notice['kind'] = 'info') => setNotice({ message, kind }), []);
   // Refs mirror committed state so async handlers read fresh values; set after every commit, never during render.
-  useEffect(() => { profileRef.current = profile; attemptsRef.current = attempts; purchasesRef.current = purchases; lockedRef.current = locked; caretakerRef.current = caretaker; packsRef.current = packs; });
+  useEffect(() => { profileRef.current = profile; attemptsRef.current = attempts; uploadsRef.current = uploads; purchasesRef.current = purchases; lockedRef.current = locked; caretakerRef.current = caretaker; packsRef.current = packs; });
 
-  const forget = () => { attemptsRef.current = []; setAttempts([]); purchasesRef.current = []; setPurchases([]); };
+  const forget = () => { attemptsRef.current = []; setAttempts([]); uploadsRef.current = new Map(); setUploads(new Map()); purchasesRef.current = []; setPurchases([]); };
   const lock = useCallback(() => { lockedRef.current = true; setLocked(true); }, []);
   const loadLocal = useCallback(async (owner: string) => {
     const repo = await getRepository();
-    const [log, bought] = await Promise.all([repo.attempts(owner), repo.purchases(owner)]);
-    if (profileRef.current?.id === owner && !lockedRef.current) { attemptsRef.current = log; setAttempts(log); purchasesRef.current = bought; setPurchases(bought); }
+    const [log, bought, verdicts] = await Promise.all([repo.attempts(owner), repo.purchases(owner), repo.uploads(owner)]);
+    if (profileRef.current?.id === owner && !lockedRef.current) { attemptsRef.current = log; setAttempts(log); uploadsRef.current = verdicts; setUploads(verdicts); purchasesRef.current = bought; setPurchases(bought); }
   }, []);
 
   /**
@@ -274,8 +277,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const viewProfile = async (id: string) => {
     requireCaretaker();
     const repo = await getRepository();
-    const [attempts, purchases] = await Promise.all([repo.attempts(id), repo.purchases(id)]);
-    return { attempts, purchases };
+    const [attempts, purchases, uploads] = await Promise.all([repo.attempts(id), repo.purchases(id), repo.uploads(id)]);
+    return { attempts, purchases, uploads };
   };
   const answer = async (exerciseId: string, selectedOption: number) => {
     const active = profileRef.current;
@@ -289,7 +292,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const buyBadge = async (cosmeticId: string) => {
     const active = profileRef.current;
     if (!active || lockedRef.current) throw new Error('Unlock your profile to use the Shop.');
-    const purchase = buy(learningState(packsRef.current, attemptsRef.current).coins, purchasesRef.current, cosmeticId, new Date().toISOString());
+    const purchase = buy(learningState(packsRef.current, attemptsRef.current, uploadsRef.current).coins, purchasesRef.current, cosmeticId, new Date().toISOString());
     // Claim the ref before the await so a second tap sees the spend; roll back if the save fails.
     const before = purchasesRef.current;
     purchasesRef.current = [...before, purchase]; setPurchases(purchasesRef.current);
@@ -300,7 +303,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, reloadVerdicts: loadLocal, uploads, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }

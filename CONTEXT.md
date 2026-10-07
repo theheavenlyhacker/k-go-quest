@@ -94,7 +94,7 @@ An Attempt nobody has said is right or wrong yet, because no answer key for its 
 _Avoid_: pending, provisional, ungraded
 
 **Counted Attempt**:
-The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before.
+The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before. Where the server grades an On Device Attempt differently from the tablet, the server's verdict replaces the tablet's.
 _Avoid_: retry, score
 
 ### Learning model
