@@ -102,6 +102,11 @@ describe('alerts', () => {
     expect(done.tiles).toEqual({ open: 1, resolved: 1, high: 0 });
   });
 
+  it('raises both a Plateau and a sync alert for a Learner who has both', () => {
+    const both = { ...classroomReportFixture.learners[2]!, lastSyncAt: '2026-09-30T00:00:00.000Z', connectivityStatus: 'NO_RECENT_SYNC' as const };
+    expect(alerts({ ...classroomReportFixture, learners: [both] }, now, {}).open.map((a) => [a.id, a.priority])).toEqual([['l3:plateau', 'high'], ['l3:sync', 'medium']]);
+  });
+
   it('is empty when nothing is flagged', () => {
     expect(alerts({ ...classroomReportFixture, learners: [classroomReportFixture.learners[0]!] }, now, {}).open).toEqual([]);
   });

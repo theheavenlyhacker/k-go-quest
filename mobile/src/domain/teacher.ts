@@ -133,6 +133,7 @@ export interface TeacherAlert { id: string; learnerId: string; priority: AlertPr
 export interface AlertsView { tiles: { open: number; resolved: number; high: number }; open: TeacherAlert[] }
 
 const LONG_INACTIVE_DAYS = 14;
+const RESOLVED_WINDOW_DAYS = 7;
 const priorityRank: Record<AlertPriority, number> = { high: 0, medium: 1, low: 2 };
 
 /**
@@ -155,6 +156,6 @@ export function alerts(report: ClassroomReport, now: number, resolved: Record<st
   }
   const open = all.filter((alert) => !resolved[alert.id]).sort((a, b) =>
     priorityRank[a.priority] - priorityRank[b.priority] || Date.parse(b.at ?? '') - Date.parse(a.at ?? '') || 0);
-  const resolvedRecently = Object.values(resolved).filter((time) => now - Date.parse(time) <= 7 * DAY).length;
+  const resolvedRecently = Object.values(resolved).filter((time) => now - Date.parse(time) <= RESOLVED_WINDOW_DAYS * DAY).length;
   return { tiles: { open: open.length, resolved: resolvedRecently, high: open.filter((a) => a.priority === 'high').length }, open };
 }

@@ -121,7 +121,7 @@ _Avoid_: task, assignment
 
 **Plateau Flag**:
 A mark on a Skill where a Learner has made at least five Counted Attempts and Mastery is still below 0.40. The Learner sees it as a nudge to review; the Caretaker sees it for every Profile.
-_Avoid_: alert, failing, at-risk
+_Avoid_: failing, at-risk. An **Alert** is a different thing: a Teacher notification derived from a Plateau Flag (high), no recent sync (medium) or long inactivity (low).
 
 ### Motivation
 
