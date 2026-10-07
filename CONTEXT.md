@@ -120,6 +120,9 @@ _Avoid_: test, assessment, generated quiz
 A single printable bubble sheet for one Learner for a published Quiz, headed with the Learner's alias (never a legal name). It carries large A–D answer bubbles in a fixed grid, four solid corner fiducial marks, and a QR code encoding the Quiz id and Paper id.
 _Avoid_: test paper, exam sheet, answer sheet, scantron
 
+**Paper Result**:
+The Teacher's confirmed marking of one Quiz Paper: one A–D answer or blank per item, scored by the server against the Quiz answer key. A rescan replaces that Paper's result. It is never an Attempt, moves no Mastery and earns no Coins. The camera reads only the QR code; no photos are stored.
+_Avoid_: Counted Attempt, bubble recognition
 
 ### Learning model
 

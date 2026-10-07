@@ -5,6 +5,8 @@ BEGIN;
 CREATE SCHEMA IF NOT EXISTS "kgo";
 SET LOCAL search_path = "kgo";
 
+CREATE TABLE "migrations" ("id" SERIAL PRIMARY KEY, "timestamp" bigint NOT NULL, "name" varchar NOT NULL);
+
 CREATE TABLE "jurisdictions" ("id" uuid PRIMARY KEY, "createdAt" timestamptz NOT NULL DEFAULT now(), "name" varchar(120) NOT NULL);
 
 CREATE TABLE "schools" ("id" uuid PRIMARY KEY, "createdAt" timestamptz NOT NULL DEFAULT now(), "jurisdictionId" uuid NOT NULL REFERENCES jurisdictions(id), "name" varchar(120) NOT NULL);
@@ -59,8 +61,105 @@ CREATE INDEX "idx_audit_events_10" ON "audit_events" ("jurisdictionId", "created
 
 CREATE UNIQUE INDEX "one_active_session_per_user" ON auth_sessions ("userId") WHERE "revokedAt" IS NULL;
 
-CREATE TABLE "migrations" ("id" SERIAL PRIMARY KEY, "timestamp" bigint NOT NULL, "name" varchar NOT NULL);
-
 INSERT INTO "migrations" ("timestamp", "name") VALUES (1790800000000, 'InitialSchema1790800000000');
+
+CREATE TABLE "model_versions" ("id" uuid PRIMARY KEY, "createdAt" timestamptz NOT NULL DEFAULT now(),
+      "version" varchar(60) NOT NULL UNIQUE,
+      "method" varchar(200) NOT NULL,
+      "source" varchar(30) NOT NULL,
+      "active" boolean NOT NULL DEFAULT false,
+      "fittedAt" timestamptz NOT NULL,
+      "skills" integer NOT NULL CHECK (skills >= 0));
+
+CREATE TABLE "skill_model_params" ("id" uuid PRIMARY KEY, "createdAt" timestamptz NOT NULL DEFAULT now(),
+      "modelVersion" varchar(60) NOT NULL REFERENCES model_versions(version) ON DELETE CASCADE,
+      "skillCode" varchar(100) NOT NULL,
+      "prior" double precision NOT NULL CHECK (prior > 0 AND prior < 1),
+      "learn" double precision NOT NULL CHECK (learn > 0 AND learn < 1),
+      "guess" double precision NOT NULL CHECK (guess > 0 AND guess < 1),
+      "slip" double precision NOT NULL CHECK (slip > 0 AND slip < 1),
+      "sequences" integer NOT NULL CHECK (sequences >= 0),
+      "observations" integer NOT NULL CHECK (observations >= 0),
+      UNIQUE ("modelVersion", "skillCode"),
+      -- A model where guessing explains more than knowing is not usable.
+      CHECK (guess + slip < 1));
+
+CREATE INDEX "idx_skill_model_params_lookup" ON "skill_model_params" ("modelVersion", "skillCode");
+
+CREATE UNIQUE INDEX "one_active_model" ON "model_versions" ("active") WHERE "active" = true;
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1790900000000, 'ModelParams1790900000000');
+
+ALTER TABLE "attempts" ADD "source" varchar(20) NOT NULL DEFAULT 'device';
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791000000000, 'AttemptSource1791000000000');
+
+CREATE TABLE "quizzes" (
+        "id" uuid NOT NULL,
+        "createdAt" timestamptz NOT NULL DEFAULT now(),
+        "classroomId" uuid NOT NULL,
+        "title" varchar(120) NOT NULL,
+        "subject" varchar(30) NOT NULL,
+        "skillCodes" jsonb NOT NULL,
+        "exerciseIds" jsonb NOT NULL,
+        "status" varchar(20) NOT NULL DEFAULT 'DRAFT',
+        "updatedAt" timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_quizzes" PRIMARY KEY ("id")
+      );
+
+CREATE INDEX "IDX_quizzes_classroomId" ON "quizzes" ("classroomId");
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791100000000, 'Quizzes1791100000000');
+
+ALTER TABLE "schools" ADD "barangay" varchar(80) NOT NULL DEFAULT '';
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791200000000, 'SchoolBarangay1791200000000');
+
+CREATE TABLE "quiz_papers" (
+        "id" uuid NOT NULL,
+        "createdAt" timestamptz NOT NULL DEFAULT now(),
+        "quizId" uuid NOT NULL,
+        "studentId" uuid NOT NULL,
+        CONSTRAINT "PK_quiz_papers" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_quiz_papers_quizId_studentId" UNIQUE ("quizId", "studentId")
+      );
+
+CREATE INDEX "IDX_quiz_papers_quizId" ON "quiz_papers" ("quizId");
+
+CREATE INDEX "IDX_quiz_papers_studentId" ON "quiz_papers" ("studentId");
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791200000000, 'QuizPapers1791200000000');
+
+CREATE TABLE "devices" (
+        "id" uuid NOT NULL,
+        "createdAt" timestamptz NOT NULL DEFAULT now(),
+        "deviceId" varchar(80) NOT NULL UNIQUE,
+        "jurisdictionId" uuid NOT NULL REFERENCES jurisdictions(id),
+        "schoolId" uuid REFERENCES schools(id),
+        "appVersion" varchar(40) NOT NULL,
+        "packVersions" jsonb NOT NULL DEFAULT '[]',
+        "storageUsedPercent" integer NOT NULL DEFAULT 0,
+        "pendingAttempts" integer NOT NULL DEFAULT 0,
+        "lastSeenAt" timestamptz NOT NULL,
+        "updatedAt" timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_devices" PRIMARY KEY ("id")
+      );
+
+CREATE INDEX "IDX_devices_jurisdictionId" ON "devices" ("jurisdictionId");
+
+CREATE INDEX "IDX_devices_schoolId" ON "devices" ("schoolId");
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791200000000, 'Devices1791200000000');
+
+ALTER TABLE "quiz_papers"
+      ADD COLUMN "answers" jsonb,
+      ADD COLUMN "score" integer,
+      ADD COLUMN "gradedAt" timestamptz;
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791300000000, 'QuizResults1791300000000');
+
+ALTER TABLE content_packs ADD COLUMN "expectedLessons" jsonb;
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791400000000, 'ContentImport1791400000000');
 
 COMMIT;

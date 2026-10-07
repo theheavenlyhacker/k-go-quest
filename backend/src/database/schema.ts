@@ -50,6 +50,7 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'version',
     'published',
     'attribution',
+    'expectedLessons',
   ],
   lessons: ['id', 'createdAt', 'packId', 'title', 'skillCode', 'body', 'hints'],
   exercises: [
@@ -129,7 +130,7 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'status',
     'updatedAt',
   ],
-  quiz_papers: ['id', 'createdAt', 'quizId', 'studentId'],
+  quiz_papers: ['id', 'createdAt', 'quizId', 'studentId', 'answers', 'score', 'gradedAt'],
   audit_events: [
     'id',
     'createdAt',

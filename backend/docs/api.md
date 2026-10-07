@@ -34,6 +34,8 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET quizzes/:id                              | Assigned teacher; includes private answer key |
 | PATCH quizzes/:id                            | Assigned teacher; draft only (title, exerciseIds, replaceExerciseId) |
 | POST quizzes/:id/publish                     | Assigned teacher; a published Quiz is immutable |
+| POST quizzes/:id/results                     | Assigned teacher; replaces a Paper Result, grades server-side |
+| GET quizzes/:id/results                      | Assigned teacher; Learner scores and item difficulty |
 | POST quizzes/:id/papers                      | Assigned teacher; issues paper ids for active Learners (idempotent) |
 | GET rewards                                  | Own jurisdiction                              |
 | POST rewards                                 | LGU admin                                     |
@@ -131,6 +133,8 @@ Manage a reward with `PATCH rewards/:id`, supplying any of title, cost, stock, a
 
 Draft authoring: create pack, add lessons, add exercises, inspect the admin-only detail, then publish. A pack must have lessons and an exercise in every lesson. Published content stays immutable; create a new version for changes. Learner downloads always omit answer keys.
 
+File imports supply `expectedLessons: [{ title, skillCode, exerciseCount }]` in the pack creation request (1–100 Lessons, each with 1–100 Exercises). The server stores this manifest before content upload and refuses publication unless the exact Lesson titles, Skill codes and Exercise counts match, including duplicate Lesson keys. Interrupted imports remain drafts across sessions and tablet restarts. Omit the manifest for ordinary incremental authoring.
+
 ## Redemption
 
 ```json
@@ -194,3 +198,30 @@ The server scopes the device by the signing-in account's school and jurisdiction
 - **Needs update**: seen in the last 15 minutes, but app or a held Content Pack is behind the latest published version in the jurisdiction.
 - **Offline**: not seen in the last 15 minutes.
 
+### Paper Results
+
+`POST quizzes/:id/results` accepts `{ paperId, answers }` for a published Quiz.
+Paper Quizzes select only Exercises with 2–4 options; drafts with items beyond
+A–D must replace them before publishing. Legacy published Quizzes with more than
+four options show a plain unsupported state and cannot save Paper Results.
+`answers` follows the Quiz's item order with exactly one integer option index
+(0–3, within that item's options) or `null` for an unanswered item. The Paper
+must have been issued for this Quiz, and the Teacher must teach its Classroom.
+The server grades against the published answer key and returns
+`{ paperId, studentId, score, total, correctness }`. Blank answers are incorrect.
+Saving the same Paper again replaces its marking atomically; it never adds an
+Attempt, changes Mastery or awards Coins.
+
+`GET quizzes/:id/results` returns `{ quizId, title, total, submittedCount,
+classAverage, learners, items }`. `classAverage` is percent correct (0–100)
+among submitted Papers, or `null` before any submission. `learners` contains
+`{ paperId, studentId, alias, answers, score, gradedAt }`; `items` contains
+`{ exerciseId, correctCount, submittedCount, difficulty }`, in Quiz item order.
+`difficulty` is the fraction incorrect or blank (0–1), or `null` before any
+submission. Quiz list summaries also return `submittedCount` and `classAverage`.
+Paper Results are Teacher-only, including the Learner Insights detail.
+
+The mobile scanner uses Expo Camera's QR callback only. It identifies an issued
+Paper and its server-provided alias, refuses a different Quiz, and lets the
+Teacher enter A–D answers or blanks before confirming. No photos are taken or
+stored and no automatic bubble recognition runs.

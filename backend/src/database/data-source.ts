@@ -10,7 +10,21 @@ import { Quizzes1791100000000 } from './migrations/1791100000000-quizzes';
 import { SchoolBarangay1791200000000 } from './migrations/1791200000000-school-barangay';
 import { QuizPapers1791200000000 } from './migrations/1791200000000-quiz-papers';
 import { Devices1791200000000 } from './migrations/1791200000000-devices';
+import { QuizResults1791300000000 } from './migrations/1791300000000-quiz-results';
+import { ContentImport1791400000000 } from './migrations/1791400000000-content-import';
 import { databaseSchema } from './schema';
+
+export const MIGRATIONS = [
+  InitialSchema1790800000000,
+  ModelParams1790900000000,
+  AttemptSource1791000000000,
+  Quizzes1791100000000,
+  SchoolBarangay1791200000000,
+  QuizPapers1791200000000,
+  Devices1791200000000,
+  QuizResults1791300000000,
+  ContentImport1791400000000,
+];
 
 /**
  * The database CA, from a file or straight from the environment.
@@ -63,15 +77,7 @@ export function databaseOptions(
         }
       : false,
     entities: ENTITIES,
-    migrations: [
-      InitialSchema1790800000000,
-      ModelParams1790900000000,
-      AttemptSource1791000000000,
-      Quizzes1791100000000,
-      SchoolBarangay1791200000000,
-      QuizPapers1791200000000,
-      Devices1791200000000,
-    ],
+    migrations: MIGRATIONS,
     synchronize: false,
     migrationsRun: false,
     logging: false,

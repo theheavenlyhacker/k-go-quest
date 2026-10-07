@@ -43,6 +43,14 @@
           "hidden": true,
           "style": "light"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow K-Go Quests to read Quiz Paper QR codes. No photos are saved.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
       ]
     ],
     "experiments": {

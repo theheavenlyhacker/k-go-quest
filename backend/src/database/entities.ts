@@ -81,6 +81,8 @@ export class ContentPack extends RecordEntity {
   @Column({ length: 30 }) version: string;
   @Column({ default: false }) published: boolean;
   @Column({ default: 'Original K-Go demo content' }) attribution: string;
+  @Column({ type: 'jsonb', nullable: true })
+  expectedLessons: { title: string; skillCode: string; exerciseCount: number }[] | null;
 }
 @Entity('lessons')
 export class Lesson extends RecordEntity {
@@ -197,6 +199,10 @@ export class Quiz extends RecordEntity {
 export class QuizPaper extends RecordEntity {
   @Index() @Column('uuid') quizId: string;
   @Index() @Column('uuid') studentId: string;
+  /** Null until marked; blanks are null entries. Paper results never create Attempts. */
+  @Column({ type: 'jsonb', nullable: true }) answers: (number | null)[] | null;
+  @Column({ type: 'integer', nullable: true }) score: number | null;
+  @Column({ type: 'timestamptz', nullable: true }) gradedAt: Date | null;
 }
 @Entity('audit_events')
 export class AuditEvent extends RecordEntity {
@@ -251,4 +257,3 @@ export const ENTITIES = [
   AuditEvent,
   Device,
 ];
-

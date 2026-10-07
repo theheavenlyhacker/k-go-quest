@@ -679,6 +679,45 @@ describe('K-Go API on real PostgreSQL', () => {
     // Idempotent: issuing again returns the identical paper ID
     const papersRes2 = await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(201);
     expect(papersRes2.body[0].id).toBe(papersRes.body[0].id);
+    const paperId = papersRes.body[0].id as string;
+    const published = await http().get(`/api/v1/quizzes/${id}`).set(auth(teacher.accessToken)).expect(200);
+    const answers = published.body.answerKey.map((k: { correctOption: number }) => k.correctOption) as number[];
+    await db.getRepository(User).update(data.student.id, { coins: 23 });
+    await db.getRepository(SkillProgress).save(db.getRepository(SkillProgress).create({
+      studentId: data.student.id, skillCode: 'math5.fractions', subject: Subject.MATH,
+      mastery: 0.6, attempts: 3, correctAttempts: 2,
+    }));
+    const coinsBefore = (await db.getRepository(User).findOneByOrFail({ id: data.student.id })).coins;
+    const masteryBefore = await db.getRepository(SkillProgress).findBy({ studentId: data.student.id });
+    const attemptsBefore = await db.getRepository(Attempt).countBy({ studentId: data.student.id });
+    for (const token of [other.accessToken, student.accessToken]) {
+      await http().post(`/api/v1/quizzes/${id}/results`).set(auth(token)).send({ paperId, answers }).expect(403);
+      await http().get(`/api/v1/quizzes/${id}/results`).set(auth(token)).expect(403);
+    }
+    await http().post(`/api/v1/quizzes/${id}/results`).set(auth(teacher.accessToken))
+      .send({ paperId: randomUUID(), answers }).expect(400);
+    for (const invalid of [[], [4, null], ['A', null], [0.5, null], [true, null]]) {
+      await http().post(`/api/v1/quizzes/${id}/results`).set(auth(teacher.accessToken))
+        .send({ paperId, answers: invalid }).expect(400);
+    }
+    const submit = (next: (number | null)[]) => http().post(`/api/v1/quizzes/${id}/results`)
+      .set(auth(teacher.accessToken)).send({ paperId, answers: next }).expect(201);
+    expect((await submit(answers)).body.score).toBe(answers.length);
+    expect((await submit(answers)).body.score).toBe(answers.length);
+    const blank = answers.map(() => null);
+    expect((await submit(blank)).body.score).toBe(0);
+    const results = await http().get(`/api/v1/quizzes/${id}/results`).set(auth(teacher.accessToken)).expect(200);
+    expect(results.body.submittedCount).toBe(1);
+    expect(results.body.classAverage).toBe(0);
+    expect(results.body.learners).toHaveLength(1);
+    expect(results.body.learners[0]).toMatchObject({ paperId, studentId: data.student.id, alias: data.student.alias, score: 0, answers: blank });
+    expect(results.body.items.every((item: { difficulty: number }) => item.difficulty === 1)).toBe(true);
+    const summaries = await http().get(`/api/v1/quizzes?classroomId=${data.classroom.id}`).set(auth(teacher.accessToken)).expect(200);
+    expect(summaries.body[0]).toMatchObject({ submittedCount: 1, classAverage: 0 });
+    expect((await db.getRepository(User).findOneByOrFail({ id: data.student.id })).coins).toBe(coinsBefore);
+    expect(await db.getRepository(SkillProgress).findBy({ studentId: data.student.id })).toEqual(masteryBefore);
+    expect(await db.getRepository(Attempt).countBy({ studentId: data.student.id })).toBe(attemptsBefore);
+
   });
   it('deducts coins once, scopes vouchers, prevents double claims and voucher login', async () => {
     const student = await login('student-test');
@@ -816,6 +855,7 @@ describe('K-Go API on real PostgreSQL', () => {
         grade: 5,
         version: '1.0',
         attribution: 'Original test content',
+        expectedLessons: [{ title: 'States of water', skillCode: 'science5.water.states', exerciseCount: 2 }],
       })
       .expect(201);
     const path = `/api/v1/content/packs/${pack.body.id}`;
@@ -875,6 +915,17 @@ describe('K-Go API on real PostgreSQL', () => {
       .set(auth(admin.accessToken))
       .expect(200);
     expect(detail.body.lessons[0].exercises[0].correctOption).toBe(1);
+    // A file import can stop after one Exercise, survive a tablet restart, and still be refused publication.
+    const incomplete = await request(app.getHttpServer())
+      .post(`${path}/publish`)
+      .set(auth(admin.accessToken))
+      .expect(400);
+    expect(incomplete.body.message).toContain('import is incomplete');
+    await request(app.getHttpServer())
+      .post(`/api/v1/content/lessons/${lesson.body.id}/exercises`)
+      .set(auth(admin.accessToken))
+      .send({ prompt: 'What is steam?', options: ['Gas', 'Solid'], correctOption: 0, coinAward: 5 })
+      .expect(201);
     await request(app.getHttpServer())
       .post(`${path}/publish`)
       .set(auth(admin.accessToken))
@@ -884,7 +935,7 @@ describe('K-Go API on real PostgreSQL', () => {
       .set(auth(student.accessToken))
       .expect(200);
     expect(JSON.stringify(download.body)).not.toContain('correctOption');
-    expect(download.body.lessons[0].exercises).toHaveLength(1);
+    expect(download.body.lessons[0].exercises).toHaveLength(2);
   });
   it('lets assigned teachers end enrollment, retains history, and allows safe re-enrollment', async () => {
     const student = await login('student-test');

@@ -149,6 +149,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       return {
         schoolName,
         impact: currentImpact.value,
+        impactReports: impactResults.map((r) => r.value),
         users: usersRes.value,
         devices: devicesRes.value,
         library: {

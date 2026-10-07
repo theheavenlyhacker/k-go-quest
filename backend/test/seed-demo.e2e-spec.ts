@@ -213,6 +213,30 @@ describe('Demo seed on real PostgreSQL', () => {
       'Cembo',
     ]);
 
+    // Independently reduce persisted monthly changes and tablet check-ins.
+    const learners: { id: string }[] = await db.query(
+      `SELECT id FROM users WHERE "jurisdictionId" = $1 AND role = 'STUDENT' AND active = true`, [jid],
+    );
+    const snapshots: { studentId: string; skillCode: string; month: string; baseline: number; latest: number }[] = await db.query(
+      `SELECT g.* FROM growth_snapshots g JOIN users u ON u.id = g."studentId" WHERE u."jurisdictionId" = $1`, [jid],
+    );
+    const q = Number(sample_quarter.at(-1));
+    const deltas = learners.map((learner) => {
+      const skills = new Map<string, number>();
+      for (const snapshot of snapshots) {
+        const month = Number(snapshot.month.slice(5));
+        if (snapshot.studentId !== learner.id || snapshot.month.slice(0, 4) !== sample_quarter.slice(0, 4) || Math.ceil(month / 3) !== q) continue;
+        skills.set(snapshot.skillCode, (skills.get(snapshot.skillCode) ?? 0) + snapshot.latest - snapshot.baseline);
+      }
+      return skills.size ? [...skills.values()].reduce((a, b) => a + b, 0) / skills.size : 0;
+    });
+    const expectedChange = deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length * 100 : null;
+    if (expectedChange === null) expect(impactRes.body.meanEstimatedMasteryChange).toBeNull();
+    else expect(impactRes.body.meanEstimatedMasteryChange).toBeCloseTo(expectedChange, 8);
+    const tablets: { lastSeenAt: Date }[] = await db.query(`SELECT "lastSeenAt" FROM devices WHERE "jurisdictionId" = $1`, [jid]);
+    expect(impactRes.body.totalTablets).toBe(tablets.length);
+    expect(impactRes.body.tabletsCheckedInQuarter).toBe(tablets.filter((d) => d.lastSeenAt >= start && d.lastSeenAt < end).length);
+
     // Engagement reconciliation
     const engRes = await get(admin.accessToken, '/reports/engagement?days=7');
     expect(engRes.body).toHaveLength(7);

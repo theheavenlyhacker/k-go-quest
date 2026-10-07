@@ -12,6 +12,7 @@ import type { Subject } from '../domain/types';
 import { useOnline } from '../state/online-context';
 import { useTeacher } from '../state/teacher-context';
 import { Button, Field, Info, Pills, Row, Sheet, T } from './primitives';
+import { PaperQuizResults, QuizScanner } from './quiz-scanner';
 import { MIN_TOUCH, tokens, useTheme } from './theme';
 
 const COUNTS = ['5', '10', '15', '20'] as const;
@@ -26,6 +27,9 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [resultsVersion, setResultsVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const show = useCallback((next: ServerQuiz) => { setQuiz(next); setTitle(next.title); }, []);
@@ -83,6 +87,7 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
   const published = quiz?.status === 'PUBLISHED';
 
   if (!quiz) return error ? <Info title="Could not open this quiz" text={error} color={tokens.state.critical} /> : <ActivityIndicator accessibilityLabel="Loading" color={theme.navActive} />;
+  if (scanning) return <QuizScanner quiz={quiz} onDone={() => { setScanning(false); setResultsVersion((n) => n + 1); }} />;
   return (
     <>
       <T variant="bodyS" color={theme.muted}>Picked for your Classroom&apos;s weakest Skills. You can rename it, remove questions or replace them.</T>
@@ -114,6 +119,9 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
             disabled={busy || printing}
             onPress={() => void printPapers()}
           />
+          <Button title="Scan Papers" disabled={printing} onPress={() => setScanning(true)} />
+          <Button title={showResults ? 'Hide results' : 'View results'} variant="soft" onPress={() => setShowResults((show) => !show)} />
+          {showResults ? <PaperQuizResults key={resultsVersion} quizId={quizId} /> : null}
           <Button title="Done" variant="soft" onPress={saveAndClose} />
         </>
       ) : (

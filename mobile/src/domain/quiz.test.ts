@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseQuizPapers, parseQuizSummaries, quizRecord, skillLabel, suggestedSkills, toggleSkill, type ServerQuizSummary } from './quiz';
+import { identifyQuizPaper, markingGrid, parseQuizPapers, parseQuizSummaries, quizRecord, skillLabel, suggestedSkills, toggleSkill, type ServerQuizSummary } from './quiz';
 import { ApiError } from './client';
 import { loadCached, type Cached } from './teacher-load';
 
@@ -51,3 +51,27 @@ describe('quiz papers parsing', () => {
   });
 });
 
+
+describe('marking Quiz Papers', () => {
+  const quiz = { id: 'q', classroomId: 'c', title: 'T', subject: 'MATH' as const, skillCodes: ['math'], status: 'PUBLISHED' as const,
+    questionCount: 3, questions: ['one', 'two', 'three'].map((id) => ({ id, skillCode: 'math', prompt: id, options: ['A', 'B', 'C', 'D'] })),
+    answerKey: [{ exerciseId: 'three', correctOption: 3 }, { exerciseId: 'one', correctOption: 0 }, { exerciseId: 'two', correctOption: 1 }] };
+  it('scores by Exercise key and treats blanks and missing answers as wrong', () => {
+    expect(markingGrid(quiz, [0, null, 2])).toMatchObject({ score: 1, total: 3, rows: [{ correct: true }, { answer: null, correct: false }, { correct: false }] });
+    expect(markingGrid(quiz, [])).toMatchObject({ score: 0, total: 3 });
+    expect(markingGrid(quiz, [0, 1, 3]).score).toBe(3);
+    expect(() => markingGrid({ ...quiz, answerKey: [] }, [])).toThrow(/incomplete/);
+  });
+  it('identifies issued papers by QR without trusting an alias in the QR, and refuses other Quizzes', () => {
+    const paper = { id: 'p', quizId: 'q', studentId: 's', alias: 'Ada' };
+    expect(identifyQuizPaper(JSON.stringify({ quizId: 'q', paperId: 'p', alias: 'Fake' }), 'q', [paper])).toEqual(paper);
+    expect(() => identifyQuizPaper(JSON.stringify({ quizId: 'other', paperId: 'p' }), 'q', [paper])).toThrow('different Quiz');
+    for (const raw of ['bad', 'null', '{}', '{"quizId":"q","paperId":"unknown"}']) expect(() => identifyQuizPaper(raw, 'q', [paper])).toThrow();
+  });
+  it('preserves result summaries and rejects invalid aggregates before caching', () => {
+    const summary = { ...quiz, submittedCount: 5, classAverage: 80 };
+    expect(quizRecord(parseQuizSummaries([summary])[0]!)).toMatchObject({ submittedCount: 5, classAverage: 80 });
+    for (const bad of [{ submittedCount: -1 }, { submittedCount: 1.5 }, { classAverage: NaN }, { classAverage: 101 }])
+      expect(() => parseQuizSummaries([{ ...summary, ...bad }])).toThrow('invalid results');
+  });
+});

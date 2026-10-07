@@ -14,6 +14,8 @@ export interface QuizRecord {
   strand: string;
   questionCount: number;
   status: 'PUBLISHED' | 'DRAFT';
+  submittedCount?: number;
+  classAverage?: number | null;
 }
 
 export interface CredentialRecord { id: string; title: string; issuer: string; /** ISO date. */ completedAt: string }

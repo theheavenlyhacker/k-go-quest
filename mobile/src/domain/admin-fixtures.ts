@@ -49,7 +49,7 @@ export function fixtureDevices(today: string): DeviceRecord[] {
 }
 
 export function fixtureAdminData(today: string): AdminData {
-  return {
+  const data: AdminData = {
     schoolName: 'Brgy. Pembo Elementary School',
     impact: {
       jurisdictionId: 'jur-1',
@@ -67,4 +67,13 @@ export function fixtureAdminData(today: string): AdminData {
     engagement: fixtureEngagement(today),
     reach: fixtureReach(today),
   };
+  data.impactReports = [...new Set(data.reach.map((r) => r.quarter))].map((quarter) => {
+    const rows = data.reach.filter((r) => r.quarter === quarter);
+    const lessons = rows.reduce((sum, r) => sum + r.lessons, 0);
+    return { ...data.impact, quarter, learnersReached: rows.reduce((sum, r) => sum + r.learners, 0), lessonsCompleted: lessons,
+      offlineUsageShare: lessons ? rows.reduce((sum, r) => sum + r.offlineLessons, 0) / lessons : 0,
+      reachByBarangay: rows.map((r) => ({ barangay: r.barangay, learners: r.learners, lessons: r.lessons, offlineLessons: r.offlineLessons })),
+    };
+  });
+  return data;
 }
