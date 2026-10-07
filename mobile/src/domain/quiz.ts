@@ -16,6 +16,25 @@ export interface ServerQuiz extends ServerQuizSummary {
   answerKey: { exerciseId: string; correctOption: number }[];
 }
 export interface SkillChoice { skillCode: string; meanMastery: number; suggested: boolean; exercises: number }
+export interface ServerQuizPaper {
+  id: string;
+  paperId?: string;
+  quizId: string;
+  studentId: string;
+  alias: string;
+}
+
+export function parseQuizPapers(raw: unknown): ServerQuizPaper[] {
+  if (!Array.isArray(raw)) throw new Error('Quiz papers: the list is missing.');
+  return raw.map((item: unknown, i) => {
+    if (!item || typeof item !== 'object') throw new Error(`Quiz papers: item ${i} has the wrong shape.`);
+    const { id, quizId, studentId, alias } = item as Record<string, unknown>;
+    if (typeof id !== 'string' || typeof quizId !== 'string' || typeof studentId !== 'string' || typeof alias !== 'string') {
+      throw new Error(`Quiz papers: item ${i} has the wrong shape.`);
+    }
+    return { id, paperId: id, quizId, studentId, alias };
+  });
+}
 
 /** Validate the live list before saving it for offline use. */
 export function parseQuizSummaries(raw: unknown): ServerQuizSummary[] {

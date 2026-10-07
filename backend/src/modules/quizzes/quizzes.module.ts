@@ -32,10 +32,12 @@ import {
   Classroom,
   Enrollment,
   Quiz,
+  QuizPaper,
   QuizStatus,
   Role,
   SkillProgress,
   Subject,
+  User,
 } from '../../database/entities';
 import { CurrentUser, type Principal, Roles } from '../../common/security';
 import { ScopeService } from '../../common/scope.service';
@@ -320,6 +322,61 @@ export class QuizzesService {
       await this.saveDraft(quiz, { status: QuizStatus.PUBLISHED }),
     );
   }
+
+  async papers(actor: Principal, id: string) {
+    const { quiz, classroom } = await this.own(actor, id);
+    if (quiz.status !== QuizStatus.PUBLISHED)
+      throw new ConflictException(
+        'Quiz must be published before issuing papers',
+      );
+    const learners = await this.db
+      .getRepository(User)
+      .createQueryBuilder('u')
+      .innerJoin(
+        Enrollment,
+        'e',
+        'e.studentId = u.id AND e.classroomId = :classroomId AND e.active = true',
+        { classroomId: classroom.id },
+      )
+      .where('u.active = true')
+      .select(['u.id AS "studentId"', 'u.alias AS "alias"'])
+      .orderBy('u.alias', 'ASC')
+      .addOrderBy('u.id', 'ASC')
+      .getRawMany<{ studentId: string; alias: string }>();
+
+    const paperRepo = this.db.getRepository(QuizPaper);
+    const existing = await paperRepo.findBy({ quizId: quiz.id });
+    const existingByStudent = new Map(existing.map((p) => [p.studentId, p]));
+
+    const toCreate: QuizPaper[] = [];
+    for (const learner of learners) {
+      if (!existingByStudent.has(learner.studentId)) {
+        toCreate.push(
+          paperRepo.create({
+            quizId: quiz.id,
+            studentId: learner.studentId,
+          }),
+        );
+      }
+    }
+    if (toCreate.length > 0) {
+      const saved = await paperRepo.save(toCreate);
+      for (const p of saved) {
+        existingByStudent.set(p.studentId, p);
+      }
+    }
+
+    return learners.map((l) => {
+      const pid = existingByStudent.get(l.studentId)!.id;
+      return {
+        id: pid,
+        paperId: pid,
+        quizId: quiz.id,
+        studentId: l.studentId,
+        alias: l.alias,
+      };
+    });
+  }
 }
 
 @ApiTags('Teacher quizzes')
@@ -364,6 +421,12 @@ export class QuizzesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.quizzes.publish(actor, id);
+  }
+  @Post(':id/papers') papers(
+    @CurrentUser() actor: Principal,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quizzes.papers(actor, id);
   }
 }
 

@@ -113,7 +113,7 @@ describe('K-Go API on real PostgreSQL', () => {
     await app.init();
     db = app.get(DataSource);
     await db.query(
-      'TRUNCATE audit_events, quizzes, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
+      'TRUNCATE audit_events, quiz_papers, quizzes, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
     );
     const lgu = await db.manager.save(
       Jurisdiction,
@@ -603,6 +603,7 @@ describe('K-Go API on real PostgreSQL', () => {
       .send({ title: 'Mine now' })
       .expect(403);
     await http().get(`/api/v1/quizzes/${id}`).set(auth(student.accessToken)).expect(403);
+    await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(409);
     await http()
       .get(`/api/v1/quizzes?classroomId=${data.classroom.id}`)
       .set(auth(student.accessToken))
@@ -629,6 +630,21 @@ describe('K-Go API on real PostgreSQL', () => {
       .send({ title: 'Too late' })
       .expect(409);
     await http().post(`/api/v1/quizzes/${id}/publish`).set(auth(teacher.accessToken)).expect(409);
+    // Paper issuance: student and other teacher blocked, assigned teacher gets paper IDs for active learners
+    await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(student.accessToken)).expect(403);
+    await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(other.accessToken)).expect(403);
+    const papersRes = await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(201);
+    expect(papersRes.body).toHaveLength(1);
+    expect(papersRes.body[0]).toMatchObject({
+      quizId: id,
+      studentId: data.student.id,
+      alias: data.student.alias,
+    });
+    expect(papersRes.body[0].id).toBeDefined();
+
+    // Idempotent: issuing again returns the identical paper ID
+    const papersRes2 = await http().post(`/api/v1/quizzes/${id}/papers`).set(auth(teacher.accessToken)).expect(201);
+    expect(papersRes2.body[0].id).toBe(papersRes.body[0].id);
   });
   it('deducts coins once, scopes vouchers, prevents double claims and voucher login', async () => {
     const student = await login('student-test');

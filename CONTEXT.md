@@ -101,6 +101,11 @@ _Avoid_: retry, score
 A Teacher-built set of Exercises for one Classroom, taken on paper. Its Skills are picked for the Classroom's weakest (lowest mean Mastery, not Mastered) unless the Teacher chooses them. It is saved as a draft, editable until published, then immutable. Selection is deterministic from the item bank, never AI-written. Taking a Quiz is never a Counted Attempt.
 _Avoid_: test, assessment, generated quiz
 
+**Quiz Paper**:
+A single printable bubble sheet for one Learner for a published Quiz, headed with the Learner's alias (never a legal name). It carries large A–D answer bubbles in a fixed grid, four solid corner fiducial marks, and a QR code encoding the Quiz id and Paper id.
+_Avoid_: test paper, exam sheet, answer sheet, scantron
+
+
 ### Learning model
 
 **Mastery**:
@@ -170,6 +175,7 @@ _Avoid_: registered profile, synced account, enrolled profile
 - A **Content Pack** has one **Grading Mode**, which decides whether the tablet or the server grades its **Attempts**
 - A **Content Pack** is one version on one **Pack Line**; a **Shared Tablet** holds at most one version of a **Pack Line** as a **Downloaded Pack**
 - A **Linked Profile** is tied to one Learner account on the server and belongs to one **Classroom**
+- A published **Quiz** issues one **Quiz Paper** per active Learner in the **Classroom**, plus an answer key for the **Teacher**
 - A **League** ranks **Classrooms**; **Growth** describes one **Learner**
 
 ## Flagged ambiguities
