@@ -138,18 +138,33 @@ export function Action({ title, task, ...props }: Omit<React.ComponentProps<type
   }} />;
 }
 
-export function Field({ label, ...props }: TextInputProps & { label: string }) {
+/**
+ * Labelled text input. `icon` and `right` add the leading icon and trailing
+ * control of the Figma Login field; the icon is decorative and hidden from screen readers.
+ */
+export function Field({ label, icon: Icon, right, ...props }: TextInputProps & { label: string; icon?: LucideIcon; right?: React.ReactNode }) {
   const theme = useTheme();
+  const box = { backgroundColor: theme.surface, borderColor: theme.border };
+  const input = (
+    <TextInput
+      accessibilityLabel={label} placeholderTextColor={theme.muted} {...props}
+      style={Icon || right
+        ? [s.bare, { color: theme.text }, props.style]
+        : [s.input, box, {
+          color: theme.text, minHeight: props.multiline ? 110 : 49, textAlignVertical: props.multiline ? 'top' : 'center',
+        }, props.style]}
+    />
+  );
   return (
     <View style={{ gap: 7 }}>
       <Eyebrow>{label}</Eyebrow>
-      <TextInput
-        accessibilityLabel={label} placeholderTextColor={theme.muted} {...props}
-        style={[s.input, {
-          backgroundColor: theme.surface, color: theme.text, borderColor: theme.border,
-          minHeight: props.multiline ? 110 : 49, textAlignVertical: props.multiline ? 'top' : 'center',
-        }, props.style]}
-      />
+      {Icon || right ? (
+        <Row style={{ ...s.input, ...box, gap: 10, paddingVertical: 0, paddingRight: right ? 4 : 14 }}>
+          {Icon ? <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"><Icon size={18} color={theme.muted} /></View> : null}
+          {input}
+          {right}
+        </Row>
+      ) : input}
     </View>
   );
 }
@@ -294,5 +309,6 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   card: { padding: 14, borderWidth: 1, borderRadius: radius.md, gap: 9 },
   button: { minHeight: 46, borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: 15, paddingVertical: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  bare: { flex: 1, minHeight: 49, fontFamily: 'PublicSans_400Regular', fontSize: 13 },
   input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'PublicSans_400Regular', fontSize: 13 },
 });

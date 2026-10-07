@@ -12,7 +12,7 @@ import { getRepository } from '../data/storage';
 import { vault } from '../data/vault';
 import { useApp } from './app-context';
 import { ApiClient, ApiError, resolveApiUrl, type TokenStore } from '../domain/client';
-import { LEARNER_ACCOUNT } from '../domain/sign-in';
+import { LearnerAccountError } from '../domain/sign-in';
 import { checksumBody, offers, toPack, type PackOffer } from '../domain/packs';
 import {
   BATCH_LIMIT, CARETAKER_OWNER, LINKS_KEY, onlineState, parseLinks, sessionKey, uploadSummary,
@@ -174,7 +174,7 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     try {
       const session = await login(loginId, password);
       if (session.user.role === 'STUDENT')
-        throw new Error(LEARNER_ACCOUNT);
+        throw new LearnerAccountError();
       await store(CARETAKER_OWNER).write(session);
     } finally { setBusy(false); }
   }, [login, store]);
