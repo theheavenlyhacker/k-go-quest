@@ -1,32 +1,43 @@
 import type { Attempt } from './engine';
 import type { OnlineState } from './online';
+import type { PackOffer } from './packs';
 import type { Pack } from './types';
 
 /** A Lesson is finished once every one of its Exercises has an Attempt. Practice never needs a network, so neither does this. */
 export function libraryProgress(pack: Pack, attempts: Attempt[]) {
   const answered = new Set(attempts.map((a) => a.exerciseId));
-  const done = pack.lessons.filter((l) => l.exercises.length > 0 && l.exercises.every((e) => answered.has(e.id))).length;
-  const exercises = pack.lessons.flatMap((l) => l.exercises);
-  const fraction = exercises.length ? exercises.filter((e) => answered.has(e.id)).length / exercises.length : 0;
-  return { done, total: pack.lessons.length, fraction };
+  let done = 0, exercises = 0, answeredCount = 0;
+  for (const lesson of pack.lessons) {
+    const hit = lesson.exercises.filter((e) => answered.has(e.id)).length;
+    exercises += lesson.exercises.length;
+    answeredCount += hit;
+    if (lesson.exercises.length > 0 && hit === lesson.exercises.length) done += 1;
+  }
+  return { done, total: pack.lessons.length, fraction: exercises ? answeredCount / exercises : 0 };
+}
+
+/** What the server has to offer, as a screen can show it. Offline there is no list, so no state either. */
+export type Offers = { status: 'loading' } | { status: 'error' } | { status: 'ready'; offers: PackOffer[] };
+
+/**
+ * "Downloaded X of Y". The Starter Pack ships in the app and is not a
+ * Downloaded Pack, so `downloaded` excludes it. Y is known only while the
+ * server's list is, and `null` means "do not draw a total".
+ */
+export function downloadedCount(downloaded: number, offers: Offers | null) {
+  if (offers?.status !== 'ready') return { downloaded, total: null };
+  return { downloaded, total: downloaded + offers.offers.filter((o) => o.status === 'NEW').length };
 }
 
 /**
- * "Downloaded X of Y": Content Packs on this tablet out of those it holds plus
- * those the server offers that it does not. Offline the server is unknown, so Y
- * is then just X rather than a guess.
- */
-export const storage = (held: number, needDownload: number) => ({ held, total: held + needDownload });
-
-/**
  * The calm banner for answers waiting to go up. Silent when nothing waits.
- * Sync is offered only when the server session is usable, as it is the only
- * state in which an upload can succeed.
+ * Sync is offered only when the server session is usable and this Profile is
+ * linked, the only case in which an upload can succeed.
  */
-export function syncBanner(pending: number, state: OnlineState) {
+export function syncBanner(pending: number, state: OnlineState, linked: boolean) {
   if (pending <= 0) return null;
   const noun = pending === 1 ? 'answer' : 'answers';
-  return state === 'READY'
-    ? { text: `${pending} ${noun} ready to send`, canSync: true }
-    : { text: `Offline — ${pending} ${noun} waiting for school Wi-Fi`, canSync: false };
+  if (state === 'READY' && linked) return { text: `${pending} ${noun} ready to send`, canSync: true };
+  if (state === 'UNREACHABLE') return { text: `Offline — ${pending} ${noun} waiting for school Wi-Fi`, canSync: false };
+  return { text: `${pending} ${noun} saved on this tablet, waiting for the school server`, canSync: false };
 }

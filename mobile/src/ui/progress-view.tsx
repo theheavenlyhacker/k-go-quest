@@ -7,7 +7,7 @@ import { useApp } from '@/state/app-context';
 import { meanMastery, pct } from '@/domain/format';
 import { MASTERED_AT, growth, learningState, type Attempt, type LearningState } from '@/domain/engine';
 import type { Pack } from '@/domain/types';
-import { dailyAnswers, recentAchievements, streak } from '@/domain/progress';
+import { badges, dailyAnswers, recentAchievements, streak } from '@/domain/progress';
 import type { Purchase } from '@/domain/shop';
 import { subjectTitles } from '@/domain/subjects';
 import { Bar, Card, Eyebrow, Pill, Ring, Row, T, Trend } from '@/ui/primitives';
@@ -55,9 +55,9 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
     <>
       {/* stats (450:226) */}
       <Row style={{ gap: 10, alignItems: 'stretch' }}>
-        <Stat icon={Gauge} color={tokens.brand.limeDeep} value={pct(overall)} label="Mastery" />
-        <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="Day streak" />
-        <Stat icon={Award} color={tokens.brand.grape} value={`${purchases.length}`} label="Badges" />
+        <Stat icon={Gauge} color={tokens.brand.limeDeep} value={pct(overall)} label="Mastery" index={0} />
+        <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="Day streak" index={1} />
+        <Stat icon={Award} color={tokens.brand.grape} value={`${badges(purchases).length}`} label="Badges" index={2} />
       </Row>
 
       {/* mastery (450:156) */}
@@ -122,7 +122,7 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
             const title = lesson?.title ?? skill.skillId;
             if (readOnly || !lesson) return <T key={skill.skillId} variant="bodyS" color={theme.secondary}>{`${title} · ${pct(skill.mastery)}`}</T>;
             return (
-              <Pressable key={skill.skillId} accessibilityRole="link" onPress={() => router.push({ pathname: '/lesson', params: { lessonId: lesson.id } })}>
+              <Pressable key={skill.skillId} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="link" onPress={() => router.push({ pathname: '/lesson', params: { lessonId: lesson.id } })}>
                 <T variant="bodyS" color={theme.navActive}>{`${title} · ${pct(skill.mastery)} — open the Lesson`}</T>
               </Pressable>
             );
@@ -132,7 +132,7 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
 
       <Eyebrow>This week</Eyebrow>
 
-      <Card style={{ gap: 10 }}>
+      <Card index={4} style={{ gap: 10 }}>
         <View
           accessible
           accessibilityLabel={`Answers each day this week: ${days.map((d) => d.count).join(', ')}`}
@@ -151,7 +151,7 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
       <Eyebrow>Recent achievements</Eyebrow>
 
       {achievements.length ? (
-        <Card style={{ gap: 11 }}>
+        <Card index={5} style={{ gap: 11 }}>
           {achievements.map((a) => (
             <Row key={a.id} style={{ gap: 11 }}>
               <Award size={18} color={tokens.brand.grape} />
@@ -161,7 +161,12 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
           ))}
         </Card>
       ) : (
-        <T variant="bodyS" color={theme.muted}>No badges yet. Coins from first answers buy them in My Rewards.</T>
+        <Card index={5}>
+          <Row style={{ gap: 11 }}>
+            <Award size={18} color={theme.muted} />
+            <T variant="bodyS" color={theme.muted} style={{ flex: 1 }}>No badges yet. Coins from first answers buy them in My Rewards.</T>
+          </Row>
+        </Card>
       )}
 
       <T variant="bodyS" color={theme.muted}>
@@ -172,10 +177,10 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
 }
 
 /** stat/… (450:227): one number, one word, nothing invented. */
-function Stat({ icon: Icon, color, value, label }: { icon: typeof Flame; color: string; value: string; label: string }) {
+function Stat({ icon: Icon, color, value, label, index }: { icon: typeof Flame; color: string; value: string; label: string; index: number }) {
   const theme = useTheme();
   return (
-    <Card style={{ flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 14 }}>
+    <Card index={index} style={{ flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 14 }}>
       <Icon size={21} color={color} strokeWidth={1.9} />
       <T variant="displayL">{value}</T>
       <T variant="bodyS" color={theme.muted} style={{ textAlign: 'center' }}>{label}</T>
