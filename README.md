@@ -89,6 +89,9 @@ values; nothing here is a secret.
 3. **Point the app at it.** In `mobile/.env.local` set `EXPO_PUBLIC_API_URL=http://<your-LAN-IP>:3000`
    (Android emulator: `http://10.0.2.2:3000`). The stack binds to `127.0.0.1`; to reach it from
    a tablet, change the `ports:` host addresses in `backend/docker-compose.yml`.
+   With an address set, the Teacher screens read the server; add `EXPO_PUBLIC_DATA_SOURCE=fixture`
+   to keep the built-in sample data instead (tests and offline demos). Impact Points, badges and
+   credentials are always sample data and carry a "Demo" tag.
 4. **Sign in.** As the Caretaker go online and sign in to the server as `teacher-demo` (Teacher
    screens) or `admin-demo` (Admin screens); the password is `DEMO_PASSWORD` from `.env`.
    `teacher-demo-2` and `teacher-demo-3` own the other two Classrooms.

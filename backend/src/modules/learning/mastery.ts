@@ -17,7 +17,12 @@ export interface BktParams {
   slip: number;
 }
 
-export const DEFAULT_PARAMS: BktParams = { prior: 0.2, learn: 0.08, guess: 0.2, slip: 0.1 };
+export const DEFAULT_PARAMS: BktParams = {
+  prior: 0.2,
+  learn: 0.08,
+  guess: 0.2,
+  slip: 0.1,
+};
 
 /** Kept for callers that reported the prototype shape. */
 export const MASTERY_MODEL = {
@@ -28,7 +33,11 @@ export const MASTERY_MODEL = {
   learn: DEFAULT_PARAMS.learn,
 };
 
-export function updateMastery(prior: number, correct: boolean, params: BktParams = DEFAULT_PARAMS): number {
+export function updateMastery(
+  prior: number,
+  correct: boolean,
+  params: BktParams = DEFAULT_PARAMS,
+): number {
   const { guess, slip, learn } = params;
   const known = prior * (correct ? 1 - slip : slip);
   const unknown = (1 - prior) * (correct ? guess : 1 - guess);
@@ -38,11 +47,39 @@ export function updateMastery(prior: number, correct: boolean, params: BktParams
 }
 
 /** Probability the next answer is correct, given the current estimate. */
-export function predictCorrect(mastery: number, params: BktParams = DEFAULT_PARAMS): number {
+export function predictCorrect(
+  mastery: number,
+  params: BktParams = DEFAULT_PARAMS,
+): number {
   return mastery * (1 - params.slip) + (1 - mastery) * params.guess;
 }
 
 export function manilaMonth(date: Date): string {
-  const parts = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit' }).formatToParts(date);
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(date);
   return `${parts.find((p) => p.type === 'year')!.value}-${parts.find((p) => p.type === 'month')!.value}`;
+}
+
+/** The calendar day in Manila, as YYYY-MM-DD. */
+export const manilaDay = (date: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(date);
+
+/**
+ * Consecutive Manila days with practice, counting back from today. A streak
+ * that reached yesterday is still alive: the Learner has until the day ends.
+ */
+export function manilaStreak(practiced: Date[], now: Date): number {
+  const days = new Set(practiced.map(manilaDay));
+  let cursor = now.getTime();
+  if (!days.has(manilaDay(new Date(cursor)))) cursor -= 86_400_000;
+  let streak = 0;
+  // Manila has no daylight saving, so a day is always 24 hours.
+  while (days.has(manilaDay(new Date(cursor)))) {
+    streak += 1;
+    cursor -= 86_400_000;
+  }
+  return streak;
 }

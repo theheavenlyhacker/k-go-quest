@@ -8,6 +8,7 @@ const logs = new Map<string, Attempt[]>();
 const bought = new Map<string, Purchase[]>();
 const sent = new Map<string, Map<string, Upload>>();
 const downloaded = new Map<string, DownloadedPack>();
+const cached = new Map<string, unknown>();
 const repository: Repository = {
   downloadedPacks: async () => [...downloaded.values()],
   saveDownloadedPack: async (record, replaces) => {
@@ -21,6 +22,8 @@ const repository: Repository = {
   uploads: async (owner) => new Map(sent.get(owner) ?? []),
   purchases: async (owner) => [...(bought.get(owner) ?? [])],
   recordPurchase: async (owner, purchase) => { bought.set(owner, [...(bought.get(owner) ?? []), purchase]); },
+  cacheGet: async <T,>(owner: string, key: string) => (cached.get(`${owner}/${key}`) as T | undefined) ?? null,
+  cachePut: async (owner, key, value) => { cached.set(`${owner}/${key}`, value); },
   deleteOwner: async (owner) => { logs.delete(owner); bought.delete(owner); sent.delete(owner); },
 };
 export const getRepository = async () => repository;

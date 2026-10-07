@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { alerts, classOverview, insights, learnerDetail, searchLearners, type ClassroomReport } from './teacher';
+import { alerts, classOverview, insights, learnerDetail, parseClassroomReport, parseProgressSkills, searchLearners, type ClassroomReport } from './teacher';
 import { classroomReportFixture } from './teacher-fixture';
+import recorded from './recorded/classroom-report.json';
 
 describe('classOverview (fixture)', () => {
   const view = classOverview(classroomReportFixture);
@@ -38,7 +39,7 @@ describe('classOverview (empty classroom)', () => {
 
 describe('insights', () => {
   const now = Date.parse('2026-10-07T09:00:00.000Z');
-  const view = insights(classroomReportFixture, 5, { l1: 12, l3: 2 }, now);
+  const view = insights(classroomReportFixture, 5, now);
 
   it('searches by alias, ignoring case and spacing', () => {
     expect(searchLearners(view.all, ' an ').map((l) => l.alias)).toEqual(['Ana', 'Juanita']);
@@ -59,14 +60,14 @@ describe('insights', () => {
     const ana = view.all[0]!;
     expect([ana.grade, ana.streak]).toEqual([5, 2]);
     expect(view.all[2]!.mastery).toBeNull();
-    expect(view.all[2]!.streak).toBeNull();
+    expect(view.all[2]!.streak).toBe(0);
   });
 
   it('shows Mastery per Skill, weakest first, for one Learner', () => {
-    expect(learnerDetail(classroomReportFixture, 'l3', 5, {}, now)!.skills.map((s) => [s.label, s.subjectTitle, s.mastery])).toEqual([
+    expect(learnerDetail(classroomReportFixture, 'l3', 5, now)!.skills.map((s) => [s.label, s.subjectTitle, s.mastery])).toEqual([
       ['Fractions · Add', 'Math', 0.31], ['Reading · Main idea', 'English', 0.62],
     ]);
-    expect(learnerDetail(classroomReportFixture, 'nope', 5, {}, now)).toBeNull();
+    expect(learnerDetail(classroomReportFixture, 'nope', 5, now)).toBeNull();
   });
 });
 
@@ -109,5 +110,40 @@ describe('alerts', () => {
 
   it('is empty when nothing is flagged', () => {
     expect(alerts({ ...classroomReportFixture, learners: [classroomReportFixture.learners[0]!] }, now, {}).open).toEqual([]);
+  });
+});
+
+describe('the recorded Classroom report (contract with the backend)', () => {
+  // backend/test/app.e2e-spec.ts records this shape; if the server drifts, re-record and fix the view model.
+  const report = parseClassroomReport(recorded);
+  const now = Date.parse('2026-10-07T15:00:00.000Z');
+
+  it('parses through the Teacher view model', () => {
+    expect(report.learners[0]).toMatchObject({ alias: 'student-test', streak: 1, subjects: [{ subject: 'MATH', mastery: 0.6 }], connectivityStatus: 'RECENT_SYNC' });
+    expect(classOverview(report).tiles).toEqual({ learners: 1, averageMastery: 0.6, needHelp: 0 });
+    const [learner] = insights(report, 5, now).all;
+    expect([learner!.streak, learner!.lastPracticeAt]).toEqual([1, '2026-10-07T14:20:00.235Z']);
+  });
+
+  it.each(['streak', 'lastPracticeAt', 'subjects', 'skills', 'connectivityStatus'])('fails when a Learner loses %s', (field) => {
+    const { [field]: _gone, ...rest } = recorded.learners[0] as Record<string, unknown>;
+    expect(() => parseClassroomReport({ ...recorded, learners: [rest] })).toThrow(/Classroom report/);
+  });
+
+  it('fails when a value changes type or leaves its set', () => {
+    const learner = recorded.learners[0]!;
+    expect(() => parseClassroomReport({ ...recorded, learners: [{ ...learner, streak: '1' }] })).toThrow(/streak/);
+    expect(() => parseClassroomReport({ ...recorded, learners: [{ ...learner, learningStatus: 'FINE' }] })).toThrow(/learningStatus/);
+    expect(() => parseClassroomReport({ ...recorded, learners: 'none' })).toThrow(/learners/);
+  });
+});
+
+describe('Learner progress', () => {
+  it('parses per-Skill Mastery and shows it in the detail instead of the report Skills', () => {
+    const skills = parseProgressSkills({ studentId: 'l3', skills: [{ skillCode: 'math5.fractions.add', subject: 'MATH', mastery: 0.5, attempts: 9, correctAttempts: 5, id: 'x' }] });
+    const detail = learnerDetail(classroomReportFixture, 'l3', 5, Date.parse('2026-10-07T09:00:00.000Z'), skills)!;
+    expect(detail.skills.map((s) => [s.label, s.mastery, s.attempts])).toEqual([['Fractions · Add', 0.5, 9]]);
+    expect(detail.mastery).toBe(0.5);
+    expect(() => parseProgressSkills({ skills: [{ skillCode: 'x' }] })).toThrow(/progress/);
   });
 });
