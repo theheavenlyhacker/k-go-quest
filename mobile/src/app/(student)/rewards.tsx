@@ -107,7 +107,7 @@ function Badge({ item, index, owned, balance, onBuy }: { item: Cosmetic; index: 
         {owned ? (
           <Pill color={tokens.state.success} tint={tokens.tint.success}>Owned</Pill>
         ) : (
-          <Unlock disabled={!affordable} onPress={onBuy} />
+          <Unlock name={item.name} disabled={!affordable} onPress={onBuy} />
         )}
       </Row>
     </Card>
@@ -115,17 +115,17 @@ function Badge({ item, index, owned, balance, onBuy }: { item: Cosmetic; index: 
 }
 
 /** btn/sun and btn/ghost (451:234, 451:279): compact, right-aligned, two states only. */
-function Unlock({ disabled, onPress }: { disabled: boolean; onPress: () => Promise<void> }) {
+function Unlock({ name, disabled, onPress }: { name: string; disabled: boolean; onPress: () => Promise<void> }) {
   const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={disabled ? 'Locked' : 'Unlock'}
+      accessibilityLabel={disabled ? `${name} locked, not enough Coins` : `Unlock ${name}`}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={() => { void onPress().catch(() => undefined); }}
       style={({ pressed }) => ({
-        paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
+        minHeight: 44, minWidth: 44, paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center',
         backgroundColor: disabled ? 'transparent' : tokens.brand.sun,
         borderWidth: disabled ? 1 : 0, borderColor: theme.borderStrong,
         opacity: disabled ? 0.5 : pressed ? 0.78 : 1,

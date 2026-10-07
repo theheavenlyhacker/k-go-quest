@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CircleCheck, Clock, Flame, TriangleAlert } from 'lucide-react-native';
+import { Award, Flame, Gauge, TriangleAlert } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { meanMastery, pct } from '@/domain/format';
 import { MASTERED_AT, growth, learningState, type Attempt, type LearningState } from '@/domain/engine';
 import type { Pack } from '@/domain/types';
+import { dailyAnswers, recentAchievements, streak } from '@/domain/progress';
+import type { Purchase } from '@/domain/shop';
 import { subjectTitles } from '@/domain/subjects';
 import { Bar, Card, Eyebrow, Pill, Ring, Row, T, Trend } from '@/ui/primitives';
 import { radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -25,25 +27,13 @@ function weekly(packs: Pack[], log: Attempt[], now: number): number[] {
   return points;
 }
 
-/** Consecutive days up to today on which the Learner answered at least once. */
-function streak(log: Attempt[], now: number): number {
-  const days = new Set(log.map((a) => new Date(a.at).toDateString()));
-  let count = 0;
-  for (let back = 0; back < 365; back += 1) {
-    const day = new Date(now - back * 24 * 60 * 60 * 1000).toDateString();
-    if (days.has(day)) count += 1;
-    else if (back > 0) break;
-  }
-  return count;
-}
-
 /**
  * My Progress — 04 · My Progress (450:154).
  *
  * `readOnly` is the Caretaker's view of someone else's Profile: same numbers,
  * no Lesson links.
  */
-export function ProgressView({ learning, attempts, balance, readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; readOnly?: boolean }) {
+export function ProgressView({ learning, attempts, balance, purchases = [], readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; purchases?: Purchase[]; readOnly?: boolean }) {
   const router = useRouter();
   const { packs } = useApp();
   const theme = useTheme();
@@ -56,12 +46,20 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
   const overall = meanMastery(learning.skills);
   // Percentage points gained across the window the sparkline draws.
   const gained = Math.round((trend[trend.length - 1] - trend[0]) * 100);
-  const mastered = learning.skills.filter((skill) => skill.mastered).length;
-  const thisWeek = attempts.filter((a) => now - Date.parse(a.at) < WEEK).length;
+  const days = dailyAnswers(attempts, now);
+  const busiest = Math.max(1, ...days.map((d) => d.count));
+  const achievements = recentAchievements(purchases);
   const flagged = learning.skills.filter((skill) => skill.plateau);
 
   return (
     <>
+      {/* stats (450:226) */}
+      <Row style={{ gap: 10, alignItems: 'stretch' }}>
+        <Stat icon={Gauge} color={tokens.brand.limeDeep} value={pct(overall)} label="Mastery" />
+        <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="Day streak" />
+        <Stat icon={Award} color={tokens.brand.grape} value={`${purchases.length}`} label="Badges" />
+      </Row>
+
       {/* mastery (450:156) */}
       <Card style={{ gap: 12 }}>
         <Row style={{ gap: 10 }}>
@@ -132,12 +130,39 @@ export function ProgressView({ learning, attempts, balance, readOnly = false }: 
         </Card>
       ) : null}
 
-      {/* stats (450:226) */}
-      <Row style={{ gap: 10, alignItems: 'stretch' }}>
-        <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="day answer streak" />
-        <Stat icon={CircleCheck} color={tokens.state.success} value={`${mastered}`} label="skills mastered" />
-        <Stat icon={Clock} color={tokens.brand.sky} value={`${thisWeek}`} label="answers this week" />
-      </Row>
+      <Eyebrow>This week</Eyebrow>
+
+      <Card style={{ gap: 10 }}>
+        <View
+          accessible
+          accessibilityLabel={`Answers each day this week: ${days.map((d) => d.count).join(', ')}`}
+          style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 84 }}
+        >
+          {days.map((d, i) => (
+            <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: '100%' }}>
+              <View style={{ width: '100%', height: Math.max(3, (d.count / busiest) * 58), borderRadius: radius.sm / 2, backgroundColor: d.count ? tokens.brand.sky : theme.surfaceAlt }} />
+              <T variant="dataS" color={theme.muted}>{d.label}</T>
+            </View>
+          ))}
+        </View>
+        <T variant="bodyS" color={theme.muted}>Answers saved each day. This tablet counts answers, not minutes.</T>
+      </Card>
+
+      <Eyebrow>Recent achievements</Eyebrow>
+
+      {achievements.length ? (
+        <Card style={{ gap: 11 }}>
+          {achievements.map((a) => (
+            <Row key={a.id} style={{ gap: 11 }}>
+              <Award size={18} color={tokens.brand.grape} />
+              <T variant="titleS" style={{ flex: 1 }}>{a.name}</T>
+              <T variant="bodyS" color={theme.muted}>{new Date(a.at).toLocaleDateString()}</T>
+            </Row>
+          ))}
+        </Card>
+      ) : (
+        <T variant="bodyS" color={theme.muted}>No badges yet. Coins from first answers buy them in My Rewards.</T>
+      )}
 
       <T variant="bodyS" color={theme.muted}>
         {`${balance} Coins earned from first answers. Mastery is an estimate from your first answer to each question, never a grade.`}
