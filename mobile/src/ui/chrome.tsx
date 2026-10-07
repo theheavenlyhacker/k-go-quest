@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpen, ChevronRight, CircleHelp, Coins, Download, Gift, Globe, Lock, MapPin, Repeat2, Sparkles, Trophy, ChartColumn, type LucideIcon } from 'lucide-react-native';
+import { BookOpen, ChevronRight, CircleHelp, Coins, Download, Gift, Globe, Lock, MapPin, Repeat2, UserRound, Sparkles, Trophy, ChartColumn, type LucideIcon } from 'lucide-react-native';
 
 import { useApp } from '../state/app-context';
 import { useOnline } from '../state/online-context';
 import { initials } from '../domain/format';
 import { HINT_LANGUAGES } from '../domain/hint-voice';
+import { gradeLabel, storageLabel } from '../domain/sidebar';
 import { elevation, radius, tokens, useTheme } from './theme';
-import { Eyebrow, Pill, Pills, Row, T } from './primitives';
+import { Eyebrow, Pill, Pills, Row, Sheet, T } from './primitives';
 
 const SIDEBAR_WIDTH = 293;
 
@@ -155,7 +156,7 @@ export function Sidebar({ open, onClose, header, items, action, footer }: {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(6,30,25,0.5)' }, scrim]}>
-        <Pressable accessibilityLabel="Close menu" onPress={onClose} style={StyleSheet.absoluteFill} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={onClose} style={StyleSheet.absoluteFill} />
       </Animated.View>
       <Animated.View style={[{ position: 'absolute', left: 0, top: 0, bottom: 0, width: SIDEBAR_WIDTH, backgroundColor: theme.surface }, panel]}>
         <View style={{ flex: 1 }}>
@@ -167,7 +168,7 @@ export function Sidebar({ open, onClose, header, items, action, footer }: {
               <T variant="titleM" lines={1}>{header.name}</T>
               <T variant="bodyS" color={theme.muted} lines={1}>{header.detail}</T>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={onClose} hitSlop={10}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={onClose} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <T variant="titleM" color={theme.muted}>✕</T>
             </Pressable>
           </Row>
@@ -176,10 +177,11 @@ export function Sidebar({ open, onClose, header, items, action, footer }: {
 
           <View style={{ paddingHorizontal: 8, paddingVertical: 10, gap: 2 }}>
             {items.map((item, index) => (
-              <Animated.View key={item.label} entering={FadeIn.delay(60 + index * 35).duration(220)}>
+              <Animated.View key={item.label} entering={FadeIn.delay(60 + index * 35).duration(220).reduceMotion(ReduceMotion.System)}>
                 <Pressable
-                  accessibilityRole="button" disabled={!item.onPress} onPress={item.onPress}
-                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 11, padding: 12, borderRadius: radius.sm, backgroundColor: item.active ? tokens.tint.lime : 'transparent', opacity: pressed && item.onPress ? 0.65 : 1 })}
+                  accessibilityRole="button" accessibilityLabel={item.value ? `${item.label}, ${item.value}` : item.label}
+                  accessibilityState={{ selected: !!item.active }} disabled={!item.onPress} onPress={item.onPress}
+                  style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 12, borderRadius: radius.sm, backgroundColor: item.active ? tokens.tint.lime : 'transparent', opacity: pressed && item.onPress ? 0.65 : 1 })}
                 >
                   <item.icon size={19} color={theme.text} strokeWidth={1.8} />
                   <T variant={item.active ? 'titleS' : 'bodyM'} style={{ flex: 1 }}>{item.label}</T>
@@ -194,8 +196,8 @@ export function Sidebar({ open, onClose, header, items, action, footer }: {
 
           <View style={{ flex: 1 }} />
           <Pressable
-            accessibilityRole="button" onPress={action.onPress}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 18, paddingTop: 16, paddingBottom: insets.bottom + 22, borderTopWidth: 1, borderTopColor: theme.border, opacity: pressed ? 0.6 : 1 })}
+            accessibilityRole="button" accessibilityLabel={action.label} onPress={action.onPress}
+            style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 18, paddingTop: 16, paddingBottom: insets.bottom + 22, borderTopWidth: 1, borderTopColor: theme.border, opacity: pressed ? 0.6 : 1 })}
           >
             <action.icon size={17} color={actionColor} strokeWidth={1.8} />
             <T variant="titleM" color={actionColor}>{action.label}</T>
@@ -206,28 +208,34 @@ export function Sidebar({ open, onClose, header, items, action, footer }: {
   );
 }
 
-/** The Learner's Sidebar: Coins pill, Switch Profile and tablet items, Lock. */
+/** The Learner's Sidebar (Frames 9-13). Items without a screen yet open a "coming soon" sheet, so none does nothing. */
 export function LearnerSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profile, balance, preferences, updatePreferences, selectProfile, lock, packs } = useApp();
-  // Kilobytes, not megabytes: the Starter Pack plus every Downloaded Pack, as stored.
-  const kilobytes = Math.round(JSON.stringify(packs).length / 1024);
   const theme = useTheme();
+  const [soon, setSoon] = useState<string | null>(null);
+  // The Starter Pack plus every Downloaded Pack, as stored.
+  const storage = storageLabel(JSON.stringify(packs).length);
   const languageLabel = HINT_LANGUAGES.find((l) => l.code === preferences.language)?.label ?? 'English';
   return (
+    <>
+    <Sheet visible={soon !== null} title="Coming soon" onClose={() => setSoon(null)}>
+      <T variant="bodyM" color={theme.muted}>{`${soon ?? ''} isn't on this tablet yet. It will arrive in a later update.`}</T>
+    </Sheet>
     <Sidebar
       open={open}
       onClose={onClose}
       header={{
         name: profile?.alias ?? 'Learner',
-        detail: 'Grade 5',
+        detail: gradeLabel(packs),
         pill: <Pill color={tokens.brand.sunDeep} tint={tokens.tint.sun} icon={Coins}>{`${balance} Coins`}</Pill>,
       }}
       items={[
-        { icon: Repeat2, label: 'Switch Profile', active: true, onPress: () => { onClose(); selectProfile(null); } },
-        { icon: Download, label: 'Content on this tablet', value: `${kilobytes} KB` },
-        { icon: Globe, label: 'Language', value: languageLabel },
-        { icon: MapPin, label: 'Siklab Hub Locator' },
-        { icon: CircleHelp, label: 'Help & FAQ' },
+        { icon: UserRound, label: 'My Profile', onPress: () => setSoon('My Profile') },
+        { icon: Repeat2, label: 'Switch Profile', onPress: () => { onClose(); selectProfile(null); } },
+        { icon: Download, label: 'Downloaded Content', value: storage, onPress: () => setSoon('Downloaded Content') },
+        { icon: Globe, label: 'Language', value: languageLabel, onPress: () => setSoon('Language') },
+        { icon: MapPin, label: 'Siklab Hub Locator', onPress: () => setSoon('Siklab Hub Locator') },
+        { icon: CircleHelp, label: 'Help & FAQ', onPress: () => setSoon('Help & FAQ') },
       ]}
       action={{ icon: Lock, label: 'Lock', destructive: true, onPress: () => { onClose(); lock(); } }}
       footer={
@@ -242,5 +250,6 @@ export function LearnerSidebar({ open, onClose }: { open: boolean; onClose: () =
           </View>
       }
     />
+    </>
   );
 }
