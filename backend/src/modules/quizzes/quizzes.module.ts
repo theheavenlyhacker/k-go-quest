@@ -132,7 +132,10 @@ export class QuizzesService {
             ?.mastery ?? DEFAULT_PARAMS.prior),
         0,
       );
-      return { skillCode, mean: total / Math.max(1, learners.length) };
+      return {
+        skillCode,
+        mean: learners.length ? total / learners.length : DEFAULT_PARAMS.prior,
+      };
     });
   }
 
@@ -200,10 +203,10 @@ export class QuizzesService {
         SUGGESTED_SKILLS,
       );
     const order = dto.skillCodes
-      ? (
-          await this.skillMeans(classroom.id, skillCodes)
-        )
-          .sort((a, b) => a.mean - b.mean || a.skillCode.localeCompare(b.skillCode))
+      ? (await this.skillMeans(classroom.id, skillCodes))
+          .sort(
+            (a, b) => a.mean - b.mean || a.skillCode.localeCompare(b.skillCode),
+          )
           .map((m) => m.skillCode)
       : skillCodes;
     const exerciseIds = pickItems(bank, order, dto.itemCount);
@@ -258,7 +261,9 @@ export class QuizzesService {
     if (quiz.status === QuizStatus.PUBLISHED)
       throw new ConflictException('A published Quiz cannot be changed');
     if (dto.exerciseIds && dto.replaceExerciseId)
-      throw new BadRequestException('Send exerciseIds or replaceExerciseId, not both');
+      throw new BadRequestException(
+        'Send exerciseIds or replaceExerciseId, not both',
+      );
     const bank = await this.bank(classroom, actor.jurisdictionId, quiz.subject);
     let ids = dto.exerciseIds ?? quiz.exerciseIds;
     if (dto.exerciseIds) {
@@ -284,17 +289,36 @@ export class QuizzesService {
     quiz.exerciseIds = ids;
     quiz.title = dto.title ?? quiz.title;
     quiz.skillCodes = [
-      ...new Set(ids.flatMap((x) => bank.find((b) => b.id === x)?.skillCode ?? [])),
+      ...new Set(
+        ids.flatMap((x) => bank.find((b) => b.id === x)?.skillCode ?? []),
+      ),
     ];
-    return this.view(await this.db.getRepository(Quiz).save(quiz));
+    return this.view(
+      await this.saveDraft(quiz, {
+        title: quiz.title,
+        skillCodes: quiz.skillCodes,
+        exerciseIds: quiz.exerciseIds,
+      }),
+    );
+  }
+
+  /** Writes only while the Quiz is still a draft, so a concurrent publish cannot be overwritten. */
+  private async saveDraft(quiz: Quiz, changes: Partial<Quiz>) {
+    const done = await this.db
+      .getRepository(Quiz)
+      .update({ id: quiz.id, status: QuizStatus.DRAFT }, changes);
+    if (!done.affected)
+      throw new ConflictException('A published Quiz cannot be changed');
+    return this.db.getRepository(Quiz).findOneByOrFail({ id: quiz.id });
   }
 
   async publish(actor: Principal, id: string) {
     const { quiz } = await this.own(actor, id);
     if (quiz.status === QuizStatus.PUBLISHED)
       throw new ConflictException('Quiz is already published');
-    quiz.status = QuizStatus.PUBLISHED;
-    return this.view(await this.db.getRepository(Quiz).save(quiz));
+    return this.view(
+      await this.saveDraft(quiz, { status: QuizStatus.PUBLISHED }),
+    );
   }
 }
 

@@ -33,7 +33,13 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
     try { show(await work()); } catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
   const patch = (body: object) => run(() => caretakerCall<ServerQuiz>('PATCH', `quizzes/${quizId}`, body));
-  const close = () => { reload(); onDone(); };
+  const saveAndClose = () => {
+    // Blur may not have fired yet, so save a pending rename before closing.
+    const pending = title.trim();
+    const finish = () => { reload(); onDone(); };
+    if (quiz && pending && pending !== quiz.title) void caretakerCall('PATCH', `quizzes/${quizId}`, { title: pending }).then(finish, (e: unknown) => setError(message(e)));
+    else finish();
+  };
   const published = quiz?.status === 'PUBLISHED';
 
   if (!quiz) return error ? <Info title="Could not open this quiz" text={error} color={tokens.state.critical} /> : <ActivityIndicator accessibilityLabel="Loading" color={theme.navActive} />;
@@ -61,12 +67,12 @@ function QuizDraft({ quizId, onDone }: { quizId: string; onDone: () => void }) {
       {published ? (
         <>
           <Info icon={Check} title="Published" text="This quiz is final. Print it for the paper test." />
-          <Button title="Done" onPress={close} />
+          <Button title="Done" onPress={saveAndClose} />
         </>
       ) : (
         <>
-          <Button title="Publish quiz" loading={busy} onPress={() => void run(async () => { const done = await caretakerCall<ServerQuiz>('POST', `quizzes/${quizId}/publish`); return done; })} />
-          <Button title="Save as draft" variant="soft" onPress={close} />
+          <Button title="Publish quiz" loading={busy} onPress={() => void run(() => caretakerCall<ServerQuiz>('POST', `quizzes/${quizId}/publish`))} />
+          <Button title="Save as draft" variant="soft" onPress={saveAndClose} />
         </>
       )}
     </>

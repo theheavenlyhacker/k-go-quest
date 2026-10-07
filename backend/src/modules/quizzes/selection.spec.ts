@@ -16,13 +16,25 @@ describe('weakestSkills', () => {
 });
 
 describe('pickItems', () => {
-  const c = (id: string, skillCode: string, answered: number) => ({ id, skillCode, answered });
-  const pool = [c('e3', 'a', 5), c('e1', 'a', 0), c('e2', 'a', 0), c('e4', 'b', 1), c('e5', 'b', 0)];
+  const c = (id: string, skillCode: string, answered: number) => ({
+    id,
+    skillCode,
+    answered,
+  });
+  const pool = [
+    c('e3', 'a', 5),
+    c('e1', 'a', 0),
+    c('e2', 'a', 0),
+    c('e4', 'b', 1),
+    c('e5', 'b', 0),
+  ];
   it('rotates through Skills weakest first and prefers least-answered Exercises', () => {
     expect(pickItems(pool, ['a', 'b'], 4)).toEqual(['e1', 'e5', 'e2', 'e4']);
   });
   it('returns fewer when the bank runs out, and is repeatable', () => {
     expect(pickItems(pool, ['b'], 5)).toEqual(['e5', 'e4']);
-    expect(pickItems(pool, ['a', 'b'], 4)).toEqual(pickItems([...pool].reverse(), ['a', 'b'], 4));
+    expect(pickItems(pool, ['a', 'b'], 4)).toEqual(
+      pickItems([...pool].reverse(), ['a', 'b'], 4),
+    );
   });
 });

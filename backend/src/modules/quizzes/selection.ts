@@ -1,6 +1,13 @@
 /** Weakness-first selection for Quizzes: pure, deterministic, no I/O. */
-export interface SkillMean { skillCode: string; mean: number }
-export interface Candidate { id: string; skillCode: string; answered: number }
+export interface SkillMean {
+  skillCode: string;
+  mean: number;
+}
+export interface Candidate {
+  id: string;
+  skillCode: string;
+  answered: number;
+}
 
 const MASTERED = 0.95;
 
@@ -14,7 +21,11 @@ export function weakestSkills(skills: SkillMean[], limit: number): string[] {
 }
 
 /** Takes one Exercise per Skill in turn, weakest Skill first; within a Skill the least-answered first. */
-export function pickItems(pool: Candidate[], skillOrder: string[], count: number): string[] {
+export function pickItems(
+  pool: Candidate[],
+  skillOrder: string[],
+  count: number,
+): string[] {
   const queues = skillOrder.map((code) =>
     pool
       .filter((c) => c.skillCode === code)
