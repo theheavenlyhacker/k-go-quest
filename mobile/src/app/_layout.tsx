@@ -16,6 +16,7 @@ import { AppProvider, useApp } from '@/state/app-context';
 import { appRoute } from '@/domain/route';
 import { canOpenAdmin } from '@/domain/admin';
 import { OnlineProvider, useOnline } from '@/state/online-context';
+import { allows } from '@/domain/online';
 import { T } from '@/ui/primitives';
 import { palette, useTheme } from '@/ui/theme';
 
@@ -41,7 +42,9 @@ export default function RootLayout() {
 function Shell() {
   const { ready, profile, locked, caretaker, step, introSeen } = useApp();
   const route = appRoute({ ready, introSeen, step, hasProfile: Boolean(profile), locked, caretaker });
-  const { state, server } = useOnline();
+  const { server, state } = useOnline();
+  // The Teacher shell is Online Mode only: losing the session or the connection drops this guard, which returns the tablet to the Caretaker area.
+  const teacherShell = route === 'caretaker' && state === 'READY' && allows(server, 'TEACHER') && server?.user.role === 'TEACHER';
   const theme = useTheme();
   useEffect(() => { void SystemUI.setBackgroundColorAsync(theme.page).catch(() => undefined); }, [theme.page]);
   useEffect(() => { if (ready) void SplashScreen.hideAsync(); }, [ready]);
@@ -73,6 +76,9 @@ function Shell() {
         {/* Losing the session or the connection drops the guard, and the router falls back to the Caretaker area. */}
         <Stack.Protected guard={route === 'caretaker' && canOpenAdmin(state, server)}>
           <Stack.Screen name="(admin)" />
+        </Stack.Protected>
+        <Stack.Protected guard={teacherShell}>
+          <Stack.Screen name="teacher" />
         </Stack.Protected>
         <Stack.Protected guard={route === 'lock'}>
           <Stack.Screen name="lock" />
