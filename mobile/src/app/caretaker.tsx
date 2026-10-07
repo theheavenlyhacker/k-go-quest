@@ -1,9 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LockKeyhole, Plus } from 'lucide-react-native';
+import { LockKeyhole, Plus, School } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
+import { useOnline } from '@/state/online-context';
+import { canOpenAdmin } from '@/domain/admin';
 import { learningState } from '@/domain/engine';
 import type { Pack } from '@/domain/types';
 import { isValidPin } from '@/domain/pin-lock';
@@ -24,12 +26,14 @@ export default function Caretaker() {
   const [adding, setAdding] = useState(false);
   const router = useRouter();
   const theme = useTheme();
+  const { state, server } = useOnline();
   return (
     <Screen title="Caretaker" caption="Profiles on this tablet">
       <BackLink label="Close Caretaker screen" onPress={closeCaretaker} />
       {accountLinked ? null : <LinkAccountCard />}
       <Eyebrow>School server</Eyebrow>
       <ServerPanel />
+      {canOpenAdmin(state, server) ? <Button title="Open the LGU Admin shell" icon={School} onPress={() => router.push('/dashboard')} /> : null}
       <Eyebrow>Content Packs</Eyebrow>
       <PackLibrary />
       <Eyebrow>Profiles</Eyebrow>
