@@ -85,6 +85,50 @@ export function parseClassroomReport(raw: unknown): ClassroomReport {
   };
 }
 
+export interface SuggestedGroupLearner { id: string; alias: string }
+
+export interface SuggestedGroup {
+  skillCode: string;
+  skillTitle: string;
+  subject: Subject;
+  learners: SuggestedGroupLearner[];
+  count: number;
+}
+
+export interface ClassroomSuggestions {
+  classroomId: string;
+  method: 'model' | 'fallback';
+  groups: SuggestedGroup[];
+  decisionPolicy: string;
+}
+
+export function parseClassroomSuggestions(raw: unknown): ClassroomSuggestions {
+  const r = record(raw, 'suggestions');
+  return {
+    classroomId: text(r.classroomId, 'classroomId'),
+    method: oneOf(r.method, ['model', 'fallback'] as const, 'method'),
+    decisionPolicy: text(r.decisionPolicy, 'decisionPolicy'),
+    groups: list(r.groups, 'groups').map((item, i) => {
+      const where = `groups[${i}]`;
+      const g = record(item, where);
+      return {
+        skillCode: text(g.skillCode, `${where}.skillCode`),
+        skillTitle: text(g.skillTitle, `${where}.skillTitle`),
+        subject: oneOf(g.subject, subjects, `${where}.subject`),
+        count: num(g.count, `${where}.count`),
+        learners: list(g.learners, `${where}.learners`).map((l, j) => {
+          const lwhere = `${where}.learners[${j}]`;
+          const learner = record(l, lwhere);
+          return {
+            id: text(learner.id, `${lwhere}.id`),
+            alias: text(learner.alias, `${lwhere}.alias`),
+          };
+        }),
+      };
+    }),
+  };
+}
+
 export interface SubjectBar { subject: Subject; title: string; mastery: number }
 
 export interface ClassOverview {

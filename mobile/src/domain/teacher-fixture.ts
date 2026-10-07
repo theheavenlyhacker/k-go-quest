@@ -1,5 +1,5 @@
 import type { ServerClassroom } from './server';
-import type { ClassroomReport, ReportLearner, ReportSkill } from './teacher';
+import type { ClassroomReport, ClassroomSuggestions, ReportLearner, ReportSkill } from './teacher';
 
 /** Fixture data for the Teacher shell: used for tests and offline demos (`EXPO_PUBLIC_DATA_SOURCE=fixture`). */
 
@@ -42,3 +42,31 @@ export const classroomsFixture: ServerClassroom[] = [
 
 /** Fixture-only and shown with a "Demo" tag: Impact Points have no backend concept (see #31). */
 export const teacherExtrasFixture = { impactPoints: 2450 };
+
+export const classroomSuggestionsFixture: ClassroomSuggestions = {
+  classroomId: classroomFixture.id,
+  method: 'model',
+  groups: [
+    {
+      skillCode: 'math5.fractions.equivalent',
+      skillTitle: 'Equivalent fractions',
+      subject: 'MATH',
+      learners: [
+        { id: 'l1', alias: 'Juanita' },
+        { id: 'l2', alias: 'Miguel' },
+        { id: 'l4', alias: 'Paolo' },
+      ],
+      count: 3,
+    },
+    {
+      skillCode: 'math5.fractions.add',
+      skillTitle: 'Adding fractions',
+      subject: 'MATH',
+      learners: [
+        { id: 'l3', alias: 'Ana' },
+      ],
+      count: 1,
+    },
+  ],
+  decisionPolicy: 'Suggested practice groups; teacher decides next action',
+};

@@ -104,6 +104,12 @@ describe('Demo seed on real PostgreSQL', () => {
         const learners = res.body.learners as any[];
         expect(learners.some((l) => l.learningStatus === 'TEACHER_REVIEW_SUGGESTED')).toBe(true);
         expect(learners.some((l) => l.connectivityStatus === 'NO_RECENT_SYNC')).toBe(true);
+
+        const sugRes = await request(app.getHttpServer())
+          .get(`/api/v1/reports/classrooms/${room.classroomId}/suggestions`)
+          .set({ Authorization: `Bearer ${accessToken}` })
+          .expect(200);
+        expect(sugRes.body.groups.length).toBeGreaterThanOrEqual(2);
       }
     }
     expect(rooms.size).toBe(3);

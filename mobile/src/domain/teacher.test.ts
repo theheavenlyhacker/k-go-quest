@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { alerts, classOverview, insights, learnerDetail, parseClassroomReport, parseProgressSkills, searchLearners, type ClassroomReport } from './teacher';
-import { classroomReportFixture } from './teacher-fixture';
+import { alerts, classOverview, insights, learnerDetail, parseClassroomReport, parseClassroomSuggestions, parseProgressSkills, searchLearners, type ClassroomReport } from './teacher';
+import { classroomReportFixture, classroomSuggestionsFixture } from './teacher-fixture';
 import recorded from './recorded/classroom-report.json';
 
 describe('classOverview (fixture)', () => {
@@ -147,3 +147,59 @@ describe('Learner progress', () => {
     expect(() => parseProgressSkills({ skills: [{ skillCode: 'x' }] })).toThrow(/progress/);
   });
 });
+
+describe('Classroom suggestions', () => {
+  it('parses valid suggestions fixture with groups and method', () => {
+    const parsed = parseClassroomSuggestions(classroomSuggestionsFixture);
+    expect(parsed.classroomId).toBe(classroomSuggestionsFixture.classroomId);
+    expect(parsed.method).toBe('model');
+    expect(parsed.groups).toHaveLength(2);
+    expect(parsed.groups[0].skillTitle).toBe('Equivalent fractions');
+    expect(parsed.groups[0].count).toBe(3);
+    expect(parsed.groups[0].learners).toHaveLength(3);
+    expect(parsed.groups[1].skillTitle).toBe('Adding fractions');
+    expect(parsed.groups[1].count).toBe(1);
+    expect(parsed.groups[1].learners[0].alias).toBe('Ana');
+  });
+
+  it('parses fallback method suggestions', () => {
+    const payload = {
+      classroomId: 'c1',
+      method: 'fallback',
+      decisionPolicy: 'Suggested practice groups; teacher decides next action',
+      groups: [
+        {
+          skillCode: 'math5.fractions.add',
+          skillTitle: 'Adding fractions',
+          subject: 'MATH',
+          count: 1,
+          learners: [{ id: 'l1', alias: 'Juanita' }],
+        },
+      ],
+    };
+    const parsed = parseClassroomSuggestions(payload);
+    expect(parsed.method).toBe('fallback');
+    expect(parsed.groups[0].count).toBe(1);
+  });
+
+  it('fails when method is not model or fallback', () => {
+    const invalid = {
+      classroomId: 'c1',
+      method: 'unknown',
+      decisionPolicy: 'policy',
+      groups: [],
+    };
+    expect(() => parseClassroomSuggestions(invalid)).toThrow(/method/);
+  });
+
+  it('fails when groups is not an array', () => {
+    const invalid = {
+      classroomId: 'c1',
+      method: 'model',
+      decisionPolicy: 'policy',
+      groups: 'not-array',
+    };
+    expect(() => parseClassroomSuggestions(invalid)).toThrow(/groups/);
+  });
+});
+

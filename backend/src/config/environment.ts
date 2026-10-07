@@ -24,6 +24,8 @@ export function validateEnvironment(input: Record<string, unknown>) {
     ),
     SWAGGER_ENABLED: Joi.boolean().default(false),
     TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(5).default(0),
+    ML_SERVICE_URL: Joi.string().allow('').optional(),
+    ML_SERVICE_TOKEN: Joi.string().allow('').optional(),
   }).unknown(true);
   const { error, value } = schema.validate(input, { abortEarly: false });
   if (error)
