@@ -273,7 +273,7 @@ export function Empty({ title, text, icon: Icon = ArrowRight }: { title: string;
 export function ListRow({ title, detail, icon: Icon, onPress, right }: { title: string; detail?: string; icon?: LucideIcon; onPress?: () => void; right?: React.ReactNode }) {
   const theme = useTheme();
   return (
-    <Pressable accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} style={({ pressed }) => ({ paddingVertical: 12, opacity: pressed && onPress ? 0.65 : 1 })}>
+    <Pressable accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} style={({ pressed }) => ({ paddingVertical: 12, minHeight: 44, justifyContent: 'center', opacity: pressed && onPress ? 0.65 : 1 })}>
       <Row>
         {Icon ? <Icon size={19} color={theme.text} strokeWidth={1.8} /> : null}
         <View style={{ flex: 1 }}>
