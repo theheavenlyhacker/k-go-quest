@@ -33,6 +33,7 @@ export class Jurisdiction extends RecordEntity {
 export class School extends RecordEntity {
   @Index() @Column('uuid') jurisdictionId: string;
   @Column({ length: 120 }) name: string;
+  @Column({ length: 80, default: '' }) barangay: string;
 }
 @Entity('users')
 export class User extends RecordEntity {

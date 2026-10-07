@@ -1,8 +1,9 @@
 # K-Go Quests
 
 An offline learning app for Philippine public-school learners. It runs on a shared
-Android tablet and adapts practice to each learner. Learners never need a network;
-the Caretaker goes online once, at Setup.
+Android tablet and adapts practice to each learner. Learners never need a network,
+and neither does Setup: a tablet delivered to a school with no signal can be set
+up and used in full. Going online adds things; it is never the way in.
 
 ## Language
 
@@ -10,27 +11,41 @@ the Caretaker goes online once, at Setup.
 
 **Learner**:
 A child who practises on the tablet.
-_Avoid_: student, user, account
+_Avoid_: student, user, account — **except** as the name of a Role. The server
+calls that same child a Student, and so does the sign-in screen, because that is
+the word a Role is written with in the API and on the chip a person taps.
 
 **Caretaker**:
-The adult who manages a Shared Tablet. Only the Caretaker can create or delete Profiles, reset a Learner's PIN and see Plateau Flags for every Profile. The Caretaker signs in to a Caretaker Account once at Setup, then uses a Caretaker PIN offline.
-_Avoid_: teacher, admin, parent
+The adult who manages a Shared Tablet. Only the Caretaker can create or delete Profiles, reset a Learner's PIN and see Plateau Flags for every Profile. The Caretaker may sign in to a Caretaker Account at Setup, and then uses a Caretaker PIN offline. The same person often also holds a Server Account with the Teacher Role, but the two are different things: one owns the tablet, the other says which school it reports to.
+_Avoid_: teacher, admin, parent — **except** as Role names, which belong to a Server Account and not to this word.
 
 **Caretaker Account**:
-The identity that answers *who owns this Shared Tablet*. It is used at Setup and to reset a forgotten Caretaker PIN, and both need the tablet to be online. Only the Caretaker Account that did Setup can reset the Caretaker PIN. Learners never have one. It is not the Server Account.
+The identity that answers *who owns this Shared Tablet*. It is reached by an email code or by Google, and it is what makes a forgotten Caretaker PIN recoverable — which is the only thing it is for. Both ways need the tablet to be online, so Setup can be finished without one; a tablet with no Caretaker Account simply cannot recover a forgotten PIN. Only the Caretaker Account that did Setup can reset the Caretaker PIN. Learners never have one. It is not the Server Account.
 _Avoid_: login, user account
 
 **Server Account**:
-The identity that answers *which school and jurisdiction this Shared Tablet reports to*. It carries a role, and signing in to it is what opens Online Mode. A Shared Tablet works for its whole life without one.
+The identity that answers *which school and jurisdiction this Shared Tablet reports to*. It carries a Role, and signing in to it is what opens Online Mode. A Shared Tablet works for its whole life without one.
 _Avoid_: login, server login, cloud account
+
+**Role**:
+What a Server Account is allowed to do: **Student**, **Teacher** or **Admin**. The three are named on the sign-in screen and are `STUDENT`, `TEACHER` and `LGU_ADMIN` in the API. A Role is a property of a Server Account and of nothing else — a Profile has none, and neither does a Caretaker Account. The sign-in screen asks which Role is expected before the password is typed; the server decides what the account actually is, and says so when the two disagree.
+_Avoid_: permission, access level, account type
 
 **Classroom**:
 A group of Learners on the server, taught by one Teacher. A Classroom exists only on the server; a Shared Tablet has no Classroom of its own.
 _Avoid_: class, section, group
 
+**Welcome**:
+What the app shows the very first time it is opened, before Setup: the splash, three Onboarding steps and the sign-in. It is shown once per Shared Tablet and can always be walked past.
+_Avoid_: intro, tour, landing
+
+**Onboarding**:
+The three screens inside Welcome that say what the app is for. They explain, they ask for nothing, and skipping them costs nothing. The word names these screens only; the act of preparing a tablet is **Setup**.
+_Avoid_: tutorial, walkthrough
+
 **Setup**:
-The first launch of the app on a Shared Tablet. The Caretaker signs in to their Caretaker Account, sets the Caretaker PIN and creates the first Profiles.
-_Avoid_: onboarding, registration
+Preparing a Shared Tablet for use, after Welcome. The Caretaker may sign in to a Caretaker Account, then sets the Caretaker PIN and creates the first Profiles. Only the last two are required: Setup finishes with no network at all.
+_Avoid_: registration
 
 **Profile**:
 One Learner's identity and progress on one Shared Tablet, protected by a PIN. It is shown by an alias the Caretaker picks, never a legal name.
@@ -94,7 +109,7 @@ An Attempt nobody has said is right or wrong yet, because no answer key for its 
 _Avoid_: pending, provisional, ungraded
 
 **Counted Attempt**:
-The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before. Where the server grades an On Device Attempt differently from the tablet, the server's verdict replaces the tablet's.
+The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before.
 _Avoid_: retry, score
 
 **Quiz**:
@@ -130,7 +145,7 @@ _Avoid_: task, assignment
 
 **Plateau Flag**:
 A mark on a Skill where a Learner has made at least five Counted Attempts and Mastery is still below 0.40. The Learner sees it as a nudge to review; the Caretaker sees it for every Profile.
-_Avoid_: failing, at-risk. An **Alert** is a different thing: a Teacher notification derived from a Plateau Flag (high), no recent sync (medium) or long inactivity (low).
+_Avoid_: alert, failing, at-risk
 
 ### Motivation
 
@@ -162,7 +177,8 @@ _Avoid_: registered profile, synced account, enrolled profile
 ## Relationships
 
 - A **Shared Tablet** holds one or more **Profiles**, managed by one **Caretaker**
-- A **Caretaker** has one **Caretaker Account**; a **Learner** has none
+- A **Caretaker** may have one **Caretaker Account**; a tablet set up with no network has none, and cannot recover a forgotten Caretaker PIN until one is linked
+- A **Server Account** has exactly one **Role**; a **Profile** and a **Caretaker Account** have none
 - A **Profile** belongs to exactly one **Learner**, and a **Learner** has exactly one **Profile**
 - A **Content Pack** covers one **Subject** and contains many **Lessons**
 - A **Lesson** practises one **Skill**, contains many **Exercises** and has one **Hint**
@@ -171,25 +187,25 @@ _Avoid_: registered profile, synced account, enrolled profile
 - A **Quest** points to one **Exercise**
 - A **Plateau Flag** belongs to one **Profile** and one **Skill**
 - A **Profile** earns **Coins** and owns the **Cosmetics** it bought
-- A **Caretaker** has one **Caretaker Account**, and in **Online Mode** also one **Server Account**
+- In **Online Mode** a Shared Tablet holds one **Server Account** session, whose **Role** decides which screens open
 - A **Content Pack** has one **Grading Mode**, which decides whether the tablet or the server grades its **Attempts**
 - A **Content Pack** is one version on one **Pack Line**; a **Shared Tablet** holds at most one version of a **Pack Line** as a **Downloaded Pack**
-- A **Linked Profile** is tied to one Learner account on the server and belongs to one **Classroom**
+- A **Linked Profile** is tied to one **Server Account** with the Student **Role**, and belongs to one **Classroom**
 - A published **Quiz** issues one **Quiz Paper** per active Learner in the **Classroom**, plus an answer key for the **Teacher**
 - A **League** ranks **Classrooms**; **Growth** describes one **Learner**
 
 ## Flagged ambiguities
 
 - "AI" meant both the Mastery estimate and a conversational tutor. Resolved: the only on-device model is Mastery, and nothing is generated at practice time. The screen shows the **Hints** written by the Pack Author and reads them aloud. *Still open*: that screen is labelled "Tutor" in the app, a word this glossary avoids.
-- "Student" and "learner" were used interchangeably. Resolved: **Learner**.
+- "Student" and "learner" were used interchangeably. First resolved as: **Learner**, everywhere. **Narrowed.** A child on the tablet is a **Learner** and nothing else. **Student** survives as the name of a **Role** on a **Server Account**, which is what the API returns and what the sign-in screen must therefore say. The two words now name the same child seen from two sides: the tablet's and the server's.
 - "Reward" meant both Coins and vouchers for real goods. Resolved: only **Coins** exist, and they buy **Cosmetics**. Vouchers are gone.
 - "League" meant ranking classrooms against each other. First resolved as: replaced by **Growth**. **Reversed.** The original reason was that without a server there is nobody to rank against, which holds only offline. Both terms now stand and do not overlap: **Growth** is what a Learner sees about themselves, a **League** is what a Classroom sees about itself, and a Learner never sees their position in one.
 - *Still open*: the app also shows a month ranking of the **Profiles on one Shared Tablet** against each other, podium and all. That ranks Learners, which is the thing the first League resolution existed to remove. It needs a decision: either that view is **Growth** per Profile with no ranking, or **League** is accepted as something a Learner may see on their own tablet.
-- "Teacher" and "admin" meant separate accounts. Resolved: one **Caretaker** per **Shared Tablet**.
+- "Teacher" and "admin" meant separate accounts. First resolved as: one **Caretaker** per **Shared Tablet**. **Reversed.** The original reason was that a tablet needs exactly one adult, which is still true — but the server has always carried three **Roles**, and the sign-in screen now names them. A **Caretaker** manages the tablet; a **Teacher** or an **Admin** is what a **Server Account** may be. One person is usually both.
 - "Dummy data for the AI" resolved to **Default Skill Parameters** plus demo Lessons in the **Starter Pack**.
 - "Provisional" correctness and Coins: resolved, then narrowed by **Grading Mode**. Under On Device — the Starter Pack, and so every tablet that has never downloaded anything — every **Attempt** is graded at once and nothing is provisional. Under On Sync the tablet holds no answer key, so an Attempt waits unmarked rather than being shown a verdict the tablet cannot give; it moves no **Mastery** and earns no **Coins** until the server grades it.
 - "Quest" was first written here as pointing to a Skill; the code makes it one Exercise. Resolved: one **Exercise**.
 - **Hint**: the spec wanted one Hint per Exercise; the code holds one Hint per Lesson. Resolved: one Hint per **Lesson**.
 - "Khan-on-the-Go" and "Khan-Coin" suggested a link with Khan Academy. Resolved: the app is **K-Go Quests**, and its points are **Coins**.
-- "Authentication" could mean Learners or the Caretaker signing in online. Resolved: only the **Caretaker** has a **Caretaker Account**; Learners use Profile PINs and never go online.
+- "Authentication" could mean Learners or the Caretaker signing in online. First resolved as: only the **Caretaker** signs in; Learners use Profile PINs and never go online. **Narrowed.** Learners still never have a **Caretaker Account**, and a Profile is still opened by its PIN alone. But a Learner with a **Server Account** can sign in once, at **Welcome**, to make their Profile a **Linked Profile** — the sign-in is what ties the two together, and practice afterwards needs no network and no session.
 - How a Caretaker recovers a forgotten Caretaker PIN. Resolved: by signing in again to the same **Caretaker Account**.

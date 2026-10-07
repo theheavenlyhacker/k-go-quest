@@ -42,7 +42,9 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET rewards/redemptions/me                   | Student                                       |
 | POST rewards/redemptions/:id/claim           | Own LGU admin                                 |
 | GET reports/classrooms/:id                   | Assigned teacher                              |
-| GET reports/impact, reports/audit            | Own LGU admin                                 |
+| GET reports/impact                           | Own LGU admin; optional quarter YYYY-Qn       |
+| GET reports/engagement                       | Own LGU admin; optional days (default 7)      |
+| GET reports/audit                            | Own LGU admin                                 |
 | GET reports/league                           | Own LGU aggregates; optional month YYYY-MM    |
 
 ## Login
@@ -88,6 +90,17 @@ The response has `results` with clientAttemptId, correct, awardedCoins, and dupl
 - `connectivityStatus`, `learningStatus`, `reason`: the rule-based signals behind Teacher Alerts.
 
 The tablet's contract test (`mobile/src/domain/recorded/classroom-report.json`) parses a recorded response; change the shape and re-record it.
+
+## LGU reports
+
+`GET reports/impact?quarter=YYYY-Qn` returns jurisdiction metrics for the requested Manila quarter (defaults to current quarter):
+- `learnersReached`: distinct Learners with at least one Attempt in the quarter.
+- `lessonsCompleted`: total completed Lessons in the quarter (a Lesson where every Exercise was attempted by a Learner).
+- `offlineUsageShare`: share of Attempts in the quarter whose `occurredAt` was earlier than `receivedAt` by more than an hour (0.0 to 1.0).
+- `reachByBarangay`: `[{ barangay, learners, lessons, offlineLessons }]` ordered by Learners reached descending.
+- `disclaimer`: keeps existing disclaimer field.
+
+`GET reports/engagement?days=7` returns `[{ date, activeLearners }]` for the specified number of Manila days (1 to 30, defaults to 7), oldest first ending on Manila today.
 
 ## Administration
 
