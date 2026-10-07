@@ -6,7 +6,7 @@ import { BookOpen, Eye, EyeOff, LayoutGrid, Lock, Mail, Users, type LucideIcon }
 
 import { useApp } from '@/state/app-context';
 import { useOnline } from '@/state/online-context';
-import { canSubmit, FORGOT_PASSWORD, signInProblem, type SignInProblem } from '@/domain/sign-in';
+import { canSubmit, connectionDetail, FORGOT_PASSWORD, signInProblem, type SignInProblem } from '@/domain/sign-in';
 import type { Role } from '@/domain/server';
 import { Button, Field, Info, Row, Sheet, T } from '@/ui/primitives';
 import { elevation, radius, tokens, useTheme } from '@/ui/theme';
@@ -36,7 +36,9 @@ const ROLES: { value: Role; label: string; icon: LucideIcon }[] = [
  */
 export default function SignIn() {
   const { finishSignIn } = useApp();
-  const { signIn, busy } = useOnline();
+  const { signIn, busy, apiUrl } = useOnline();
+  // Inlined at bundle time, so this is a fact about the build, not the network.
+  const configured = Boolean(process.env.EXPO_PUBLIC_API_URL?.trim());
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [role, setRole] = useState<Role>('TEACHER');
@@ -150,7 +152,14 @@ export default function SignIn() {
                 <T variant="titleS" color={theme.navActive}>Forgot password?</T>
               </Pressable>
 
-              {problem ? <Info title="Could not sign in" text={problem.message} icon={Lock} color={tokens.state.critical} /> : null}
+              {problem ? (
+                <Info
+                  title="Could not sign in"
+                  text={problem.kind === 'connection' ? `${problem.message} ${connectionDetail(apiUrl, configured)}` : problem.message}
+                  icon={Lock}
+                  color={tokens.state.critical}
+                />
+              ) : null}
 
               <Button
                 title="Log in"
