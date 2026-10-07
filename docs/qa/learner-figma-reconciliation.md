@@ -50,9 +50,9 @@ and their corresponding dark frames. Mobile lint/typecheck and focused
 Progress/Library/Intro tests are required, followed by the full suite.
 
 Android API 36 emulator / Expo Go SDK 57 started for native inspection.
-Existing Profiles are preserved; their test PIN is awaiting confirmation.
+Existing Profiles are preserved; their test PIN is unavailable.
 Phone/tablet portrait/landscape, light/dark, large-text screenshots and
-protected-route regression checks are pending until access is available.
+protected-route regression checks are pending until Profile access is available.
 A passing unit-test suite is not a layout-parity or release-readiness result.
 
 Capture Library, Progress and Introduction at 375 × 812 logical points,
