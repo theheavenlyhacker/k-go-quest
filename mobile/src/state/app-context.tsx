@@ -29,6 +29,8 @@ interface AppContextValue {
   attempts: Attempt[]; learning: LearningState; purchases: Purchase[]; balance: number;
   notice: Notice | null; preferences: Preferences;
   toast(message: string, kind?: Notice['kind']): void; dismiss(): void;
+  /** False until the intro has been finished or skipped once on this Shared Tablet. */
+  introSeen: boolean; finishIntro(): Promise<void>;
   step: SetupStep; saveCaretakerId(id: string): Promise<void>; caretakerSignedOut(): void; setCaretakerPin(pin: string): Promise<void>; finishSetup(): Promise<void>;
   /** Finishes Setup's first step with no network. No account, so no PIN recovery until one is linked. */
   setUpWithoutAccount(): Promise<void>;
@@ -65,6 +67,7 @@ const CARETAKER_LOCAL = 'kgo-caretaker-local';
 const CARETAKER_PIN = 'kgo-caretaker-pin';
 const SETUP_DONE = 'kgo-setup-done';
 const DEMO_ID = 'kgo-demo-id';
+const INTRO_SEEN = 'kgo-intro-seen';
 // Same verifier as Profile PINs, keyed by a fixed owner instead of a Profile ID.
 const CARETAKER_OWNER = 'caretaker';
 const lockoutKey = (id: string) => `kgo-lockout-${id}`;
@@ -91,6 +94,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<Preferences>(defaults);
   const [saved, setSaved] = useState({ hasCaretaker: false, pinSet: false, done: false });
   const [accountLinked, setAccountLinked] = useState(false);
+  const [introSeen, setIntroSeen] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [demoId, setDemoId] = useState<string | null>(null);
   const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const purchasesRef = useRef(purchases); const packsRef = useRef(packs);
@@ -130,11 +134,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { void (async () => {
     try {
-      const [labels, prefs, id, local, pin, done, demo] = await Promise.all([vault.get('kgo-profiles'), vault.get('kgo-preferences'), vault.get(CARETAKER_ID), vault.get(CARETAKER_LOCAL), vault.get(CARETAKER_PIN), vault.get(SETUP_DONE), vault.get(DEMO_ID)]);
+      const [labels, prefs, id, local, pin, done, demo, intro] = await Promise.all([vault.get('kgo-profiles'), vault.get('kgo-preferences'), vault.get(CARETAKER_ID), vault.get(CARETAKER_LOCAL), vault.get(CARETAKER_PIN), vault.get(SETUP_DONE), vault.get(DEMO_ID), vault.get(INTRO_SEEN)]);
+      setIntroSeen(Boolean(intro));
       const caretakerAccount = caretakerState(id, Boolean(local));
       setSaved({ hasCaretaker: caretakerAccount.present, pinSet: Boolean(pin), done: Boolean(done) }); setAccountLinked(caretakerAccount.linked); setDemoId(demo);
       if (labels) setProfiles(JSON.parse(labels)); if (prefs) setPreferences({ ...defaults, ...JSON.parse(prefs) });
-    } catch { toast('Profiles on this tablet could not be restored.', 'error'); }
+    } catch { setIntroSeen(true); toast('Profiles on this tablet could not be restored.', 'error'); }
     finally { setReady(true); }
   })(); }, [toast]);
 
@@ -157,6 +162,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lockedRef.current = false; setLocked(false); lastInteraction.current = Date.now();
     try { await loadLocal(next.id); }
     catch (error) { lock(); throw error; }
+  };
+  // The Learner moves on first; a failed save only means the intro may show once more.
+  const finishIntro = async () => {
+    setIntroSeen(true);
+    try { await vault.set(INTRO_SEEN, '1'); } catch { toast('Could not save that you have seen the intro.', 'error'); }
   };
   // Two steps so Setup stays on the sign-in step (Clerk mounted) until the Clerk sign-out has finished.
   const saveCaretakerId = (id: string) => vault.set(CARETAKER_ID, id);
@@ -316,7 +326,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }
