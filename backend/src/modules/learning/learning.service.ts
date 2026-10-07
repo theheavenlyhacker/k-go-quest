@@ -216,6 +216,35 @@ export class LearningService {
   private async activeModel() {
     return this.db.getRepository(ModelVersion).findOneBy({ active: true });
   }
+  async activeModelParameters() {
+    const model = await this.activeModel();
+    if (!model) {
+      throw new NotFoundException('No active model');
+    }
+    const rows = await this.db
+      .getRepository(SkillModelParams)
+      .findBy({ modelVersion: model.version });
+    const parameters: Record<
+      string,
+      { prior: number; learn: number; guess: number; slip: number }
+    > = {};
+    for (const row of rows) {
+      parameters[row.skillCode] = {
+        prior: row.prior,
+        learn: row.learn,
+        guess: row.guess,
+        slip: row.slip,
+      };
+    }
+    return {
+      version: model.version,
+      source: model.source,
+      method: model.method,
+      fittedAt: model.fittedAt.toISOString(),
+      parameters,
+      skills: parameters,
+    };
+  }
   async progress(actor: Principal, id: string) {
     const student = await this.scope.student(actor, id);
     const model = await this.activeModel();

@@ -132,3 +132,50 @@ def forward_backward(obs: Sequence[int], p: BktParams):
 
 def log_likelihood(sequences: Sequence[Sequence[int]], p: BktParams) -> float:
     return sum(forward_backward(seq, p)[2] for seq in sequences if len(seq) > 0)
+
+
+def sequence_log_loss(obs: Sequence[int], p: BktParams) -> tuple[float, int]:
+    """Forward step-by-step log-loss under BKT.
+
+    At each step t, predicts probability of correct given current mastery,
+    accumulates cross-entropy log-loss, then updates mastery for step t+1.
+    """
+    if not obs:
+        return 0.0, 0
+    mastery = p.prior
+    total_loss = 0.0
+    for y in obs:
+        prob = predict_correct(mastery, p)
+        prob = float(np.clip(prob, 1e-9, 1.0 - 1e-9))
+        loss = -(y * np.log(prob) + (1 - y) * np.log(1.0 - prob))
+        total_loss += float(loss)
+        mastery = update_mastery(mastery, bool(y), p)
+    return total_loss, len(obs)
+
+
+def evaluate_log_loss(
+    test_sequences: dict[str, Sequence[Sequence[int]]],
+    fitted_params: dict[str, BktParams],
+    default_params: BktParams = DEFAULT,
+) -> tuple[float, float, int]:
+    """Mean log-loss on held-out test sequences for fitted vs default parameters.
+
+    Returns (fitted_mean_loss, default_mean_loss, total_observations).
+    """
+    total_fitted_loss = 0.0
+    total_default_loss = 0.0
+    total_obs = 0
+    for skill, seqs in test_sequences.items():
+        params = fitted_params.get(skill, default_params)
+        for seq in seqs:
+            if not seq:
+                continue
+            fl, n = sequence_log_loss(seq, params)
+            dl, _ = sequence_log_loss(seq, default_params)
+            total_fitted_loss += fl
+            total_default_loss += dl
+            total_obs += n
+    if total_obs == 0:
+        return 0.0, 0.0, 0
+    return total_fitted_loss / total_obs, total_default_loss / total_obs, total_obs
+

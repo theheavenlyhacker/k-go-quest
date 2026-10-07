@@ -7,6 +7,7 @@ import { useApp } from '@/state/app-context';
 import { useOnline } from '@/state/online-context';
 import { canOpenAdmin } from '@/domain/admin';
 import { learningState } from '@/domain/engine';
+import { COMPILED_MODEL_METADATA } from '@/content/fitted-parameters';
 import type { Pack } from '@/domain/types';
 import { isValidPin } from '@/domain/pin-lock';
 import { Action, BackLink, Button, Card, Eyebrow, Field, Pill, Row, Sheet, T } from '@/ui/primitives';
@@ -22,11 +23,13 @@ const lessonTitle = (packs: Pack[], skillId: string) => packs.flatMap((p) => p.l
 
 /** Every Profile with its Plateau Flags, and the Caretaker's Profile actions. */
 export default function Caretaker() {
-  const { profiles, closeCaretaker, createProfile, deleteProfile, accountLinked, toast } = useApp();
+  const { profiles, closeCaretaker, createProfile, deleteProfile, accountLinked, toast, activeModel } = useApp();
   const [adding, setAdding] = useState(false);
   const router = useRouter();
   const theme = useTheme();
   const { state, server } = useOnline();
+  const modelInfo = activeModel ?? COMPILED_MODEL_METADATA;
+  const dateStr = modelInfo.fittedAt ? modelInfo.fittedAt.slice(0, 10) : '2026-10-04';
   return (
     <Screen title="Caretaker" caption="Profiles on this tablet">
       <BackLink label="Close Caretaker screen" onPress={closeCaretaker} />
@@ -34,6 +37,12 @@ export default function Caretaker() {
       <Eyebrow>School server</Eyebrow>
       <ServerPanel />
       {canOpenAdmin(state, server) ? <Button title="Open the LGU Admin shell" icon={School} onPress={() => router.push('/dashboard')} /> : null}
+      <Eyebrow>Skill Parameters</Eyebrow>
+      <Card style={{ gap: 4 }}>
+        <T size={12} color={theme.muted}>
+          {`Skill Parameters: ${modelInfo.version} · ${modelInfo.source} · fitted ${dateStr}`}
+        </T>
+      </Card>
       <Eyebrow>Content Packs</Eyebrow>
       <PackLibrary />
       <Eyebrow>Profiles</Eyebrow>

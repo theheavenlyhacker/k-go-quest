@@ -107,6 +107,35 @@ export function learningState(packs: Pack[], log: Attempt[], uploads: ReadonlyMa
   }), coins: (latest?.balance ?? 0) + coins, statuses };
 }
 
+export function applySkillParametersToPacks(
+  packs: Pack[],
+  parameters: Record<string, SkillParameters>,
+): Pack[] {
+  return packs.map((p) => ({
+    ...p,
+    skills: p.skills.map((s) => ({
+      ...s,
+      parameters: { ...(parameters[s.id] ?? s.parameters) },
+    })),
+  }));
+}
+
+/**
+ * Replays Mastery for a Profile from its Attempt log using specified Skill Parameters.
+ *
+ * Deterministic: recalculates Mastery values and Plateau flags from the Attempt log,
+ * while leaving Coins, Attempt statuses and Counted counts untouched.
+ */
+export function replayMastery(
+  packs: Pack[],
+  log: Attempt[],
+  uploads: ReadonlyMap<string, UploadRecord> = new Map(),
+  newParameters?: Record<string, SkillParameters>,
+): LearningState {
+  const targetPacks = newParameters ? applySkillParametersToPacks(packs, newParameters) : packs;
+  return learningState(targetPacks, log, uploads);
+}
+
 export interface MonthGrowth { up: number; mastered: number; }
 export interface Growth { thisMonth: MonthGrowth; lastMonth: MonthGrowth; }
 

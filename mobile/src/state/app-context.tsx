@@ -2,9 +2,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState, View } from 'react-native';
 import { randomUUID } from 'expo-crypto';
 import type { DownloadedPack } from '../domain/packs';
-import type { Pack, Profile } from '../domain/types';
+import type { Pack, Profile, SkillParameters } from '../domain/types';
 import { starterPacks } from '../content/starter-pack';
-import { demoHistory, grade, learningState, type Attempt, type Grade, type LearningState, type UploadRecord } from '../domain/engine';
+import { applySkillParametersToPacks, demoHistory, grade, learningState, type Attempt, type Grade, type LearningState, type UploadRecord } from '../domain/engine';
 import { balance as coinBalance, buy, type Purchase } from '../domain/shop';
 import { caretakerState, confirmCaretaker, keepCaretaker, setupStep, type SetupStep } from '../domain/setup';
 import { isIdle, isValidPin, lockedOut, recordFailure, remaining, type Lockout } from '../domain/pin-lock';
@@ -15,10 +15,18 @@ import { vault } from '../data/vault';
 export type Appearance = 'light' | 'dark' | 'system';
 interface Preferences { appearance: Appearance; language: string; }
 interface Notice { message: string; kind: 'success' | 'error' | 'info'; }
+export interface ActiveModelRecord {
+  version: string;
+  source: string;
+  fittedAt: string;
+  parameters: Record<string, SkillParameters>;
+}
 interface AppContextValue {
   ready: boolean; profiles: Profile[]; profile: Profile | null; locked: boolean; caretaker: boolean;
   /** Everything this tablet can practise from: the Starter Pack, plus every Downloaded Pack. */
   packs: Pack[];
+  activeModel: ActiveModelRecord | null;
+  saveActiveModel(model: ActiveModelRecord | null): Promise<void>;
   /** The Downloaded Packs with when each was taken from the server. The single reader of the Pack cache. */
   downloaded: DownloadedPack[];
   /** Re-reads the Downloaded Packs after one has been saved. */
@@ -85,8 +93,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // tablet that has never been online keeps exactly the content it shipped with.
   const [downloaded, setDownloaded] = useState<DownloadedPack[]>([]);
   const packs = useMemo(() => [...starterPacks, ...downloaded.map((entry) => entry.pack)], [downloaded]);
+  const [activeModel, setActiveModel] = useState<ActiveModelRecord | null>(null);
+  const effectivePacks = useMemo(() => {
+    if (!activeModel?.parameters) return packs;
+    return applySkillParametersToPacks(packs, activeModel.parameters);
+  }, [packs, activeModel]);
   const [uploads, setUploads] = useState<Map<string, UploadRecord>>(new Map());
-  const learning = useMemo(() => learningState(packs, attempts, uploads), [packs, attempts, uploads]);
+  const learning = useMemo(() => learningState(effectivePacks, attempts, uploads), [effectivePacks, attempts, uploads]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const balance = coinBalance(learning.coins, purchases);
   const [preferences, setPreferences] = useState<Preferences>(defaults);
@@ -95,12 +108,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [introSeen, setIntroSeen] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [demoId, setDemoId] = useState<string | null>(null);
-  const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const uploadsRef = useRef(uploads); const purchasesRef = useRef(purchases); const packsRef = useRef(packs);
+  const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const uploadsRef = useRef(uploads); const purchasesRef = useRef(purchases); const packsRef = useRef(effectivePacks);
   const lockedRef = useRef(locked); const caretakerRef = useRef(caretaker); const lastInteraction = useRef(0);
 
   const toast = useCallback((message: string, kind: Notice['kind'] = 'info') => setNotice({ message, kind }), []);
+  const saveActiveModel = useCallback(async (model: ActiveModelRecord | null) => {
+    setActiveModel(model);
+    if (model) {
+      await vault.set('kgo-active-model', JSON.stringify(model));
+    } else {
+      await vault.remove('kgo-active-model');
+    }
+  }, []);
   // Refs mirror committed state so async handlers read fresh values; set after every commit, never during render.
-  useEffect(() => { profileRef.current = profile; attemptsRef.current = attempts; uploadsRef.current = uploads; purchasesRef.current = purchases; lockedRef.current = locked; caretakerRef.current = caretaker; packsRef.current = packs; });
+  useEffect(() => { profileRef.current = profile; attemptsRef.current = attempts; uploadsRef.current = uploads; purchasesRef.current = purchases; lockedRef.current = locked; caretakerRef.current = caretaker; packsRef.current = effectivePacks; });
 
   const forget = () => { attemptsRef.current = []; setAttempts([]); uploadsRef.current = new Map(); setUploads(new Map()); purchasesRef.current = []; setPurchases([]); };
   const lock = useCallback(() => { lockedRef.current = true; setLocked(true); }, []);
@@ -132,11 +153,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { void (async () => {
     try {
-      const [labels, prefs, id, local, pin, done, demo, intro] = await Promise.all([vault.get('kgo-profiles'), vault.get('kgo-preferences'), vault.get(CARETAKER_ID), vault.get(CARETAKER_LOCAL), vault.get(CARETAKER_PIN), vault.get(SETUP_DONE), vault.get(DEMO_ID), vault.get(INTRO_SEEN)]);
+      const [labels, prefs, id, local, pin, done, demo, intro, savedModel] = await Promise.all([
+        vault.get('kgo-profiles'),
+        vault.get('kgo-preferences'),
+        vault.get(CARETAKER_ID),
+        vault.get(CARETAKER_LOCAL),
+        vault.get(CARETAKER_PIN),
+        vault.get(SETUP_DONE),
+        vault.get(DEMO_ID),
+        vault.get(INTRO_SEEN),
+        vault.get('kgo-active-model'),
+      ]);
       setIntroSeen(Boolean(intro));
       const caretakerAccount = caretakerState(id, Boolean(local));
       setSaved({ hasCaretaker: caretakerAccount.present, pinSet: Boolean(pin), done: Boolean(done) }); setAccountLinked(caretakerAccount.linked); setDemoId(demo);
       if (labels) setProfiles(JSON.parse(labels)); if (prefs) setPreferences({ ...defaults, ...JSON.parse(prefs) });
+      if (savedModel) {
+        try { setActiveModel(JSON.parse(savedModel) as ActiveModelRecord); } catch {}
+      }
     } catch { setIntroSeen(true); toast('Profiles on this tablet could not be restored.', 'error'); }
     finally { setReady(true); }
   })(); }, [toast]);
@@ -303,7 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, reloadVerdicts: loadLocal, uploads, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs: effectivePacks, activeModel, saveActiveModel, downloaded, reloadPacks, attempts, learning, reloadVerdicts: loadLocal, uploads, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }

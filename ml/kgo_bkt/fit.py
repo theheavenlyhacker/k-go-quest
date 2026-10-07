@@ -112,6 +112,8 @@ def fit_skill(
     restarts: int = 10,
     seed: int = 11,
     skill: str = "",
+    min_sequences: int = MIN_SEQUENCES,
+    min_observations: int = MIN_OBSERVATIONS,
 ) -> FitResult:
     """EM from several random starts; the best log-likelihood wins.
 
@@ -120,7 +122,7 @@ def fit_skill(
     usable = [list(s) for s in sequences if len(s) > 0]
     observations = sum(len(s) for s in usable)
 
-    if len(usable) < MIN_SEQUENCES or observations < MIN_OBSERVATIONS:
+    if len(usable) < min_sequences or observations < min_observations:
         return FitResult(
             params=DEFAULT,
             log_likelihood=float("nan"),
@@ -132,7 +134,7 @@ def fit_skill(
             note=(
                 f"Not enough evidence for {skill or 'this skill'}: "
                 f"{len(usable)} sequences / {observations} answers "
-                f"(need {MIN_SEQUENCES} / {MIN_OBSERVATIONS}). Using shared defaults."
+                f"(need {min_sequences} / {min_observations}). Using shared defaults."
             ),
         )
 

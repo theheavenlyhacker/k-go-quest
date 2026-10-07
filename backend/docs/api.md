@@ -27,6 +27,7 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | POST learning/sync                           | Student, own account                          |
 | GET learning/progress/me, learning/quests    | Student                                       |
 | GET learning/learners/:id/progress           | Assigned teacher                              |
+| GET models/active                            | Any signed-in role                            |
 | POST quizzes                                 | Assigned teacher; saves a draft, weakest Skills first when none named |
 | GET quizzes?classroomId=                     | Assigned teacher                              |
 | GET quizzes/skills?classroomId=&subject=     | Assigned teacher; Skills by mean Mastery, weakest suggested |
@@ -105,3 +106,27 @@ Draft authoring: create pack, add lessons, add exercises, inspect the admin-only
 ```
 
 Retain requestId on retries. Retrieve issued vouchers at rewards/redemptions/me. The redemption ID identifies the claim record; LGU authorization and database status determine whether it is claimable. A QR token has a separate audience from access tokens. Offline voucher claiming is deferred.
+
+## Active model parameters
+
+`GET models/active` returns the currently active fitted BKT parameters:
+
+```json
+{
+  "version": "bkt-em-20261007",
+  "source": "postgres",
+  "method": "Expectation-Maximisation (Baum-Welch) on a constrained two-state BKT HMM",
+  "fittedAt": "2026-10-07T12:00:00.000Z",
+  "parameters": {
+    "math5.fractions.add": {
+      "prior": 0.197444,
+      "learn": 0.100313,
+      "guess": 0.201734,
+      "slip": 0.081312
+    }
+  }
+}
+```
+
+If no fitted model has been activated, returns 404.
+

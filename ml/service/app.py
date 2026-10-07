@@ -26,9 +26,14 @@ from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from kgo_bkt import DEFAULT, BktParams, fit_skill
-from kgo_bkt.data import describe, load_sequences
+from kgo_bkt.data import (
+    describe,
+    load_counted_attempts,
+    attempts_to_sequences,
+    split_by_learner_no_leakage,
+)
 from kgo_bkt.fit import MIN_OBSERVATIONS, MIN_SEQUENCES
-from kgo_bkt.model import predict_correct, update_mastery
+from kgo_bkt.model import evaluate_log_loss, predict_correct, update_mastery
 
 from .settings import Settings, load
 
@@ -85,6 +90,7 @@ class FitRequest(BaseModel):
     schema_: str | None = Field(default=None, alias="schema")
     version: str | None = Field(default=None, max_length=60)
     restarts: int = Field(default=10, ge=1, le=40)
+    include_demo: bool = Field(default=False, alias="includeDemo")
 
 
 # ------------------------------------------------------------------ params --
@@ -234,26 +240,54 @@ def fit(request: FitRequest) -> dict:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "DATABASE_URL is not configured")
     schema = request.schema_ or settings.schema
     try:
-        sequences = load_sequences(settings.database_url, schema)
+        attempts = load_counted_attempts(settings.database_url, schema, include_demo=request.include_demo)
     except SystemExit as error:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(error)) from error
-    if not sequences:
-        raise HTTPException(status.HTTP_409_CONFLICT, f'No practice data in schema "{schema}"')
+    if not attempts:
+        msg = f'No practice data in schema "{schema}"'
+        if not request.include_demo:
+            msg += " (demo-seeded history excluded; pass include_demo=true to include it)"
+        raise HTTPException(status.HTTP_409_CONFLICT, msg)
 
+    # 1. Learner-level split without future leakage
+    train_attempts, test_attempts = split_by_learner_no_leakage(attempts)
+    train_seqs = attempts_to_sequences(train_attempts)
+    test_seqs = attempts_to_sequences(test_attempts)
+
+    # 2. Fit on train set
+    eval_params: dict[str, BktParams] = {}
+    for code, seqs in train_seqs.items():
+        res = fit_skill(seqs, restarts=request.restarts, skill=code, min_sequences=10, min_observations=30)
+        eval_params[code] = res.params
+
+    # 3. Evaluate held-out log-loss
+    fitted_loss, default_loss, test_obs = evaluate_log_loss(test_seqs, eval_params, DEFAULT)
+    beats_default = fitted_loss < default_loss if test_obs > 0 else False
+
+    # 4. Final fit on all Counted Attempts
+    full_seqs = attempts_to_sequences(attempts)
     stamp = datetime.now(timezone.utc)
     version = request.version or f"bkt-em-{stamp:%Y%m%d%H%M}"
     skills = {
-        code: fit_skill(sequences[code], restarts=request.restarts, skill=code).as_dict()
-        for code in sorted(sequences)
+        code: fit_skill(full_seqs[code], restarts=request.restarts, skill=code).as_dict()
+        for code in sorted(full_seqs)
     }
+    source_label = "demo" if request.include_demo else "postgres"
     return {
         "modelVersion": version,
         "fittedAt": stamp.isoformat(),
-        "source": "postgres",
+        "source": source_label,
         "method": "Expectation-Maximisation (Baum-Welch) on a constrained two-state BKT HMM",
         "minimums": {"sequences": MIN_SEQUENCES, "observations": MIN_OBSERVATIONS},
         "defaults": DEFAULT.as_dict(),
-        "dataset": describe(sequences),
+        "dataset": describe(full_seqs),
         "fitted": sum(1 for s in skills.values() if s["fitted"]),
+        "evaluation": {
+            "heldOutLogLoss": round(fitted_loss, 4),
+            "defaultLogLoss": round(default_loss, 4),
+            "beatsDefault": beats_default,
+            "testObservations": test_obs,
+            "testLearners": len({a.student_id for a in test_attempts}),
+        },
         "skills": skills,
     }

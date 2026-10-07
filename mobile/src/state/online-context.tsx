@@ -10,7 +10,7 @@ import { digest } from '../data/crypto';
 import { AttemptOutbox } from '../data/outbox';
 import { getRepository } from '../data/storage';
 import { vault } from '../data/vault';
-import { useApp } from './app-context';
+import { useApp, type ActiveModelRecord } from './app-context';
 import { ApiClient, ApiError, resolveApiUrl, type TokenStore } from '../domain/client';
 import { LearnerAccountError } from '../domain/sign-in';
 import { checksumBody, offers, toPack, type PackOffer } from '../domain/packs';
@@ -71,6 +71,8 @@ interface OnlineValue {
   caretakerGet<T>(route: string): Promise<T>;
   /** Any authenticated call as the Caretaker's server account, for a Teacher's writes. */
   caretakerCall<T>(method: 'POST' | 'PATCH', route: string, body?: unknown): Promise<T>;
+  /** Re-fetches the server's active skill parameters and updates cached model parameters. */
+  syncActiveModel(): Promise<void>;
 }
 
 const OnlineContext = createContext<OnlineValue | null>(null);
@@ -87,7 +89,7 @@ function address(): string | null {
 export function OnlineProvider({ children }: { children: React.ReactNode }) {
   // Online Mode reads the offline half, never the other way round: this is the
   // direction that lets practice keep working when none of this is reachable.
-  const { downloaded, reloadPacks, reloadVerdicts, attempts } = useApp();
+  const { downloaded, reloadPacks, reloadVerdicts, attempts, activeModel, saveActiveModel } = useApp();
   const [apiUrl] = useState(address);
   const [server, setServer] = useState<Session | null>(null);
   const [links, setLinks] = useState<Record<string, Link>>({});
@@ -175,6 +177,17 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     return { ...result, deviceId, offlineUntil: Date.now() + OFFLINE_WINDOW };
   }, [apiUrl, client, device, watched]);
 
+  const syncActiveModel = useCallback(async () => {
+    try {
+      const data = await client(CARETAKER_OWNER).call<ActiveModelRecord>('GET', 'models/active');
+      if (data?.version && data?.parameters) {
+        await saveActiveModel(data);
+      }
+    } catch {
+      // Best effort: keep cached or compiled parameters when offline or call fails
+    }
+  }, [client, saveActiveModel]);
+
   const signIn = useCallback(async (loginId: string, password: string) => {
     setBusy(true);
     try {
@@ -182,8 +195,9 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
       if (session.user.role === 'STUDENT')
         throw new LearnerAccountError();
       await store(CARETAKER_OWNER).write(session);
+      await syncActiveModel();
     } finally { setBusy(false); }
-  }, [login, store]);
+  }, [login, store, syncActiveModel]);
 
   const signOut = useCallback(async () => {
     const current = sessions.current.get(CARETAKER_OWNER);
@@ -331,12 +345,16 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
       // Hex case is not part of the digest, so only the bytes have to agree.
       if ((await digest(checksumBody(payload))).toLowerCase() !== payload.checksum.toLowerCase())
         throw new Error('That Content Pack arrived damaged and was not saved. Try again on a steadier connection.');
-      const pack = toPack(payload, (skillCode) => FITTED_SKILL_PARAMETERS[skillCode] ?? DEFAULT_SKILL_PARAMETERS);
+      const pack = toPack(
+        payload,
+        (skillCode) => activeModel?.parameters[skillCode] ?? FITTED_SKILL_PARAMETERS[skillCode] ?? DEFAULT_SKILL_PARAMETERS,
+      );
       const repo = await getRepository();
       await repo.saveDownloadedPack({ checksum: payload.checksum, downloadedAt: new Date().toISOString(), pack }, offer.replaces);
       await reloadPacks();
+      await syncActiveModel();
     } finally { setBusy(false); }
-  }, [client, reloadPacks, watched]);
+  }, [activeModel, client, reloadPacks, syncActiveModel, watched]);
 
   const summary = useCallback(async (profileId: string) => {
     const repo = await getRepository();
@@ -378,6 +396,7 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     check,
     caretakerGet,
     caretakerCall,
+    syncActiveModel,
   };
   return <OnlineContext.Provider value={value}>{children}</OnlineContext.Provider>;
 }

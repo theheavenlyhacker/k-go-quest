@@ -37,15 +37,13 @@ function parse(path: string): ModelFile {
   return data;
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  const path = args.find((arg) => !arg.startsWith('--'));
-  if (!path) throw new Error('Usage: model:import -- <model.json> [--activate] [--dry-run] [--allow-synthetic]');
-  const activate = args.includes('--activate');
-  const dryRun = args.includes('--dry-run');
-
+export async function importModel(
+  path: string,
+  options: { activate?: boolean; dryRun?: boolean; allowSynthetic?: boolean } = {},
+) {
+  const { activate = false, dryRun = false, allowSynthetic = false } = options;
   const data = parse(path);
-  if (data.source === 'synthetic' && !args.includes('--allow-synthetic')) {
+  if (data.source === 'synthetic' && !allowSynthetic) {
     throw new Error('This file holds synthetic parameters. Re-run with --allow-synthetic only on a scratch database.');
   }
 
@@ -85,7 +83,21 @@ async function main() {
   }
 }
 
-void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : 'Import failed.');
-  process.exitCode = 1;
-});
+async function main() {
+  const args = process.argv.slice(2);
+  const path = args.find((arg) => !arg.startsWith('--'));
+  if (!path) throw new Error('Usage: model:import -- <model.json> [--activate] [--dry-run] [--allow-synthetic]');
+  await importModel(path, {
+    activate: args.includes('--activate'),
+    dryRun: args.includes('--dry-run'),
+    allowSynthetic: args.includes('--allow-synthetic'),
+  });
+}
+
+if (require.main === module) {
+  void main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : 'Import failed.');
+    process.exitCode = 1;
+  });
+}
+
