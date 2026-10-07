@@ -19,6 +19,8 @@ export interface TeacherData {
   /** Fixture-only: Quizzes and credentials have no backend yet (#31). */
   quizzes: QuizRecord[];
   rewards: TeacherRewardsRecord;
+  /** Fixture-only: Learner streaks by id; the Classroom report has none yet. */
+  streaks: Record<string, number>;
   loadedAt: string;
 }
 
@@ -43,7 +45,7 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
       const classroom = page.items[0];
       if (!classroom) throw new Error('No Classroom is assigned to this Teacher account yet. Ask your LGU Admin.');
       const report = await caretakerGet<ClassroomReport>(`reports/classrooms/${classroom.id}`);
-      return { classroom, report, impactPoints: 0, classCount: page.total, quizzes: [], rewards: { badges: [], credentials: [] }, loadedAt: new Date().toISOString() };
+      return { classroom, report, impactPoints: 0, classCount: page.total, quizzes: [], rewards: { badges: [], credentials: [] }, streaks: {}, loadedAt: new Date().toISOString() };
     })()
       .then((data) => { if (live) setLoad({ status: 'ready', data }); })
       .catch((error: unknown) => { if (live) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the Classroom report.' }); });

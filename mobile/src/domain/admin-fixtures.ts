@@ -1,4 +1,5 @@
 import type { ServerUser } from './server';
+import { fixtureLibrary } from './admin-library';
 import type { AdminData, EngagementDay } from './admin';
 
 /**
@@ -31,8 +32,9 @@ export function fixtureAdminData(today: string): AdminData {
       attempts: 18420,
       disclaimer: 'Practice estimates, not measured learning impact. No cost or hours-saved claims are inferred.',
     },
-    users: [...Array.from({ length: 42 }, (_, i) => user(i + 1, 'TEACHER')), user(100, 'LGU_ADMIN')],
+    users: [...Array.from({ length: 42 }, (_, i) => user(i + 1, 'TEACHER')), user(100, 'LGU_ADMIN'), ...Array.from({ length: 8 }, (_, i) => ({ ...user(200 + i, 'STUDENT'), active: i % 4 !== 3 }))],
     devices: Array.from({ length: 160 }, (_, i) => ({ id: `tab-${i}`, name: `Shared Tablet ${i + 1}`, lastSeenAt: null, online: i < 142 })),
+    library: fixtureLibrary(),
     engagement: fixtureEngagement(today),
   };
 }

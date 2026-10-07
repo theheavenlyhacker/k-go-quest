@@ -29,5 +29,5 @@ export const classroomReportFixture: ClassroomReport = {
   decisionPolicy: 'Supplementary rule-based signals; teacher decides next action',
 };
 
-/** Fixture-only: Impact Points and class count have no backend concept yet (see #31). */
-export const teacherExtrasFixture = { impactPoints: 2450, classCount: 3 };
+/** Fixture-only: Impact Points, class count and Learner streaks have no backend concept yet (see #31). */
+export const teacherExtrasFixture = { impactPoints: 2450, classCount: 3, streaks: { l1: 12, l2: 5, l3: 2, l4: 0 } as Record<string, number> };

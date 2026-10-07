@@ -1,4 +1,5 @@
 import type { OnlineState } from './online';
+import type { Library } from './admin-library';
 import type { ServerUser, Session } from './server';
 
 /**
@@ -29,6 +30,7 @@ export interface AdminData {
   impact: ImpactReport;
   users: ServerUser[];
   devices: DeviceRecord[];
+  library: Library;
   /** The last 14 days, oldest first, ending today. */
   engagement: EngagementDay[];
 }
