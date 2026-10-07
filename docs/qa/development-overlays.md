@@ -27,9 +27,20 @@ and [Reanimated reduced motion](https://docs.swmansion.com/react-native-reanimat
 
 ## Verification record for #72
 
-Build: not built during this implementation. Device: none attached (`adb devices -l`
-returned an empty list on 2026-10-07). Native navigation/answer submission and
-reduced-motion observations are pending, not passed.
+Build: Expo Go SDK 57, Android API 36 `kgo_phone` emulator, issue-77 branch.
+The emulator was initially absent, then started for verification on 2026-10-07.
+A cold start of the baseline/Figma branch reproduced the Reanimated override
+warning on the Profile picker. A cold start of issue-77 reached the same picker
+with no reduced-motion override warning in Metro output or the UI hierarchy.
+
+No Profile was unlocked: the test PIN is unavailable. Navigation/answer
+submission and system reduced-motion behavior remain pending. Clerk is not
+mounted at the picker, so this observation does not verify its Setup warning.
+
+Release/development build blocker: app.json has no EAS project ID and no
+provisioned demo build/environment was supplied for this check. EAS variables
+are selected by profile but their remote availability is not verified. The
+release APK verification in #72 remains required.
 
 On the provisioned demo device:
 
