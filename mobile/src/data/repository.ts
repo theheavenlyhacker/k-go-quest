@@ -20,7 +20,8 @@ CREATE INDEX IF NOT EXISTS attempts_by_owner ON attempts(owner, ordinal);
 CREATE TABLE IF NOT EXISTS purchases (owner TEXT NOT NULL, cosmetic_id TEXT NOT NULL, ordinal INTEGER NOT NULL, cipher TEXT NOT NULL, PRIMARY KEY(owner, cosmetic_id));
 CREATE TABLE IF NOT EXISTS uploads (owner TEXT NOT NULL, attempt_id TEXT NOT NULL, cipher TEXT NOT NULL, PRIMARY KEY(owner, attempt_id));
 CREATE TABLE IF NOT EXISTS packs (pack_id TEXT PRIMARY KEY, checksum TEXT NOT NULL, downloaded_at TEXT NOT NULL, payload TEXT NOT NULL);
-PRAGMA user_version = 5;`;
+CREATE TABLE IF NOT EXISTS cache (owner TEXT NOT NULL, key TEXT NOT NULL, cipher TEXT NOT NULL, PRIMARY KEY(owner, key));
+PRAGMA user_version = 6;`;
 
 /** What the server said about one uploaded Attempt. An Attempt with no row here has not been uploaded. */
 export interface Upload extends UploadRecord { detail?: string }
@@ -46,12 +47,15 @@ export interface Repository {
   purchases(owner: string): Promise<Purchase[]>;
   recordPurchase(owner: string, purchase: Purchase): Promise<void>;
   deleteOwner(owner: string): Promise<void>;
+  /** A small sealed value an owner keeps for itself, such as a Teacher's last Classroom report or resolved Alerts. */
+  cacheGet<T>(owner: string, key: string): Promise<T | null>;
+  cachePut(owner: string, key: string, value: unknown): Promise<void>;
 }
 export class LocalRepository implements Repository {
   constructor(private db: Database, private cipher: Cipher) {}
   async initialize() {
     const version = await this.db.first<{ user_version: number }>('PRAGMA user_version');
-    if ((version?.user_version ?? 0) > 5) throw new Error('This data requires a newer version of K-Go Quests.');
+    if ((version?.user_version ?? 0) > 6) throw new Error('This data requires a newer version of K-Go Quests.');
     await this.db.exec(LOCAL_SCHEMA);
   }
   async downloadedPacks() {
@@ -128,6 +132,14 @@ export class LocalRepository implements Repository {
   async recordPurchase(owner: string, purchase: Purchase) {
     const cipher = await this.cipher.encrypt(owner, purchase.cosmeticId, purchase);
     await this.db.run('INSERT INTO purchases VALUES (?, ?, ?, ?)', [owner, purchase.cosmeticId, Date.now(), cipher]);
+  }
+  async cacheGet<T>(owner: string, key: string) {
+    const row = await this.db.first<{ cipher: string }>('SELECT cipher FROM cache WHERE owner = ? AND key = ?', [owner, key]);
+    return row ? this.cipher.decrypt<T>(owner, key, row.cipher).catch(() => null) : null;
+  }
+  async cachePut(owner: string, key: string, value: unknown) {
+    const cipher = await this.cipher.encrypt(owner, key, value);
+    await this.db.run('INSERT INTO cache VALUES (?, ?, ?) ON CONFLICT(owner, key) DO UPDATE SET cipher = excluded.cipher', [owner, key, cipher]);
   }
   /** Removes a Profile's rows: the Caretaker deleting a Profile, or resetting the Demo Learner. */
   async deleteOwner(owner: string) {

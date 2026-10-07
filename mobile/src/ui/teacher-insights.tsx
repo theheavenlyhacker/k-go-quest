@@ -3,7 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CloudOff, Search, Users } from 'lucide-react-native';
 
-import { pct } from '../domain/format';
+import { ago, pct } from '../domain/format';
 import { insights, searchLearners, type InsightLearner, type LearnerDetail } from '../domain/teacher';
 import { useTeacher, type TeacherLoad } from '../state/teacher-context';
 import { Bar, Button, Card, Empty, Eyebrow, Field, Info, ListRow, Pill, Row, T } from './primitives';
@@ -37,7 +37,7 @@ export function useReadyTeacher(): { frame: React.ReactNode; data: Extract<Teach
 }
 
 const detailLine = (learner: InsightLearner) =>
-  `Grade ${learner.grade} · ${learner.streak == null ? 'No streak yet' : `${learner.streak}-day streak`}`;
+  `Grade ${learner.grade} · ${learner.streak ? `${learner.streak}-day streak` : 'No streak yet'}${learner.lastPracticeAt ? ` · Practised ${ago(learner.lastPracticeAt)}` : ''}`;
 
 /** Student Insights (277:73): search by alias, Needs attention, All Learners. */
 export function InsightsBody() {
@@ -46,7 +46,7 @@ export function InsightsBody() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const view = useMemo(
-    () => (data ? insights(data.report, data.classroom.grade, data.streaks, Date.parse(data.loadedAt)) : null),
+    () => (data ? insights(data.report, data.classroom.grade, Date.parse(data.loadedAt)) : null),
     [data],
   );
   if (!data || !view) return <>{frame}</>;

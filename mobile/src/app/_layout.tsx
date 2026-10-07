@@ -6,6 +6,7 @@ import { NavigationBar } from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+import { Lexend_500Medium, Lexend_700Bold, Lexend_800ExtraBold } from '@expo-google-fonts/lexend';
 import { Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { PublicSans_400Regular, PublicSans_700Bold } from '@expo-google-fonts/public-sans';
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
@@ -23,7 +24,7 @@ import { palette, useTheme } from '@/ui/theme';
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({ Outfit_600SemiBold, Outfit_700Bold, PublicSans_400Regular, PublicSans_700Bold, IBMPlexMono_500Medium });
+  const [fontsLoaded, fontError] = useFonts({ Lexend_500Medium, Lexend_700Bold, Lexend_800ExtraBold, Outfit_600SemiBold, Outfit_700Bold, PublicSans_400Regular, PublicSans_700Bold, IBMPlexMono_500Medium });
   // Rendering before the fonts resolve would flash system type through every primitive.
   if (!fontsLoaded && !fontError) return null;
   return (

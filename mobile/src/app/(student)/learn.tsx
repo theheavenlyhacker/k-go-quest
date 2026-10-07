@@ -1,6 +1,6 @@
 import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BookOpen, ChartColumn, CircleCheck, CloudDownload, CloudOff, Leaf, Library, RefreshCw, Sparkles, type LucideIcon } from 'lucide-react-native';
+import { BookOpen, CircleCheck, CloudDownload, CloudOff, Library, RefreshCw, type LucideIcon } from 'lucide-react-native';
 
 import { quests } from '@/domain/engine';
 import { gradingLabel, gradingMode } from '@/domain/grading-mode';
@@ -12,12 +12,12 @@ import type { Subject } from '@/domain/types';
 import { subjectTitles } from '@/domain/subjects';
 import { Action, Bar, Card, Empty, Eyebrow, IconTile, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
-import { subjectTheme, tokens, useTheme } from '@/ui/theme';
+import { useSubjectTheme, tokens, useTheme } from '@/ui/theme';
 
 const subjectLabel = (subject: string) => { const known = knownSubject(subject); return known ? subjectTitles[known] : subject; };
 
 const subjectIcon: Record<Subject, LucideIcon> = {
-  MATH: ChartColumn, ENGLISH: BookOpen, FILIPINO: Leaf, SCIENCE: Sparkles,
+  MATH: BookOpen, ENGLISH: BookOpen, FILIPINO: BookOpen, SCIENCE: BookOpen,
 };
 
 /** One Subject in the Library: the same card whether the Pack is on the tablet or still to download. */
@@ -28,17 +28,17 @@ function PackCard({ index, icon, tone, title, detail, marker, label, progress, o
   const Marker = marker;
   const theme = useTheme();
   return (
-    <Card index={index} onPress={onPress} style={{ minHeight: 44 }}>
+    <Card index={index} onPress={onPress} style={{ minHeight: 44, padding: 16 }}>
       <View accessible={!onPress} accessibilityLabel={onPress ? undefined : label} style={{ gap: 9 }}>
         <Row style={{ gap: 11 }}>
-          <IconTile icon={icon} color={tone.brand} tint={tone.tint} />
+          <IconTile icon={icon} color={tone.brand} tint={tone.tint} size={36} />
           <View style={{ flex: 1, gap: 2 }}>
             <T variant="titleM" lines={2}>{title}</T>
             <T variant="bodyS" color={theme.muted} lines={2}>{detail}</T>
           </View>
           <Marker size={20} color={progress === undefined ? tokens.brand.sunDeep : tokens.state.success} />
         </Row>
-        {progress === undefined ? null : <Bar value={progress} color={tone.brand} />}
+        {progress === undefined ? null : <Bar value={progress} color={tone.brand} height={3} />}
       </View>
     </Card>
   );
@@ -48,6 +48,7 @@ function PackCard({ index, icon, tone, title, detail, marker, label, progress, o
 export default function Learn() {
   const theme = useTheme();
   const router = useRouter();
+  const subjectTheme = useSubjectTheme();
   const { attempts, packs, downloaded } = useApp();
   const { banner, syncNow, busy, offers, retry } = useLibrary();
   const count = downloadedCount(downloaded.length, offers);
@@ -57,23 +58,7 @@ export default function Learn() {
   const lessonCount = packs.reduce((total, pack) => total + pack.lessons.length, 0);
 
   return (
-    <Screen chrome title="Subjects" caption={`${lessonCount} lesson${lessonCount === 1 ? '' : 's'} on this tablet`}>
-      {nextQuests.length ? (
-        <>
-          <Eyebrow>Quests · practise next</Eyebrow>
-          {nextQuests.map((q, index) => {
-            const lesson = packs.flatMap((p) => p.lessons).find((l) => l.id === q.lessonId)!;
-            const exercise = lesson.exercises.find((e) => e.id === q.exerciseId)!;
-            return (
-              <Card key={q.exerciseId} index={index} onPress={() => router.push({ pathname: '/lesson', params: { lessonId: q.lessonId, exerciseId: q.exerciseId } })}>
-                <T variant="titleS" lines={2}>{exercise.prompt}</T>
-                <T variant="bodyS" color={theme.muted} lines={1}>{`${lesson.title} · Mastery ${Math.round(q.mastery * 100)}%`}</T>
-              </Card>
-            );
-          })}
-        </>
-      ) : null}
-
+    <Screen chrome title="Offline Library" caption={`${lessonCount} lesson${lessonCount === 1 ? '' : 's'} on this tablet`}>
       {banner ? (
         <Card style={{ gap: 10, backgroundColor: theme.surfaceAlt }}>
           <Row style={{ gap: 10 }}>
@@ -164,6 +149,22 @@ export default function Learn() {
           </View>
         </Card>
       ) : null}
+      {nextQuests.length ? (
+        <>
+          <Eyebrow>Quests · practise next</Eyebrow>
+          {nextQuests.map((q, index) => {
+            const lesson = packs.flatMap((p) => p.lessons).find((l) => l.id === q.lessonId)!;
+            const exercise = lesson.exercises.find((e) => e.id === q.exerciseId)!;
+            return (
+              <Card key={q.exerciseId} index={index} onPress={() => router.push({ pathname: '/lesson', params: { lessonId: q.lessonId, exerciseId: q.exerciseId } })}>
+                <T variant="titleS" lines={2}>{exercise.prompt}</T>
+                <T variant="bodyS" color={theme.muted} lines={1}>{`${lesson.title} · Mastery ${Math.round(q.mastery * 100)}%`}</T>
+              </Card>
+            );
+          })}
+        </>
+      ) : null}
+
     </Screen>
   );
 }

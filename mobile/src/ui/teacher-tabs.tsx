@@ -102,7 +102,10 @@ export function TeacherRewardsBody() {
                 <Row>
                   <IconTile icon={Award} color={tokens.brand.sunDeep} tint={tokens.tint.sun} size={44} />
                   <View style={{ flex: 1 }}>
-                    <T variant="titleM">{`Level ${level.level}`}</T>
+                    <Row>
+                      <T variant="titleM">{`Level ${level.level}`}</T>
+                      <Pill color={tokens.brand.sunDeep} tint={tokens.tint.sun}>Demo</Pill>
+                    </Row>
                     <T variant="bodyS" color={theme.muted}>{`${level.points.toLocaleString('en-US')} Impact Points`}</T>
                   </View>
                 </Row>
@@ -111,14 +114,14 @@ export function TeacherRewardsBody() {
               </View>
             </Card>
 
-            <Eyebrow style={{ marginTop: 5 }}>Badges</Eyebrow>
+            <Eyebrow style={{ marginTop: 5 }}>Badges · Demo</Eyebrow>
             {data.rewards.badges.length ? (
               <Row style={{ flexWrap: 'wrap' }}>
                 {data.rewards.badges.map((badge) => <Pill key={badge.id} color={tokens.brand.grape} tint={tokens.tint.grape} icon={Award}>{badge.label}</Pill>)}
               </Row>
             ) : <T variant="bodyS" color={theme.muted}>Badges you earn appear here.</T>}
 
-            <Eyebrow style={{ marginTop: 5 }}>Training credentials</Eyebrow>
+            <Eyebrow style={{ marginTop: 5 }}>Training credentials · Demo</Eyebrow>
             {rows.length ? rows.map((row, index) => (
               <Card key={row.id} index={index + 1}>
                 <Row style={{ minHeight: MIN_TOUCH }}>

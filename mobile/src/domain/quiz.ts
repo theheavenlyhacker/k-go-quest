@@ -17,6 +17,21 @@ export interface ServerQuiz extends ServerQuizSummary {
 }
 export interface SkillChoice { skillCode: string; meanMastery: number; suggested: boolean; exercises: number }
 
+/** Validate the live list before saving it for offline use. */
+export function parseQuizSummaries(raw: unknown): ServerQuizSummary[] {
+  if (!Array.isArray(raw)) throw new Error('Quizzes: the list is missing.');
+  return raw.map((item: unknown, i) => {
+    if (!item || typeof item !== 'object') throw new Error(`Quizzes: item ${i} has the wrong shape.`);
+    const { id, classroomId, title, subject, skillCodes, status, questionCount } = item as Record<string, unknown>;
+    if (typeof id !== 'string' || typeof classroomId !== 'string' || typeof title !== 'string'
+      || (subject !== 'MATH' && subject !== 'ENGLISH' && subject !== 'FILIPINO' && subject !== 'SCIENCE')
+      || !Array.isArray(skillCodes) || !skillCodes.every((code): code is string => typeof code === 'string')
+      || (status !== 'DRAFT' && status !== 'PUBLISHED') || typeof questionCount !== 'number' || !Number.isInteger(questionCount) || questionCount < 0)
+      throw new Error(`Quizzes: item ${i} has the wrong shape.`);
+    return { id, classroomId, title, subject, skillCodes, status, questionCount };
+  });
+}
+
 /** "math5.fractions" reads as "Fractions". */
 export function skillLabel(code: string): string {
   const name = code.split('.').pop() ?? code;

@@ -5,6 +5,7 @@
   "dependencies": {
     "@clerk/expo": "^4.8.0",
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
+    "@expo-google-fonts/lexend": "^0.4.1",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/public-sans": "^0.4.2",
     "@expo/ui": "~57.0.21",

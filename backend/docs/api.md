@@ -76,6 +76,18 @@ Use the actual event timestamp. Keep each event until its clientAttemptId is ack
 
 The response has `results` with clientAttemptId, correct, awardedCoins, and duplicate; top-level awardedCoins is the amount newly earned by this batch, and coinBalance is the authoritative wallet. A duplicate result can contain its original awardedCoins; do not add that amount to the wallet again. See `offline-contract.md` for retry and cache handling.
 
+## Classroom report
+
+`GET reports/classrooms/:id` returns `{ classroomId, learners, decisionPolicy }`. Each learner has:
+
+- `skills`: one row per Skill with `mastery`, `attempts`, `correctAttempts`.
+- `subjects`: `[{ subject, mastery }]`, the mean Mastery of that Subject's Skills.
+- `streak`: consecutive Manila days, ending today (or yesterday, which keeps it alive until today ends), with a Counted Attempt. A repeat of an Exercise is practice only and does not extend it.
+- `lastPracticeAt`: when the Learner last answered anything (`occurredAt`), or `null`. `lastSyncAt` is when the server last received an Attempt.
+- `connectivityStatus`, `learningStatus`, `reason`: the rule-based signals behind Teacher Alerts.
+
+The tablet's contract test (`mobile/src/domain/recorded/classroom-report.json`) parses a recorded response; change the shape and re-record it.
+
 ## Administration
 
 Reset a password with `POST users/:id/password` and `{ "newPassword": "<12–128 character password>" }`. The affected user must sign in again. Deactivation uses `PATCH users/:id` with `{ "active": false }`.

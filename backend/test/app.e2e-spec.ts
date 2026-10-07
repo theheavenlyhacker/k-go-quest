@@ -491,6 +491,56 @@ describe('K-Go API on real PostgreSQL', () => {
     expect(report.body.learners[0].connectivityStatus).toBe('NO_RECENT_SYNC');
     expect(report.body.learners[0].learningStatus).toBe('INSUFFICIENT_DATA');
   });
+  it('reports streak, last practice and Subject Mastery per Learner', async () => {
+    const day = 86400000;
+    const stamp = (daysAgo: number) => new Date(Date.now() - daysAgo * day);
+    const row = (
+      exercise: Exercise,
+      when: Date,
+      clientAttemptId = randomUUID(),
+    ) =>
+      db.getRepository(Attempt).save(
+        db.getRepository(Attempt).create({
+          clientAttemptId,
+          studentId: data.student.id,
+          classroomId: data.classroom.id,
+          exerciseId: exercise.id,
+          skillCode: 'math5.fractions',
+          subject: Subject.MATH,
+          selectedOption: 0,
+          correct: true,
+          awardedCoins: 0,
+          occurredAt: when,
+          receivedAt: when,
+        }),
+      );
+    // Counted two days ago and today; the repeat yesterday is practice only, so it cannot bridge the gap.
+    await row(data.exercises[0], stamp(2));
+    await row(data.exercises[0], stamp(1));
+    await row(data.exercises[1], stamp(0));
+    await db.getRepository(SkillProgress).save(
+      db.getRepository(SkillProgress).create({
+        studentId: data.student.id,
+        skillCode: 'math5.fractions',
+        subject: Subject.MATH,
+        mastery: 0.6,
+        attempts: 2,
+        correctAttempts: 2,
+      }),
+    );
+    const { accessToken } = await login('teacher-test');
+    const report = await request(app.getHttpServer())
+      .get(`/api/v1/reports/classrooms/${data.classroom.id}`)
+      .set(auth(accessToken))
+      .expect(200);
+    const learner = report.body.learners[0];
+    expect(learner.streak).toBe(1);
+    expect(new Date(learner.lastPracticeAt).getTime()).toBeCloseTo(
+      stamp(0).getTime(),
+      -4,
+    );
+    expect(learner.subjects).toEqual([{ subject: 'MATH', mastery: 0.6 }]);
+  });
   it('returns aggregate LGU impact reports', async () => {
     const { accessToken } = await login('admin-test');
     const report = await request(app.getHttpServer())
