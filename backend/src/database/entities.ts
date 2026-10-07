@@ -33,6 +33,7 @@ export class Jurisdiction extends RecordEntity {
 export class School extends RecordEntity {
   @Index() @Column('uuid') jurisdictionId: string;
   @Column({ length: 120 }) name: string;
+  @Column({ length: 80, default: '' }) barangay: string;
 }
 @Entity('users')
 export class User extends RecordEntity {
@@ -191,6 +192,12 @@ export class Quiz extends RecordEntity {
   @Column({ length: 20, default: QuizStatus.DRAFT }) status: QuizStatus;
   @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
 }
+@Entity('quiz_papers')
+@Index(['quizId', 'studentId'], { unique: true })
+export class QuizPaper extends RecordEntity {
+  @Index() @Column('uuid') quizId: string;
+  @Index() @Column('uuid') studentId: string;
+}
 @Entity('audit_events')
 export class AuditEvent extends RecordEntity {
   @Column({ type: 'uuid', nullable: true }) actorId: string | null;
@@ -240,6 +247,7 @@ export const ENTITIES = [
   ModelVersion,
   SkillModelParams,
   Quiz,
+  QuizPaper,
   AuditEvent,
   Device,
 ];

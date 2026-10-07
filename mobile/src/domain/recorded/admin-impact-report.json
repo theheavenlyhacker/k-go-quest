@@ -1,0 +1,28 @@
+{
+  "jurisdictionId": "a1b2c3d4-0000-4000-8000-000000000001",
+  "generatedAt": "2026-10-07T14:30:00.000Z",
+  "schools": 2,
+  "activeStudents": 30,
+  "studentsWithPractice": 28,
+  "meanEstimatedMastery": 0.58,
+  "attempts": 1842,
+  "disclaimer": "Practice estimates, not measured learning impact. No cost or hours-saved claims are inferred.",
+  "quarter": "2026-Q4",
+  "learnersReached": 28,
+  "lessonsCompleted": 84,
+  "offlineUsageShare": 0.3571,
+  "reachByBarangay": [
+    {
+      "barangay": "Pembo",
+      "learners": 16,
+      "lessons": 50,
+      "offlineLessons": 18
+    },
+    {
+      "barangay": "Cembo",
+      "learners": 12,
+      "lessons": 34,
+      "offlineLessons": 12
+    }
+  ]
+}

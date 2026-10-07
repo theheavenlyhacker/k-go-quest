@@ -1,10 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { canOpenAdmin, dashboardTiles, deviceRows, deviceStatus, deviceTiles, engagementSeries, impactReport, quarterOf, quarterOptions, type DeviceRecord } from './admin';
+import {
+  canOpenAdmin,
+  dashboardTiles,
+  deviceRows,
+  deviceStatus,
+  deviceTiles,
+  engagementSeries,
+  impactReport,
+  parseEngagement,
+  parseDevices,
+  parseImpactReport,
+  parsePacks,
+  parseSchools,
+  parseUsers,
+  quarterOf,
+  quarterOptions,
+  recentQuarters,
+  type DeviceRecord,
+} from './admin';
 import { fixtureAdminData, fixtureEngagement } from './admin-fixtures';
 import type { Session } from './server';
+import recordedImpact from './recorded/admin-impact-report.json';
+import recordedEngagement from './recorded/admin-engagement.json';
 
 const today = '2026-10-07'; // a Wednesday
 const data = fixtureAdminData(today);
+it('parses live devices and rejects invalid status', () => {
+  const device = { ...data.devices[0], status: 'Needs update', updateAvailable: true };
+  expect(parseDevices({ items: [device] })[0]).toMatchObject({ online: true, updateAvailable: true });
+  expect(parseDevices({ items: [{ ...device, status: 'Offline' }] })[0].online).toBe(false);
+  expect(() => parseDevices({ items: [{ ...device, status: 'unknown' }] })).toThrow();
+});
 const session = (role: Session['user']['role'], revoked = false): Session =>
   ({ user: { ...data.users[0], role }, accessToken: '', refreshToken: '', expiresIn: 0, deviceId: '', offlineUntil: 0, revoked });
 
@@ -109,5 +135,105 @@ describe('device status', () => {
     expect(rows.find((r) => r.id === 'a')?.detail).toBe('40% storage used');
     expect(rows.find((r) => r.id === 'b')?.detail).toBe('Not seen yet');
     expect(rows.find((r) => r.id === 'b')?.status).toBe('Offline');
+  });
+});
+
+describe('Impact report contract test', () => {
+  it('parses recorded responses through the Admin view model', () => {
+    const report = parseImpactReport(recordedImpact);
+    expect(report.jurisdictionId).toBe('a1b2c3d4-0000-4000-8000-000000000001');
+    expect(report.schools).toBe(2);
+    expect(report.quarter).toBe('2026-Q4');
+    expect(report.learnersReached).toBe(28);
+    expect(report.lessonsCompleted).toBe(84);
+    expect(report.offlineUsageShare).toBeCloseTo(0.3571, 4);
+
+    const reachRecords = (report.reachByBarangay ?? []).map((b) => ({
+      quarter: report.quarter!,
+      barangay: b.barangay,
+      learners: b.learners,
+      lessons: b.lessons,
+      offlineLessons: b.offlineLessons,
+    }));
+
+    const view = impactReport(reachRecords, '2026-Q4');
+    expect(view.tiles).toEqual([
+      { key: 'learners', label: 'Learners reached', value: '28', tone: 'brand' },
+      { key: 'barangays', label: 'Barangays covered', value: '2', tone: 'brand' },
+      { key: 'lessons', label: 'Lessons completed', value: '84', tone: 'brand' },
+      { key: 'offline', label: 'Offline usage', value: '36%', tone: 'warning' },
+    ]);
+    expect(view.barangays.map((b) => b.name)).toEqual(['Pembo', 'Cembo']);
+    expect(view.barangays[0].learners).toBe(16);
+    expect(view.barangays[0].share).toBe(1);
+    expect(view.barangays[1].share).toBeCloseTo(12 / 16, 2);
+  });
+
+  it.each(['jurisdictionId', 'generatedAt', 'schools', 'activeStudents', 'attempts', 'disclaimer'])(
+    'fails when impact report loses %s',
+    (field) => {
+      const { [field]: _gone, ...rest } = recordedImpact as Record<string, unknown>;
+      expect(() => parseImpactReport(rest)).toThrow(/Admin report/);
+    },
+  );
+
+  it('fails when a value has the wrong type', () => {
+    expect(() => parseImpactReport({ ...recordedImpact, schools: 'two' })).toThrow(/schools/);
+    expect(() => parseImpactReport('not an object')).toThrow(/object/);
+  });
+});
+
+describe('Engagement contract test', () => {
+  it('parses recorded responses through the engagementSeries view model', () => {
+    const days = parseEngagement(recordedEngagement);
+    expect(days).toHaveLength(7);
+    expect(days[0]).toEqual({ date: '2026-10-01', activeLearners: 12 });
+
+    const series = engagementSeries(days, '2026-10-07');
+    expect(series.bars).toHaveLength(7);
+    expect(series.total).toBe(120);
+    expect(series.bars[6].today).toBe(true);
+    expect(series.bars[6].value).toBe(22);
+  });
+
+  it('fails when engagement payload is invalid', () => {
+    expect(() => parseEngagement({ not: 'a list' })).toThrow(/list/);
+    expect(() => parseEngagement([{ date: 123, activeLearners: 10 }])).toThrow(/date/);
+  });
+});
+
+describe('recentQuarters', () => {
+  it('generates the last N quarters newest first', () => {
+    expect(recentQuarters('2026-10-07', 4)).toEqual(['2026-Q4', '2026-Q3', '2026-Q2', '2026-Q1']);
+    expect(recentQuarters('2026-02-15', 3)).toEqual(['2026-Q1', '2025-Q4', '2025-Q3']);
+  });
+});
+
+describe('parseUsers, parseSchools, parsePacks', () => {
+  it('parses users list', () => {
+    const users = parseUsers({
+      items: [
+        { id: 'u1', loginId: 'admin-1', alias: 'Admin 1', role: 'LGU_ADMIN', active: true },
+      ],
+    });
+    expect(users).toHaveLength(1);
+    expect(users[0]).toMatchObject({ id: 'u1', loginId: 'admin-1', role: 'LGU_ADMIN' });
+    expect(() => parseUsers('bad')).toThrow(/list/);
+  });
+
+  it('parses schools list', () => {
+    const schools = parseSchools({
+      items: [{ id: 's1', name: 'School 1', barangay: 'Pembo' }],
+    });
+    expect(schools).toHaveLength(1);
+    expect(schools[0].barangay).toBe('Pembo');
+  });
+
+  it('parses content packs list', () => {
+    const packs = parsePacks({
+      items: [{ id: 'p1', title: 'Math 5', subject: 'MATH', grade: 5, version: '1.0' }],
+    });
+    expect(packs).toHaveLength(1);
+    expect(packs[0].title).toBe('Math 5');
   });
 });
