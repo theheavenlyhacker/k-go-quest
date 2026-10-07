@@ -107,15 +107,15 @@ export function Bar({ value, color = tokens.brand.limeDeep, height = 7 }: { valu
   );
 }
 
-export function Button({ title, onPress, variant = 'primary', icon: Icon, disabled, loading, style }: {
-  title: string; onPress: () => void; variant?: 'primary' | 'outline' | 'soft' | 'danger' | 'accent'; icon?: LucideIcon; disabled?: boolean; loading?: boolean; style?: ViewStyle;
+export function Button({ title, onPress, variant = 'primary', icon: Icon, disabled, loading, style, accessibilityLabel }: {
+  title: string; accessibilityLabel?: string; onPress: () => void; variant?: 'primary' | 'outline' | 'soft' | 'danger' | 'accent'; icon?: LucideIcon; disabled?: boolean; loading?: boolean; style?: ViewStyle;
 }) {
   const theme = useTheme();
   const solid = variant === 'primary' || variant === 'danger' || variant === 'accent';
   const color = variant === 'danger' ? tokens.state.critical : variant === 'accent' ? tokens.brand.sunDeep : theme.appbar;
   return (
     <Pressable
-      accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: disabled || loading }}
+      accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} accessibilityState={{ disabled: disabled || loading }}
       disabled={disabled || loading} onPress={onPress}
       style={({ pressed }) => [s.button, {
         backgroundColor: solid ? color : variant === 'soft' ? theme.surfaceAlt : 'transparent',

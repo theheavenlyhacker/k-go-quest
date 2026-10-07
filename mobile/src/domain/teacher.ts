@@ -1,4 +1,4 @@
-import { meanMastery, pct } from './format';
+import { ago, meanMastery, pct } from './format';
 import { subjects, subjectTitles } from './subjects';
 import type { Subject } from './types';
 
@@ -126,4 +126,35 @@ export function learnerDetail(report: ClassroomReport, id: string, grade: number
     code: skill.skillCode, label: skillLabel(skill.skillCode), subjectTitle: subjectTitles[skill.subject], mastery: skill.mastery, attempts: skill.attempts,
   }));
   return { ...summary(learner, grade, streaks, now), skills };
+}
+
+export type AlertPriority = 'high' | 'medium' | 'low';
+export interface TeacherAlert { id: string; learnerId: string; priority: AlertPriority; title: string; description: string; at: string | null; relative: string }
+export interface AlertsView { tiles: { open: number; resolved: number; high: number }; open: TeacherAlert[] }
+
+const LONG_INACTIVE_DAYS = 14;
+const priorityRank: Record<AlertPriority, number> = { high: 0, medium: 1, low: 2 };
+
+/**
+ * Alerts from data the system has: Plateau Flag is high, no recent sync is
+ * medium, and no sync for LONG_INACTIVE_DAYS is low (it fades to background
+ * noise rather than escalating). `resolved` maps alert id to the ISO time the
+ * Teacher resolved it; the dismissal is local to the tablet.
+ */
+export function alerts(report: ClassroomReport, now: number, resolved: Record<string, string>): AlertsView {
+  const all: TeacherAlert[] = [];
+  for (const learner of report.learners) {
+    const at = learner.lastSyncAt;
+    const base = { learnerId: learner.id, at, relative: ago(at, now) };
+    if (learner.learningStatus === 'TEACHER_REVIEW_SUGGESTED')
+      all.push({ ...base, id: `${learner.id}:plateau`, priority: 'high', title: `Plateau Flag: ${learner.alias}`, description: attentionReason(learner, now) ?? 'Plateau Flag raised' });
+    if (learner.connectivityStatus === 'NO_RECENT_SYNC') {
+      const long = at != null && now - Date.parse(at) >= LONG_INACTIVE_DAYS * DAY;
+      all.push({ ...base, id: `${learner.id}:sync`, priority: long ? 'low' : 'medium', title: `${long ? 'Long inactivity' : at ? 'No recent sync' : 'No sync yet'}: ${learner.alias}`, description: attentionReason(learner, now) ?? '' });
+    }
+  }
+  const open = all.filter((alert) => !resolved[alert.id]).sort((a, b) =>
+    priorityRank[a.priority] - priorityRank[b.priority] || Date.parse(b.at ?? '') - Date.parse(a.at ?? '') || 0);
+  const resolvedRecently = Object.values(resolved).filter((time) => now - Date.parse(time) <= 7 * DAY).length;
+  return { tiles: { open: open.length, resolved: resolvedRecently, high: open.filter((a) => a.priority === 'high').length }, open };
 }

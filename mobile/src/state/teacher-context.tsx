@@ -21,13 +21,15 @@ export interface TeacherData {
 
 export type TeacherLoad = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: TeacherData };
 
-interface TeacherValue { load: TeacherLoad; reload(): void }
+interface TeacherValue { load: TeacherLoad; reload(): void; /** Alert id to the ISO time it was resolved. Local to the tablet, lost on restart. */ resolved: Record<string, string>; resolve(id: string): void }
 const TeacherContext = createContext<TeacherValue | null>(null);
 
 export function TeacherProvider({ children }: { children: React.ReactNode }) {
   const { caretakerGet } = useOnline();
   const [load, setLoad] = useState<TeacherLoad>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [resolved, setResolved] = useState<Record<string, string>>({});
+  const resolve = useCallback((id: string) => setResolved((prev) => ({ ...prev, [id]: new Date().toISOString() })), []);
   const reload = useCallback(() => { setLoad({ status: 'loading' }); setAttempt((n) => n + 1); }, []);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
     return () => { live = false; };
   }, [attempt, caretakerGet]);
 
-  return <TeacherContext.Provider value={{ load, reload }}>{children}</TeacherContext.Provider>;
+  return <TeacherContext.Provider value={{ load, reload, resolved, resolve }}>{children}</TeacherContext.Provider>;
 }
 
 export function useTeacher() {
