@@ -1,11 +1,11 @@
 import { Tabs } from 'expo-router';
-import { NavBar, type NavBarProps } from '@/ui/chrome';
+import { LEARNER_TABS, NavBar } from '@/ui/chrome';
 
 export default function StudentTabs() {
   return (
     <Tabs
       screenOptions={{ headerShown: false }}
-      tabBar={(props) => <NavBar {...(props as unknown as NavBarProps)} />}
+      tabBar={(props) => <NavBar tabs={LEARNER_TABS} {...props} />}
     >
       <Tabs.Screen name="learn" options={{ title: 'Learn' }} />
       <Tabs.Screen name="league" options={{ title: 'League' }} />
