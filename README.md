@@ -74,6 +74,29 @@ email-code sign-in. Never put the Clerk secret key in the app or the repo.
    Caretaker PIN screen tap *Forgot Caretaker PIN*, sign in with the same email,
    set a new PIN. A different account is refused. Profiles are kept.
 
+## Demo script, online (Teacher and Admin, ~5 minutes)
+
+Needs Docker and Node 24. The `.env` values are throwaway, localhost-only demo
+values; nothing here is a secret.
+
+1. **Start the stack.** `cd backend && cp .env.example .env && docker compose up -d --build --wait`
+   brings up PostgreSQL, the API (`:3000`) and the model service (`:8000`), all healthy.
+2. **Seed the jurisdiction.** `npm ci && npm run db:seed:demo` (from `backend/`) provisions one
+   LGU Admin, two schools, three Grade 5 Classrooms with a Teacher each and 30 Learners
+   (aliases only) with about two months of synthetic Attempts, and imports the Starter Pack
+   so a tablet's Attempts upload. Running it again changes nothing; `-- --reset` rebuilds it.
+   The synthetic Attempts carry `source = 'demo'`, so a refit can include or exclude them.
+3. **Point the app at it.** In `mobile/.env.local` set `EXPO_PUBLIC_API_URL=http://<your-LAN-IP>:3000`
+   (Android emulator: `http://10.0.2.2:3000`). The stack binds to `127.0.0.1`; to reach it from
+   a tablet, change the `ports:` host addresses in `backend/docker-compose.yml`.
+4. **Sign in.** As the Caretaker go online and sign in to the server as `teacher-demo` (Teacher
+   screens) or `admin-demo` (Admin screens); the password is `DEMO_PASSWORD` from `.env`.
+   `teacher-demo-2` and `teacher-demo-3` own the other two Classrooms.
+5. **Link a Profile.** As Caretaker, link a Profile to `learner-01`. Its Starter Pack Attempts
+   now upload and are accepted.
+6. **Look.** The League ranks three Classrooms with distinct growth; every Classroom has a
+   Plateau Flag, a Learner with no recent sync, and one who never synced.
+
 ## Roadmap
 
 Not built, in rough order of interest:

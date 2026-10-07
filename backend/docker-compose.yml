@@ -1,3 +1,10 @@
+# Demo stack: PostgreSQL, the API and the model service.
+#
+#   cp .env.example .env && docker compose up -d --build
+#   npm ci && npm run db:seed:demo        # seeds the demo jurisdiction (from the host)
+#
+# The values in .env.example are throwaway, localhost-only demo values. Every
+# port is bound to 127.0.0.1. Never reuse them anywhere reachable.
 services:
   db:
     image: postgres:17-alpine
@@ -14,5 +21,52 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # One-shot: brings the schema up to date before the API starts.
+  migrate:
+    build: .
+    command: ["node", "dist/database/migrate.js"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://kgo:${POSTGRES_PASSWORD}@db:5432/kgo
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://kgo:${POSTGRES_PASSWORD}@db:5432/kgo
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # 503 until the schema is complete, so "healthy" means usable.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/v1/health/ready >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ml:
+    build: ../ml
+    environment:
+      KGO_ML_TOKEN: ${KGO_ML_TOKEN:?Set KGO_ML_TOKEN in .env}
+      DATABASE_URL: postgresql://kgo:${POSTGRES_PASSWORD}@db:5432/kgo
+      DATABASE_SCHEMA: ${DATABASE_SCHEMA:-kgo}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   postgres_data:

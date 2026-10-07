@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { ENTITIES } from './entities';
 import { InitialSchema1790800000000 } from './migrations/1790800000000-initial-schema';
 import { ModelParams1790900000000 } from './migrations/1790900000000-model-params';
+import { AttemptSource1791000000000 } from './migrations/1791000000000-attempt-source';
 import { databaseSchema } from './schema';
 
 /**
@@ -58,7 +59,11 @@ export function databaseOptions(
         }
       : false,
     entities: ENTITIES,
-    migrations: [InitialSchema1790800000000, ModelParams1790900000000],
+    migrations: [
+      InitialSchema1790800000000,
+      ModelParams1790900000000,
+      AttemptSource1791000000000,
+    ],
     synchronize: false,
     migrationsRun: false,
     logging: false,
