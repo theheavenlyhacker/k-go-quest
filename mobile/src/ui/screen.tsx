@@ -29,16 +29,17 @@ export function Screen({ title, caption, right, children, contentStyle, chrome =
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
-      <StatusBar style={statusBarStyle ?? (chrome || theme.dark ? 'light' : 'dark')} />
+      <StatusBar style={statusBarStyle ?? (theme.dark ? 'light' : 'dark')} />
       {chrome ? <AppBar title={title ?? ''} subtitle={caption} onMenu={() => setMenu(true)} /> : null}
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           {
-            paddingHorizontal: 18,
+            paddingLeft: insets.left + 20,
+            paddingRight: insets.right + 20,
             paddingTop: chrome ? 16 : insets.top + 16,
             paddingBottom: (chrome ? 24 : insets.bottom + 40),
-            gap: 11,
+            gap: 16,
             maxWidth: 640,
             width: '100%',
             alignSelf: 'center',
