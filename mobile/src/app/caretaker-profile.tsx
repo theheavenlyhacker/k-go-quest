@@ -20,7 +20,7 @@ export default function CaretakerProfile() {
   return (
     <Screen title={alias} caption="Progress (read-only)">
       <BackLink label="Back" onPress={() => router.back()} />
-      {data ? <ProgressView readOnly learning={learning} attempts={data.attempts} balance={balance(learning.coins, data.purchases)} /> : <T size={12}>Loading...</T>}
+      {data ? <ProgressView readOnly learning={learning} attempts={data.attempts} purchases={data.purchases} balance={balance(learning.coins, data.purchases)} /> : <T size={12}>Loading...</T>}
     </Screen>
   );
 }

@@ -3,7 +3,7 @@ import { ScrollView, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from './theme';
-import { AppBar, Sidebar } from './chrome';
+import { AppBar, LearnerSidebar } from './chrome';
 import { Row, T } from './primitives';
 
 /**
@@ -56,7 +56,7 @@ export function Screen({ title, caption, right, children, contentStyle, chrome =
         {chrome && right ? <View style={{ alignItems: 'flex-end' }}>{right}</View> : null}
         {children}
       </ScrollView>
-      {chrome ? <Sidebar open={menu} onClose={() => setMenu(false)} /> : null}
+      {chrome ? <LearnerSidebar open={menu} onClose={() => setMenu(false)} /> : null}
     </View>
   );
 }

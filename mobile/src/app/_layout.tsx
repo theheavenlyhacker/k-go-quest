@@ -9,9 +9,11 @@ import { useFonts } from 'expo-font';
 import { Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { PublicSans_400Regular, PublicSans_700Bold } from '@expo-google-fonts/public-sans';
 import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
+import { ReduceMotion, ReducedMotionConfig } from 'react-native-reanimated';
 import { CircleCheck, Info, TriangleAlert, X } from 'lucide-react-native';
 
 import { AppProvider, useApp } from '@/state/app-context';
+import { appRoute } from '@/domain/route';
 import { OnlineProvider } from '@/state/online-context';
 import { T } from '@/ui/primitives';
 import { palette, useTheme } from '@/ui/theme';
@@ -24,6 +26,8 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   return (
     <AppProvider>
+      {/* Entrance motion and bar fills drop to nothing when the system asks for reduced motion. */}
+      <ReducedMotionConfig mode={ReduceMotion.System} />
       {/* Online Mode wraps the app but never gates it: with no server, every
           screen below behaves exactly as it does offline. */}
       <OnlineProvider>
@@ -34,8 +38,8 @@ export default function RootLayout() {
 }
 
 function Shell() {
-  const { ready, profile, locked, caretaker, step } = useApp();
-  const setUp = step === 'done';
+  const { ready, profile, locked, caretaker, step, introSeen } = useApp();
+  const route = appRoute({ ready, introSeen, step, hasProfile: Boolean(profile), locked, caretaker });
   const theme = useTheme();
   useEffect(() => { void SystemUI.setBackgroundColorAsync(theme.page).catch(() => undefined); }, [theme.page]);
   useEffect(() => { if (ready) void SplashScreen.hideAsync(); }, [ready]);
@@ -50,21 +54,24 @@ function Shell() {
       <StatusBar style="light" />
       <NavigationBar hidden style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.page } }}>
-        <Stack.Protected guard={!setUp}>
+        <Stack.Protected guard={route === 'intro'}>
+          <Stack.Screen name="intro" />
+        </Stack.Protected>
+        <Stack.Protected guard={route === 'setup'}>
           <Stack.Screen name="setup" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && !profile && !caretaker}>
+        <Stack.Protected guard={route === 'picker'}>
           <Stack.Screen name="index" />
           <Stack.Screen name="caretaker-pin" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && !profile && caretaker}>
+        <Stack.Protected guard={route === 'caretaker'}>
           <Stack.Screen name="caretaker" />
           <Stack.Screen name="caretaker-profile" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && Boolean(profile) && locked}>
+        <Stack.Protected guard={route === 'lock'}>
           <Stack.Screen name="lock" />
         </Stack.Protected>
-        <Stack.Protected guard={setUp && Boolean(profile) && !locked}>
+        <Stack.Protected guard={route === 'student'}>
           <Stack.Screen name="(student)" />
           <Stack.Screen name="subject" />
           <Stack.Screen name="lesson" />
