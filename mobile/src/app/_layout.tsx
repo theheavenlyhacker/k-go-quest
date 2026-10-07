@@ -14,6 +14,7 @@ import { CircleCheck, Info, TriangleAlert, X } from 'lucide-react-native';
 
 import { AppProvider, useApp } from '@/state/app-context';
 import { appRoute } from '@/domain/route';
+import { canOpenAdmin } from '@/domain/admin';
 import { OnlineProvider, useOnline } from '@/state/online-context';
 import { allows } from '@/domain/online';
 import { T } from '@/ui/primitives';
@@ -71,6 +72,10 @@ function Shell() {
         <Stack.Protected guard={route === 'caretaker'}>
           <Stack.Screen name="caretaker" />
           <Stack.Screen name="caretaker-profile" />
+        </Stack.Protected>
+        {/* Losing the session or the connection drops the guard, and the router falls back to the Caretaker area. */}
+        <Stack.Protected guard={route === 'caretaker' && canOpenAdmin(state, server)}>
+          <Stack.Screen name="(admin)" />
         </Stack.Protected>
         <Stack.Protected guard={teacherShell}>
           <Stack.Screen name="teacher" />

@@ -4,9 +4,8 @@ import { randomUUID } from 'expo-crypto';
 import type { DownloadedPack } from '../domain/packs';
 import type { Pack, Profile } from '../domain/types';
 import { starterPacks } from '../content/starter-pack';
-import { demoHistory, grade, growth, learningState, type Attempt, type Grade, type LearningState } from '../domain/engine';
+import { demoHistory, grade, learningState, type Attempt, type Grade, type LearningState } from '../domain/engine';
 import { balance as coinBalance, buy, type Purchase } from '../domain/shop';
-import { meanMastery } from '../domain/format';
 import { caretakerState, confirmCaretaker, keepCaretaker, setupStep, type SetupStep } from '../domain/setup';
 import { isIdle, isValidPin, lockedOut, recordFailure, remaining, type Lockout } from '../domain/pin-lock';
 import { getRepository } from '../data/storage';
@@ -16,8 +15,6 @@ import { vault } from '../data/vault';
 export type Appearance = 'light' | 'dark' | 'system';
 interface Preferences { appearance: Appearance; language: string; }
 interface Notice { message: string; kind: 'success' | 'error' | 'info'; }
-/** One Profile's place in this Shared Tablet's monthly standings: Growth counts only, never Attempts. */
-export interface Standing { id: string; alias: string; up: number; mastered: number; mastery: number | null; }
 interface AppContextValue {
   ready: boolean; profiles: Profile[]; profile: Profile | null; locked: boolean; caretaker: boolean;
   /** Everything this tablet can practise from: the Starter Pack, plus every Downloaded Pack. */
@@ -51,8 +48,6 @@ interface AppContextValue {
   clearLockout(id: string): Promise<void>;
   /** Read-only look at one Profile's data, for the Caretaker. */
   viewProfile(id: string): Promise<{ attempts: Attempt[]; purchases: Purchase[] }>;
-  /** Every Profile on this Shared Tablet ranked by this month's Growth. Any Learner may read it; it carries no one's Attempts. */
-  standings(): Promise<Standing[]>;
   selectProfile(id: string | null): void; lock(): void; unlock(pin: string): Promise<void>;
   answer(exerciseId: string, selectedOption: number): Promise<Grade>;
   buyBadge(cosmeticId: string): Promise<void>;
@@ -282,27 +277,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const [attempts, purchases] = await Promise.all([repo.attempts(id), repo.purchases(id)]);
     return { attempts, purchases };
   };
-  /**
-   * Ranks the Profiles on this Shared Tablet by this month's Growth.
-   *
-   * Only the two Growth counts cross between Profiles — never Attempts,
-   * Mastery or Coins — so a Learner sees who is improving without seeing
-   * anyone's answers. Improvement is what ranks, not totals, so a Learner who
-   * started lower can still come first. A Profile whose rows cannot be opened
-   * counts as no movement rather than dropping out of the standings.
-   */
-  const standings = useCallback(async (): Promise<Standing[]> => {
-    const repo = await getRepository();
-    const now = new Date();
-    const rows = await Promise.all(profiles.map(async (p) => {
-      const log = await repo.attempts(p.id).catch((): Attempt[] => []);
-      const month = growth(packs, log, now).thisMonth;
-      // The League ranks on improvement; mean Mastery is shown beside it so a
-      // Learner can see where they are as well as how far they have come.
-      return { id: p.id, alias: p.alias, up: month.up, mastered: month.mastered, mastery: meanMastery(learningState(packs, log).skills) };
-    }));
-    return rows.sort((a, b) => b.up - a.up || b.mastered - a.mastered || a.alias.localeCompare(b.alias));
-  }, [packs, profiles]);
   const answer = async (exerciseId: string, selectedOption: number) => {
     const active = profileRef.current;
     if (!active || lockedRef.current) throw new Error('Unlock your profile to save an answer.');
@@ -326,7 +300,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, standings, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs, downloaded, reloadPacks, attempts, learning, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }

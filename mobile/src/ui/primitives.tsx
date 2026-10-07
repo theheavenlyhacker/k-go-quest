@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
-import Animated, { FadeIn, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming, ReduceMotion } from 'react-native-reanimated';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { ArrowRight, Check, ChevronLeft, ChevronRight, X, type LucideIcon } from 'lucide-react-native';
-import { elevation, palette, radius, tokens, type, useTheme, type TypeVariant } from './theme';
+import { MIN_TOUCH, elevation, palette, radius, tokens, type, useTheme, type TypeVariant } from './theme';
 import { useApp } from '../state/app-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -46,19 +46,20 @@ export function Row({ children, style }: { children: React.ReactNode; style?: Vi
   return <View style={[s.row, style]}>{children}</View>;
 }
 
-export function Card({ children, style, onPress, index = 0 }: { children: React.ReactNode; style?: ViewStyle; onPress?: () => void; index?: number }) {
+export function Card({ children, style, onPress, index = 0, accessibilityLabel }: { children: React.ReactNode; style?: ViewStyle; onPress?: () => void; index?: number; accessibilityLabel?: string }) {
   'use no memo'; // Reanimated shared values are mutable by design; the compiler cannot model them.
   const theme = useTheme();
   const scale = useSharedValue(1);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const surface = [s.card, { backgroundColor: theme.surface, borderColor: theme.border }, elevation.card, style];
   if (!onPress) {
-    return <Animated.View entering={FadeIn.delay(index * 45).duration(260)} style={surface}>{children}</Animated.View>;
+    return <Animated.View entering={FadeIn.delay(index * 45).duration(260).reduceMotion(ReduceMotion.System)} accessible={accessibilityLabel ? true : undefined} accessibilityLabel={accessibilityLabel} style={surface}>{children}</Animated.View>;
   }
   return (
     <AnimatedPressable
       accessibilityRole="button"
-      entering={FadeIn.delay(index * 45).duration(260)}
+      accessibilityLabel={accessibilityLabel}
+      entering={FadeIn.delay(index * 45).duration(260).reduceMotion(ReduceMotion.System)}
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable by design
       onPressIn={() => { scale.value = withSpring(0.975, { damping: 18, stiffness: 320 }); }}
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable by design
@@ -234,7 +235,7 @@ export function Pills<TValue extends string>({ items, value, onChange }: { items
         return (
           <Pressable
             key={item.value} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => onChange(item.value)}
-            style={[{ flex: 1, paddingVertical: 8, borderRadius: radius.sm, alignItems: 'center', backgroundColor: active ? theme.surface : 'transparent' }, active ? elevation.card : null]}
+            style={[{ flex: 1, minHeight: MIN_TOUCH, justifyContent: 'center', borderRadius: radius.sm, alignItems: 'center', backgroundColor: active ? theme.surface : 'transparent' }, active ? elevation.card : null]}
           >
             <T variant={active ? 'labelPill' : 'titleS'} color={active ? theme.navActive : theme.muted} style={{ fontSize: 13 }}>{item.label}</T>
           </Pressable>
@@ -272,7 +273,7 @@ export function Empty({ title, text, icon: Icon = ArrowRight }: { title: string;
 export function ListRow({ title, detail, icon: Icon, onPress, right }: { title: string; detail?: string; icon?: LucideIcon; onPress?: () => void; right?: React.ReactNode }) {
   const theme = useTheme();
   return (
-    <Pressable accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} style={({ pressed }) => ({ paddingVertical: 12, opacity: pressed && onPress ? 0.65 : 1 })}>
+    <Pressable accessibilityRole={onPress ? 'button' : undefined} onPress={onPress} style={({ pressed }) => ({ paddingVertical: 12, minHeight: 44, justifyContent: 'center', opacity: pressed && onPress ? 0.65 : 1 })}>
       <Row>
         {Icon ? <Icon size={19} color={theme.text} strokeWidth={1.8} /> : null}
         <View style={{ flex: 1 }}>

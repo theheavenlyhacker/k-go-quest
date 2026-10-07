@@ -10,7 +10,7 @@ import { Row, T } from './primitives';
  * Page frame. `chrome` screens get the forest App Bar and the sidebar menu;
  * the auth and player screens opt out and render a plain heading instead.
  */
-export function Screen({ title, caption, right, children, contentStyle, chrome = false, statusBarStyle }: {
+export function Screen({ title, caption, right, children, contentStyle, chrome = false, statusBarStyle, menu: Menu = LearnerSidebar }: {
   title?: string;
   caption?: string;
   right?: React.ReactNode;
@@ -20,6 +20,8 @@ export function Screen({ title, caption, right, children, contentStyle, chrome =
   /** Light for screens whose top is the forest app bar or gradient; dark for
    *  the cream ones, where white status text would be invisible. */
   statusBarStyle?: 'light' | 'dark';
+  /** The Sidebar this screen's App Bar opens; the Learner's unless a role shell says otherwise. */
+  menu?: React.ComponentType<{ open: boolean; onClose: () => void }>;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -56,7 +58,7 @@ export function Screen({ title, caption, right, children, contentStyle, chrome =
         {chrome && right ? <View style={{ alignItems: 'flex-end' }}>{right}</View> : null}
         {children}
       </ScrollView>
-      {chrome ? <LearnerSidebar open={menu} onClose={() => setMenu(false)} /> : null}
+      {chrome ? <Menu open={menu} onClose={() => setMenu(false)} /> : null}
     </View>
   );
 }
