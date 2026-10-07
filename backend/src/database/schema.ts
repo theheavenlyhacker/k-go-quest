@@ -129,6 +129,7 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'status',
     'updatedAt',
   ],
+  quiz_papers: ['id', 'createdAt', 'quizId', 'studentId'],
   audit_events: [
     'id',
     'createdAt',

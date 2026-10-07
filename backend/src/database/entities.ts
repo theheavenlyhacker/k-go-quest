@@ -192,6 +192,12 @@ export class Quiz extends RecordEntity {
   @Column({ length: 20, default: QuizStatus.DRAFT }) status: QuizStatus;
   @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
 }
+@Entity('quiz_papers')
+@Index(['quizId', 'studentId'], { unique: true })
+export class QuizPaper extends RecordEntity {
+  @Index() @Column('uuid') quizId: string;
+  @Index() @Column('uuid') studentId: string;
+}
 @Entity('audit_events')
 export class AuditEvent extends RecordEntity {
   @Column({ type: 'uuid', nullable: true }) actorId: string | null;
@@ -219,5 +225,7 @@ export const ENTITIES = [
   ModelVersion,
   SkillModelParams,
   Quiz,
+  QuizPaper,
   AuditEvent,
 ];
+

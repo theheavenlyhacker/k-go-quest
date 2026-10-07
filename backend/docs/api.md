@@ -33,6 +33,7 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET quizzes/:id                              | Assigned teacher; includes private answer key |
 | PATCH quizzes/:id                            | Assigned teacher; draft only (title, exerciseIds, replaceExerciseId) |
 | POST quizzes/:id/publish                     | Assigned teacher; a published Quiz is immutable |
+| POST quizzes/:id/papers                      | Assigned teacher; issues paper ids for active Learners (idempotent) |
 | GET rewards                                  | Own jurisdiction                              |
 | POST rewards                                 | LGU admin                                     |
 | PATCH rewards/:id                            | Own LGU admin; cost, stock, title, active      |
@@ -118,3 +119,8 @@ Draft authoring: create pack, add lessons, add exercises, inspect the admin-only
 ```
 
 Retain requestId on retries. Retrieve issued vouchers at rewards/redemptions/me. The redemption ID identifies the claim record; LGU authorization and database status determine whether it is claimable. A QR token has a separate audience from access tokens. Offline voucher claiming is deferred.
+
+## Quiz papers
+
+`POST quizzes/:id/papers` issues paper IDs for all active Learners in the Classroom for a published Quiz (idempotent per Quiz). Returns `[{ id, quizId, studentId, alias }]`. The `id` (paper id) is encoded alongside `quizId` into the Quiz Paper QR code for scanning without exposing student identity or answer keys.
+
