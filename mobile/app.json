@@ -48,6 +48,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "expo-navigation-bar": {
+        "style": "light",
+        "hidden": true
+      },
+      "eas": {
+        "projectId": "029dd0bc-351a-4a15-b937-17fa85d621cf"
+      }
     }
   }
 }

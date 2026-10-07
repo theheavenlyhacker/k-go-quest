@@ -1,16 +1,19 @@
-import { ActivityIndicator, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BookOpen, CircleCheck, CloudDownload, CloudOff, Library, RefreshCw, type LucideIcon } from 'lucide-react-native';
+import { BookOpen, CircleCheck, CloudDownload, CloudOff, Coins, Flame, Library, RefreshCw, type LucideIcon } from 'lucide-react-native';
 
 import { quests } from '@/domain/engine';
 import { gradingLabel, gradingMode } from '@/domain/grading-mode';
 import { downloadedCount, libraryProgress } from '@/domain/library';
 import { knownSubject } from '@/domain/packs';
+import { streak } from '@/domain/progress';
 import { useApp } from '@/state/app-context';
 import { useLibrary } from '@/state/library';
 import type { Subject } from '@/domain/types';
 import { subjectTitles } from '@/domain/subjects';
-import { Action, Bar, Card, Empty, Eyebrow, IconTile, Row, T } from '@/ui/primitives';
+import { Action, Bar, Card, Empty, Eyebrow, IconTile, Pill, Pills, Row, T } from '@/ui/primitives';
+import { LessonPath } from '@/ui/lesson-path';
 import { Screen } from '@/ui/screen';
 import { useSubjectTheme, tokens, useTheme } from '@/ui/theme';
 
@@ -49,16 +52,29 @@ export default function Learn() {
   const theme = useTheme();
   const router = useRouter();
   const subjectTheme = useSubjectTheme();
-  const { attempts, packs, downloaded } = useApp();
+  const { attempts, packs, downloaded, profile, balance } = useApp();
+  const [mode, setMode] = useState<'path' | 'library'>('path');
+  const [selectedPackId, setSelectedPackId] = useState('');
+  const [now] = useState(() => Date.now());
+  const selectedPack = packs.find(pack => pack.id === selectedPackId) ?? packs[0];
   const { banner, syncNow, busy, offers, retry } = useLibrary();
   const count = downloadedCount(downloaded.length, offers);
   const needDownload = offers?.status === 'ready' ? offers.offers.filter((o) => o.status === 'NEW') : [];
   const nextQuests = quests(packs, attempts);
 
-  const lessonCount = packs.reduce((total, pack) => total + pack.lessons.length, 0);
-
   return (
-    <Screen chrome title="Offline Library" caption={`${lessonCount} lesson${lessonCount === 1 ? '' : 's'} on this tablet`}>
+    <Screen chrome title="Learn" caption="Small steps. Big progress.">
+      <Row style={{ alignItems: 'flex-start', gap: 10 }}>
+        <View style={{ flex: 1, gap: 4 }}><T variant="titleM">Ready, {profile?.alias ?? 'Learner'}?</T><T variant="bodyS" color={theme.muted}>One lesson closer to your next level.</T></View>
+        <View style={{ gap: 6, alignItems: 'flex-end' }}><Pill icon={Coins} color={tokens.brand.sunDeep} tint={tokens.tint.sun}>{balance} Coins</Pill><Row style={{ gap: 5 }}><Flame size={14} color={tokens.brand.coral} /><T variant="labelPill" color={tokens.brand.coral}>{streak(attempts, now)} day streak</T></Row></View>
+      </Row>
+      <Pills items={[{ label: 'Learning path', value: 'path' as const }, { label: 'Offline Library', value: 'library' as const }]} value={mode} onChange={setMode} />
+      {mode === 'path' && selectedPack ? <>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
+          {packs.map(pack => { const active = pack.id === selectedPack.id; const tone = subjectTheme[pack.subject]; return <Pressable key={pack.id} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`Choose ${subjectTitles[pack.subject]} ${pack.grade}: ${pack.title}`} onPress={() => setSelectedPackId(pack.id)} style={{ minHeight: 44, paddingHorizontal: 15, paddingVertical: 11, borderRadius: 14, borderWidth: 2, borderColor: active ? tone.brand : theme.border, backgroundColor: active ? tone.tint : theme.surface }}><T variant="titleS" color={active ? tone.brand : theme.muted}>{subjectTitles[pack.subject]} {pack.grade}</T></Pressable>; })}
+        </ScrollView>
+        <LessonPath key={selectedPack.id} pack={selectedPack} attempts={attempts} />
+      </> : null}
       {banner ? (
         <Card style={{ gap: 10, backgroundColor: theme.surfaceAlt }}>
           <Row style={{ gap: 10 }}>
@@ -75,6 +91,7 @@ export default function Learn() {
         </Card>
       ) : null}
 
+      {mode === 'library' ? <>
       <Eyebrow>Your subjects · MATATAG Grade 5</Eyebrow>
 
       {packs.length ? null : (
@@ -149,6 +166,7 @@ export default function Learn() {
           </View>
         </Card>
       ) : null}
+      </> : null}
       {nextQuests.length ? (
         <>
           <Eyebrow>Quests · practise next</Eyebrow>
