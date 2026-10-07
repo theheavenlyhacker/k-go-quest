@@ -9,7 +9,14 @@ export const PLATEAU_BELOW = 0.4;
 /** What is stored for one answer. Everything else is derived. */
 export interface Attempt { id: string; exerciseId: string; selectedOption: number; at: string; }
 export interface SkillMastery { skillId: string; mastery: number; mastered: boolean; counted: number; plateau: boolean; }
-export interface LearningState { skills: SkillMastery[]; coins: number; }
+/**
+ * What the server said about one uploaded Attempt (the `uploads` row). `correct` and `balance` are absent on rows
+ * written before verdicts were kept, which then count as nothing more than "uploaded".
+ */
+export interface UploadRecord { state: 'DONE' | 'REVIEW'; correct?: boolean; /** The server's coinBalance in the response that settled this Attempt. */ balance?: number; /** Tablet clock when that response arrived; the latest one holds the current balance. */ ackedAt?: number }
+/** `practice` is a later Attempt at an Exercise; `marked` was graded by the server alone; `corrected` is where the server overruled the tablet. */
+export type AttemptStatus = 'graded' | 'unmarked' | 'marked' | 'corrected' | 'practice';
+export interface LearningState { skills: SkillMastery[]; coins: number; statuses: Map<string, AttemptStatus>; }
 /**
  * The outcome of one answer.
  *
@@ -55,40 +62,58 @@ const measurableSkills = (packs: Pack[]) => {
   return measurable;
 };
 
-export function learningState(packs: Pack[], log: Attempt[]): LearningState {
+/**
+ * The one derivation: Attempt log plus the server's upload verdicts in, Mastery, Coins and per-Attempt status out.
+ *
+ * The server's verdict, when there is one, decides correctness over the tablet's own key. Coins follow the
+ * server's balance for what it has confirmed, plus whatever the tablet has earned since.
+ */
+export function learningState(packs: Pack[], log: Attempt[], uploads: ReadonlyMap<string, UploadRecord> = new Map()): LearningState {
   const exercises = exerciseIndex(packs);
   const measurable = measurableSkills(packs);
+  const verdict = (a: Attempt) => { const u = uploads.get(a.id); return u?.state === 'DONE' ? u.correct : undefined; };
+  // A verdict is a measurement, so it makes its Skill measurable even with no key on the tablet.
+  for (const a of log) { const ex = exercises.get(a.exerciseId); if (ex && verdict(a) !== undefined) measurable.add(ex.skillId); }
   const params = new Map(packs.flatMap((p) => p.skills.filter((s) => measurable.has(s.id)).map((s) => [s.id, s.parameters] as const)));
   const mastery = new Map([...params].map(([id, p]) => [id, p.prior]));
   const seen = new Set<string>();
   const counted = new Map<string, number>();
+  const statuses = new Map<string, AttemptStatus>();
+  // Coins the server's balance does not yet include.
   let coins = 0;
   for (const a of inTimeOrder(log)) {
     const ex = exercises.get(a.exerciseId);
-    if (!ex || seen.has(a.exerciseId)) continue;
+    if (!ex) continue;
+    if (seen.has(a.exerciseId)) { statuses.set(a.id, 'practice'); continue; }
+    seen.add(a.exerciseId);
+    const server = verdict(a);
+    const local = ex.correctOption === null ? undefined : a.selectedOption === ex.correctOption;
+    const correct = server ?? local;
     // An Attempt nobody has marked moves nothing: no answer key came with the
     // Pack, so this tablet cannot say whether it was right. It becomes a
     // Counted Attempt when the server's result comes back.
-    if (ex.correctOption === null) continue;
-    seen.add(a.exerciseId);
+    if (correct === undefined) { statuses.set(a.id, 'unmarked'); continue; }
+    statuses.set(a.id, server === undefined || server === local ? 'graded' : local === undefined ? 'marked' : 'corrected');
     counted.set(ex.skillId, (counted.get(ex.skillId) ?? 0) + 1);
-    const correct = a.selectedOption === ex.correctOption;
-    if (correct) coins += COINS_PER_CORRECT;
+    const u = uploads.get(a.id);
+    if (correct && !(u?.state === 'DONE' && u.balance !== undefined)) coins += COINS_PER_CORRECT;
     mastery.set(ex.skillId, updateMastery(mastery.get(ex.skillId)!, correct, params.get(ex.skillId)!));
   }
+  const confirmed = [...uploads.values()].filter((u) => u.state === 'DONE' && u.balance !== undefined);
+  const latest = confirmed.reduce<UploadRecord | null>((best, u) => (!best || (u.ackedAt ?? 0) >= (best.ackedAt ?? 0) ? u : best), null);
   return { skills: [...mastery].map(([skillId, m]) => {
     const n = counted.get(skillId) ?? 0;
     return { skillId, mastery: m, mastered: m >= MASTERED_AT, counted: n, plateau: n >= PLATEAU_ATTEMPTS && m < PLATEAU_BELOW };
-  }), coins };
+  }), coins: (latest?.balance ?? 0) + coins, statuses };
 }
 
 export interface MonthGrowth { up: number; mastered: number; }
 export interface Growth { thisMonth: MonthGrowth; lastMonth: MonthGrowth; }
 
 /** Growth for the calendar months (tablet-local) of `now` and the month before. Never negative: a fall counts as nothing. */
-export function growth(packs: Pack[], log: Attempt[], now: Date): Growth {
+export function growth(packs: Pack[], log: Attempt[], now: Date, uploads?: ReadonlyMap<string, UploadRecord>): Growth {
   const edge = (offset: number) => new Date(now.getFullYear(), now.getMonth() + offset, 1).getTime();
-  const at = (t: number) => learningState(packs, log.filter((a) => Date.parse(a.at) < t)).skills;
+  const at = (t: number) => learningState(packs, log.filter((a) => Date.parse(a.at) < t), uploads).skills;
   const month = (from: number, to: number): MonthGrowth => {
     const before = new Map(at(from).map((s) => [s.skillId, s]));
     let up = 0, mastered = 0;

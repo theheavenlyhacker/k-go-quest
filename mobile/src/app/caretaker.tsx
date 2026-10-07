@@ -94,7 +94,7 @@ function ProfileCard({ id, alias, onOpen, onDelete }: { id: string; alias: strin
   // ponytail: one read per card; fine for the handful of Profiles on one tablet.
   useEffect(() => {
     void viewProfile(id)
-      .then(({ attempts }) => setFlags(learningState(packs, attempts).skills.filter((s) => s.plateau).map((s) => lessonTitle(packs, s.skillId))))
+      .then(({ attempts, uploads }) => setFlags(learningState(packs, attempts, uploads).skills.filter((s) => s.plateau).map((s) => lessonTitle(packs, s.skillId))))
       .catch(() => setFlags('error'));
   }, [id, viewProfile, history, packs]);
   // Re-read on every refresh so a wait that has expired stops being advertised.

@@ -1,4 +1,4 @@
-import type { Attempt } from '../domain/engine';
+import type { Attempt, UploadRecord } from '../domain/engine';
 import type { DownloadedPack } from '../domain/packs';
 import type { Purchase } from '../domain/shop';
 import type { Pack } from '../domain/types';
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS packs (pack_id TEXT PRIMARY KEY, checksum TEXT NOT NU
 PRAGMA user_version = 5;`;
 
 /** What the server said about one uploaded Attempt. An Attempt with no row here has not been uploaded. */
-export interface Upload { state: 'DONE' | 'REVIEW'; detail?: string }
+export interface Upload extends UploadRecord { detail?: string }
 
 export interface Repository {
   /**

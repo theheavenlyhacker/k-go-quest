@@ -5,7 +5,7 @@ import { Award, Flame, Gauge, TriangleAlert } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { meanMastery, pct } from '@/domain/format';
-import { MASTERED_AT, growth, learningState, type Attempt, type LearningState } from '@/domain/engine';
+import { MASTERED_AT, growth, learningState, type Attempt, type LearningState, type UploadRecord } from '@/domain/engine';
 import type { Pack } from '@/domain/types';
 import { badges, dailyAnswers, recentAchievements, streak } from '@/domain/progress';
 import type { Purchase } from '@/domain/shop';
@@ -17,11 +17,11 @@ const WEEK = 7 * 24 * 60 * 60 * 1000;
 const WEEKS = 10;
 
 /** Mean Mastery at ten weekly cut-offs, replayed from the Attempt log. */
-function weekly(packs: Pack[], log: Attempt[], now: number): number[] {
+function weekly(packs: Pack[], log: Attempt[], now: number, uploads?: ReadonlyMap<string, UploadRecord>): number[] {
   const points: number[] = [];
   for (let week = WEEKS - 1; week >= 0; week -= 1) {
     const cutoff = now - week * WEEK;
-    const skills = learningState(packs, log.filter((a) => Date.parse(a.at) <= cutoff)).skills;
+    const skills = learningState(packs, log.filter((a) => Date.parse(a.at) <= cutoff), uploads).skills;
     points.push(meanMastery(skills) ?? 0);
   }
   return points;
@@ -33,7 +33,7 @@ function weekly(packs: Pack[], log: Attempt[], now: number): number[] {
  * `readOnly` is the Caretaker's view of someone else's Profile: same numbers,
  * no Lesson links.
  */
-export function ProgressView({ learning, attempts, balance, purchases = [], readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; purchases?: Purchase[]; readOnly?: boolean }) {
+export function ProgressView({ learning, attempts, balance, purchases = [], uploads, readOnly = false }: { learning: LearningState; attempts: Attempt[]; balance: number; purchases?: Purchase[]; uploads?: ReadonlyMap<string, UploadRecord>; readOnly?: boolean }) {
   const router = useRouter();
   const { packs } = useApp();
   const theme = useTheme();
@@ -41,8 +41,8 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
   // a week boundary crossing mid-session is not worth a re-render.
   const [now] = useState(() => Date.now());
 
-  const trend = useMemo(() => weekly(packs, attempts, now), [packs, attempts, now]);
-  const month = useMemo(() => growth(packs, attempts, new Date(now)), [packs, attempts, now]);
+  const trend = useMemo(() => weekly(packs, attempts, now, uploads), [packs, attempts, now, uploads]);
+  const month = useMemo(() => growth(packs, attempts, new Date(now), uploads), [packs, attempts, now, uploads]);
   const overall = meanMastery(learning.skills);
   // Percentage points gained across the window the sparkline draws.
   const gained = Math.round((trend[trend.length - 1] - trend[0]) * 100);
@@ -50,6 +50,9 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
   const busiest = Math.max(1, ...days.map((d) => d.count));
   const achievements = recentAchievements(purchases);
   const flagged = learning.skills.filter((skill) => skill.plateau);
+  const statuses = [...learning.statuses.values()];
+  const marked = statuses.filter((s) => s === 'marked').length;
+  const corrected = statuses.filter((s) => s === 'corrected').length;
 
   return (
     <>
@@ -77,6 +80,13 @@ export function ProgressView({ learning, attempts, balance, purchases = [], read
           {`Ten weeks of Individual Mastery Delta, replayed from every answer saved on this tablet. A skill counts as Mastered at ${pct(MASTERED_AT)}.`}
         </T>
       </Card>
+
+      {marked || corrected ? (
+        <Card style={{ gap: 4 }}>
+          {marked ? <T variant="bodyS" color={theme.secondary}>{`${marked} answer${marked === 1 ? '' : 's'} marked by your school.`}</T> : null}
+          {corrected ? <T variant="bodyS" color={theme.secondary}>{`${corrected} answer${corrected === 1 ? '' : 's'} corrected by your school. Mastery and Coins were updated.`}</T> : null}
+        </Card>
+      ) : null}
 
       <Eyebrow>By subject</Eyebrow>
 
