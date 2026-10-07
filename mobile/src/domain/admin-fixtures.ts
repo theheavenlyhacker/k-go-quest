@@ -1,6 +1,6 @@
 import type { ServerUser } from './server';
 import { fixtureLibrary } from './admin-library';
-import type { AdminData, EngagementDay } from './admin';
+import type { AdminData, DeviceRecord, EngagementDay, ReachRecord } from './admin';
 
 /**
  * Fixtures shaped like the backend responses, until the Admin shell is wired to
@@ -19,6 +19,35 @@ const user = (n: number, role: ServerUser['role']): ServerUser => ({
   role, jurisdictionId: 'jur-1', schoolId: 'school-1', coins: 0, active: true,
 });
 
+const reach = (quarter: string, barangay: string, learners: number, lessons: number, offlineLessons: number): ReachRecord =>
+  ({ quarter, barangay, learners, lessons, offlineLessons });
+
+function fixtureReach(today: string): ReachRecord[] {
+  const year = Number(today.slice(0, 4));
+  const current = `${year}-Q${Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1}`;
+  return [
+    reach(current, 'Pembo', 210, 1400, 1050), reach(current, 'Cembo', 160, 900, 640),
+    reach(`${year}-Q3`, 'Pembo', 520, 4000, 3300), reach(`${year}-Q3`, 'Cembo', 410, 3100, 2500), reach(`${year}-Q3`, 'Rizal', 274, 2000, 1480),
+    reach(`${year}-Q2`, 'Pembo', 480, 3600, 2800), reach(`${year}-Q2`, 'Cembo', 350, 2500, 1900),
+  ];
+}
+
+const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
+
+function fixtureDevices(today: string): DeviceRecord[] {
+  const end = Date.parse(`${today}T00:00:00Z`);
+  return Array.from({ length: 160 }, (_, i) => ({
+    id: `tab-${i}`,
+    name: `Shared Tablet ${i + 1}`,
+    grade: GRADES[i % GRADES.length],
+    classroom: `Section ${String.fromCharCode(65 + (i % 4))}`,
+    online: i < 142,
+    updateAvailable: i < 9,
+    lastSeenAt: i < 142 ? null : new Date(end - (i - 141) * DAY).toISOString(),
+    storageUsedPercent: 30 + ((i * 7) % 60),
+  }));
+}
+
 export function fixtureAdminData(today: string): AdminData {
   return {
     schoolName: 'Brgy. Pembo Elementary School',
@@ -33,8 +62,9 @@ export function fixtureAdminData(today: string): AdminData {
       disclaimer: 'Practice estimates, not measured learning impact. No cost or hours-saved claims are inferred.',
     },
     users: [...Array.from({ length: 42 }, (_, i) => user(i + 1, 'TEACHER')), user(100, 'LGU_ADMIN'), ...Array.from({ length: 8 }, (_, i) => ({ ...user(200 + i, 'STUDENT'), active: i % 4 !== 3 }))],
-    devices: Array.from({ length: 160 }, (_, i) => ({ id: `tab-${i}`, name: `Shared Tablet ${i + 1}`, lastSeenAt: null, online: i < 142 })),
+    devices: fixtureDevices(today),
     library: fixtureLibrary(),
     engagement: fixtureEngagement(today),
+    reach: fixtureReach(today),
   };
 }
