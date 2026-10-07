@@ -7,6 +7,9 @@ import { InitialSchema1790800000000 } from './migrations/1790800000000-initial-s
 import { ModelParams1790900000000 } from './migrations/1790900000000-model-params';
 import { AttemptSource1791000000000 } from './migrations/1791000000000-attempt-source';
 import { Quizzes1791100000000 } from './migrations/1791100000000-quizzes';
+import { SchoolBarangay1791200000000 } from './migrations/1791200000000-school-barangay';
+import { QuizPapers1791200000000 } from './migrations/1791200000000-quiz-papers';
+import { Devices1791200000000 } from './migrations/1791200000000-devices';
 import { databaseSchema } from './schema';
 
 /**
@@ -65,6 +68,9 @@ export function databaseOptions(
       ModelParams1790900000000,
       AttemptSource1791000000000,
       Quizzes1791100000000,
+      SchoolBarangay1791200000000,
+      QuizPapers1791200000000,
+      Devices1791200000000,
     ],
     synchronize: false,
     migrationsRun: false,

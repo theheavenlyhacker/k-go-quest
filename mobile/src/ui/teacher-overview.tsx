@@ -5,7 +5,7 @@ import { CloudOff, Star, Users } from 'lucide-react-native';
 import { classOverview } from '../domain/teacher';
 import { pct } from '../domain/format';
 import { useTeacher } from '../state/teacher-context';
-import { Bar, Button, Card, Empty, Eyebrow, IconTile, Info, Row, T } from './primitives';
+import { Bar, Button, Card, Empty, Eyebrow, IconTile, Info, Pill, Row, T } from './primitives';
 import { tokens, useTheme } from './theme';
 
 /** Class Overview (277:10): tiles, Subject bars, today's highlight. */
@@ -76,6 +76,57 @@ export function ClassOverviewBody() {
           </Row>
         ) : <T variant="bodyS" color={theme.muted}>Highlights appear once a Learner has Mastery to celebrate.</T>}
         <Button title="View Learner Insights" onPress={() => router.navigate('/teacher/insights')} />
+      </Card>
+
+      <Eyebrow style={{ marginTop: 5 }}>Suggested practice groups</Eyebrow>
+      <Card index={5} style={{ gap: 14 }}>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <T variant="titleS">Suggested groups</T>
+            <T variant="bodyS" color={theme.muted}>Suggested, never required · Teacher decides</T>
+          </View>
+          {load.data.suggestions.method === 'fallback' ? (
+            <Pill color={tokens.state.warning} tint={tokens.tint.warning}>Simple fallback</Pill>
+          ) : (
+            <Pill color={tokens.state.success} tint={tokens.tint.success}>Model service</Pill>
+          )}
+        </Row>
+        {load.data.suggestions.groups.length ? (
+          load.data.suggestions.groups.slice(0, 3).map((group, index) => (
+            <View
+              key={group.skillCode}
+              style={{
+                gap: 8,
+                paddingTop: 12,
+                borderTopWidth: 1,
+                borderColor: theme.border,
+              }}
+              accessible
+              accessibilityLabel={`Suggested group ${index + 1}: These ${group.count} Learners gain most from ${group.skillTitle}. Learners: ${group.learners.map((l) => l.alias).join(', ')}`}
+            >
+              <T variant="titleS">
+                {`These ${group.count} ${group.count === 1 ? 'Learner gains' : 'Learners gain'} most from ${group.skillTitle}`}
+              </T>
+              <T variant="bodyS" color={theme.muted}>
+                {group.learners.map((l) => l.alias).join(', ')}
+              </T>
+              <Button
+                title="Build a Quiz for this group"
+                variant="soft"
+                onPress={() =>
+                  router.navigate({
+                    pathname: '/teacher/quizzes',
+                    params: { skillCode: group.skillCode, subject: group.subject },
+                  })
+                }
+              />
+            </View>
+          ))
+        ) : (
+          <T variant="bodyS" color={theme.muted}>
+            Practice group suggestions appear after your Learners answer their first Exercises.
+          </T>
+        )}
       </Card>
     </>
   );

@@ -83,3 +83,32 @@ export function manilaStreak(practiced: Date[], now: Date): number {
   }
   return streak;
 }
+
+/** The calendar quarter in Manila, as YYYY-Qn. */
+export function manilaQuarter(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: 'numeric',
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')!.value;
+  const month = Number(parts.find((p) => p.type === 'month')!.value);
+  const q = Math.floor((month - 1) / 3) + 1;
+  return `${year}-Q${q}`;
+}
+
+/** The start (inclusive) and end (exclusive) timestamps for a quarter in Manila timezone. */
+export function quarterDateRange(quarter: string): { start: Date; end: Date } {
+  const year = Number(quarter.slice(0, 4));
+  const q = Number(quarter.slice(6));
+  const startMonth = String((q - 1) * 3 + 1).padStart(2, '0');
+  const start = new Date(`${year}-${startMonth}-01T00:00:00+08:00`);
+  const end =
+    q === 4
+      ? new Date(`${year + 1}-01-01T00:00:00+08:00`)
+      : new Date(
+          `${year}-${String(q * 3 + 1).padStart(2, '0')}-01T00:00:00+08:00`,
+        );
+  return { start, end };
+}
+

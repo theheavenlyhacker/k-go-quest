@@ -10,6 +10,7 @@ import { tokens, useTheme } from '@/ui/theme';
 
 const CHIP: Record<DeviceStatus, { color: string; tint: string }> = {
   Online: { color: tokens.state.success, tint: tokens.tint.success },
+  'Needs update': { color: tokens.state.warning, tint: tokens.tint.warning },
   'Needs Update': { color: tokens.state.warning, tint: tokens.tint.warning },
   Offline: { color: tokens.state.critical, tint: tokens.tint.warning },
 };

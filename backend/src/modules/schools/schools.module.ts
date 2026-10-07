@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Module, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsString, Length } from 'class-validator';
+import { IsOptional, IsString, Length } from 'class-validator';
 import { DataSource } from 'typeorm';
 import { Role, School } from '../../database/entities';
 import { CurrentUser, type Principal, Roles } from '../../common/security';
@@ -9,6 +9,7 @@ import { PaginationDto } from '../../common/pagination.dto';
 
 export class CreateSchoolDto {
   @IsString() @Length(2, 120) name: string;
+  @IsOptional() @IsString() @Length(1, 80) barangay?: string;
 }
 
 @ApiTags('Schools')
@@ -28,6 +29,7 @@ export class SchoolsController {
         School,
         manager.create(School, {
           name: dto.name,
+          barangay: dto.barangay ?? '',
           jurisdictionId: actor.jurisdictionId,
         }),
       );

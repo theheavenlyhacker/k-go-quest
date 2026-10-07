@@ -34,6 +34,7 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET quizzes/:id                              | Assigned teacher; includes private answer key |
 | PATCH quizzes/:id                            | Assigned teacher; draft only (title, exerciseIds, replaceExerciseId) |
 | POST quizzes/:id/publish                     | Assigned teacher; a published Quiz is immutable |
+| POST quizzes/:id/papers                      | Assigned teacher; issues paper ids for active Learners (idempotent) |
 | GET rewards                                  | Own jurisdiction                              |
 | POST rewards                                 | LGU admin                                     |
 | PATCH rewards/:id                            | Own LGU admin; cost, stock, title, active      |
@@ -42,8 +43,15 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET rewards/redemptions/me                   | Student                                       |
 | POST rewards/redemptions/:id/claim           | Own LGU admin                                 |
 | GET reports/classrooms/:id                   | Assigned teacher                              |
-| GET reports/impact, reports/audit            | Own LGU admin                                 |
+| GET reports/classrooms/:id/suggestions       | Assigned teacher; practice groups from ML service with fallback |
+
+| GET reports/impact                           | Own LGU admin; optional quarter YYYY-Qn       |
+| GET reports/engagement                       | Own LGU admin; optional days (default 7)      |
+| GET reports/audit                            | Own LGU admin                                 |
 | GET reports/league                           | Own LGU aggregates; optional month YYYY-MM    |
+| POST devices/check-in                        | Authenticated                                 |
+| GET devices                                  | Own LGU admin                                 |
+
 
 ## Login
 
@@ -89,6 +97,30 @@ The response has `results` with clientAttemptId, correct, awardedCoins, and dupl
 
 The tablet's contract test (`mobile/src/domain/recorded/classroom-report.json`) parses a recorded response; change the shape and re-record it.
 
+## Suggested practice groups
+
+`GET reports/classrooms/:id/suggestions` returns `{ classroomId, method, groups, decisionPolicy }`. Groups are suggested practice clusters for the Teacher:
+
+- `method`: `"model"` when computed via the model service's `/recommend` endpoint (configured via `ML_SERVICE_URL` and `ML_SERVICE_TOKEN`), or `"fallback"` when the model service is unreachable (grouping by lowest non-Mastered Skill, `< 0.95`).
+- `groups`: array of practice groups, sorted by learner count descending:
+  - `skillCode`: the Skill where learners gain most.
+  - `skillTitle`: human-readable title of the Skill.
+  - `subject`: curriculum Subject.
+  - `learners`: `[{ id, alias }]`, aliases only.
+  - `count`: number of learners in this group.
+- `decisionPolicy`: `"Suggested practice groups; teacher decides next action"`.
+
+## LGU reports
+
+`GET reports/impact?quarter=YYYY-Qn` returns jurisdiction metrics for the requested Manila quarter (defaults to current quarter):
+- `learnersReached`: distinct Learners with at least one Attempt in the quarter.
+- `lessonsCompleted`: total completed Lessons in the quarter (a Lesson where every Exercise was attempted by a Learner).
+- `offlineUsageShare`: share of Attempts in the quarter whose `occurredAt` was earlier than `receivedAt` by more than an hour (0.0 to 1.0).
+- `reachByBarangay`: `[{ barangay, learners, lessons, offlineLessons }]` ordered by Learners reached descending.
+- `disclaimer`: keeps existing disclaimer field.
+
+`GET reports/engagement?days=7` returns `[{ date, activeLearners }]` for the specified number of Manila days (1 to 30, defaults to 7), oldest first ending on Manila today.
+
 ## Administration
 
 Reset a password with `POST users/:id/password` and `{ "newPassword": "<12–128 character password>" }`. The affected user must sign in again. Deactivation uses `PATCH users/:id` with `{ "active": false }`.
@@ -129,4 +161,36 @@ Retain requestId on retries. Retrieve issued vouchers at rewards/redemptions/me.
 ```
 
 If no fitted model has been activated, returns 404.
+
+## Quiz papers
+
+`POST quizzes/:id/papers` issues paper IDs for all active Learners in the Classroom for a published Quiz (idempotent per Quiz). Returns `[{ id, quizId, studentId, alias }]`. The `id` (paper id) is encoded alongside `quizId` into the Quiz Paper QR code for scanning without exposing student identity or answer keys.
+## Device check-in
+
+Whenever a tablet's Caretaker signs in or a Linked Profile syncs, the tablet reports its status to `POST devices/check-in`:
+
+```json
+{
+  "deviceId": "<random-uuid-generated-by-tablet>",
+  "appVersion": "1.0.0",
+  "packVersions": [
+    {
+      "packId": "math5",
+      "version": "1.0.0",
+      "subject": "MATH",
+      "grade": 5,
+      "title": "Fractions & Decimals"
+    }
+  ],
+  "storageUsedPercent": 42,
+  "pendingAttempts": 0
+}
+```
+
+The server scopes the device by the signing-in account's school and jurisdiction, updating `lastSeenAt`. Check-in failure is best-effort and never blocks sign-in or sync.
+
+`GET devices` lists the Shared Tablets in the LGU Admin's jurisdiction with server-derived status:
+- **Online**: seen in the last 15 minutes with up-to-date app and Content Packs.
+- **Needs update**: seen in the last 15 minutes, but app or a held Content Pack is behind the latest published version in the jurisdiction.
+- **Offline**: not seen in the last 15 minutes.
 

@@ -33,6 +33,7 @@ export class Jurisdiction extends RecordEntity {
 export class School extends RecordEntity {
   @Index() @Column('uuid') jurisdictionId: string;
   @Column({ length: 120 }) name: string;
+  @Column({ length: 80, default: '' }) barangay: string;
 }
 @Entity('users')
 export class User extends RecordEntity {
@@ -191,6 +192,12 @@ export class Quiz extends RecordEntity {
   @Column({ length: 20, default: QuizStatus.DRAFT }) status: QuizStatus;
   @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
 }
+@Entity('quiz_papers')
+@Index(['quizId', 'studentId'], { unique: true })
+export class QuizPaper extends RecordEntity {
+  @Index() @Column('uuid') quizId: string;
+  @Index() @Column('uuid') studentId: string;
+}
 @Entity('audit_events')
 export class AuditEvent extends RecordEntity {
   @Column({ type: 'uuid', nullable: true }) actorId: string | null;
@@ -198,6 +205,28 @@ export class AuditEvent extends RecordEntity {
   @Column({ length: 80 }) action: string;
   @Column({ type: 'uuid', nullable: true }) targetId: string | null;
   @Column({ type: 'jsonb', default: {} }) metadata: Record<string, unknown>;
+}
+
+export interface PackVersionInfo {
+  packId?: string;
+  id?: string;
+  version: string;
+  subject?: string;
+  grade?: number;
+  title?: string;
+}
+
+@Entity('devices')
+export class Device extends RecordEntity {
+  @Index({ unique: true }) @Column({ length: 80 }) deviceId: string;
+  @Index() @Column('uuid') jurisdictionId: string;
+  @Index() @Column({ type: 'uuid', nullable: true }) schoolId: string | null;
+  @Column({ length: 40 }) appVersion: string;
+  @Column({ type: 'jsonb', default: [] }) packVersions: PackVersionInfo[];
+  @Column({ type: 'integer', default: 0 }) storageUsedPercent: number;
+  @Column({ type: 'integer', default: 0 }) pendingAttempts: number;
+  @Column({ type: 'timestamptz' }) lastSeenAt: Date;
+  @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
 }
 
 export const ENTITIES = [
@@ -218,5 +247,8 @@ export const ENTITIES = [
   ModelVersion,
   SkillModelParams,
   Quiz,
+  QuizPaper,
   AuditEvent,
+  Device,
 ];
+

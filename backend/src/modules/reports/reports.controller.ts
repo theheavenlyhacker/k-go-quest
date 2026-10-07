@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '../../database/entities';
 import { CurrentUser, type Principal, Roles } from '../../common/security';
 import { PaginationDto } from '../../common/pagination.dto';
-import { LeagueQueryDto } from './reports.dto';
+import { EngagementQueryDto, ImpactQueryDto, LeagueQueryDto } from './reports.dto';
 import { ReportsService } from './reports.service';
 
 @ApiTags('Reports and league')
@@ -17,10 +17,23 @@ export class ReportsController {
   ) {
     return this.reports.classroom(actor, id);
   }
+  @Get('classrooms/:id/suggestions') @Roles(Role.TEACHER) suggestions(
+    @CurrentUser() actor: Principal,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reports.suggestions(actor, id);
+  }
   @Get('impact') @Roles(Role.LGU_ADMIN) impact(
     @CurrentUser() actor: Principal,
+    @Query() query: ImpactQueryDto,
   ) {
-    return this.reports.impact(actor);
+    return this.reports.impact(actor, query.quarter);
+  }
+  @Get('engagement') @Roles(Role.LGU_ADMIN) engagement(
+    @CurrentUser() actor: Principal,
+    @Query() query: EngagementQueryDto,
+  ) {
+    return this.reports.engagement(actor, query.days ?? 7);
   }
   @Get('league') league(
     @CurrentUser() actor: Principal,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseQuizSummaries, quizRecord, skillLabel, suggestedSkills, toggleSkill, type ServerQuizSummary } from './quiz';
+import { parseQuizPapers, parseQuizSummaries, quizRecord, skillLabel, suggestedSkills, toggleSkill, type ServerQuizSummary } from './quiz';
 import { ApiError } from './client';
 import { loadCached, type Cached } from './teacher-load';
 
@@ -35,3 +35,19 @@ describe('quiz view models', () => {
     expect(toggleSkill(['a', 'b'], 'a')).toEqual(['b']);
   });
 });
+
+describe('quiz papers parsing', () => {
+  it('parses valid server quiz papers list', () => {
+    const raw = [{ id: 'p1', quizId: 'q1', studentId: 's1', alias: 'Ada' }];
+    expect(parseQuizPapers(raw)).toEqual([
+      { id: 'p1', paperId: 'p1', quizId: 'q1', studentId: 's1', alias: 'Ada' },
+    ]);
+  });
+
+  it('rejects malformed papers payload', () => {
+    expect(() => parseQuizPapers('not-an-array')).toThrow(/missing/);
+    expect(() => parseQuizPapers([null])).toThrow(/wrong shape/);
+    expect(() => parseQuizPapers([{ id: 'p1', quizId: 'q1', studentId: 123, alias: 'Ada' }])).toThrow(/wrong shape/);
+  });
+});
+

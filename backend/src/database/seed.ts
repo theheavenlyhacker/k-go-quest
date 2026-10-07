@@ -42,6 +42,7 @@ async function main() {
         manager.create(School, {
           jurisdictionId: admin.jurisdictionId,
           name: 'Demo Elementary School',
+          barangay: 'Pembo',
         }),
       );
       const passwordHash = await hashPassword(password);
