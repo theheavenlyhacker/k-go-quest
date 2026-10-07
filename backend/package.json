@@ -40,6 +40,7 @@
     "seed": "ts-node src/database/seed.ts",
     "db:seed:demo": "ts-node src/database/seed-demo.ts",
     "model:import": "ts-node src/database/import-model.ts",
+    "model:refit": "ts-node src/database/refit-model.ts",
     "pack:import": "ts-node src/database/import-pack.ts"
   },
   "dependencies": {

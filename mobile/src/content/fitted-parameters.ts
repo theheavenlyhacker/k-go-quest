@@ -9,3 +9,15 @@ export const FITTED_SKILL_PARAMETERS: Record<string, SkillParameters> = {
   'math5.fractions.equivalent': { prior: 0.313247, learn: 0.137287, guess: 0.162886, slip: 0.060062 },
   'sci5.life-cycles.butterfly': { prior: 0.332896, learn: 0.167002, guess: 0.143689, slip: 0.073085 },
 };
+
+export interface ModelMetadata {
+  version: string;
+  source: string;
+  fittedAt: string;
+}
+
+export const COMPILED_MODEL_METADATA: ModelMetadata = {
+  version: 'bkt-sim-20261004',
+  source: 'synthetic',
+  fittedAt: '2026-10-04T00:00:00.000Z',
+};
