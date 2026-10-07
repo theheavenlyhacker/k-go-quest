@@ -65,6 +65,8 @@ interface OnlineValue {
   downloadPack(offer: PackOffer): Promise<void>;
   /** Re-asks whether the server is reachable. Safe to call often; it sends one unauthenticated request. */
   check(): Promise<void>;
+  /** An authenticated GET as the Caretaker's server account. */
+  caretakerGet<T>(route: string): Promise<T>;
 }
 
 const OnlineContext = createContext<OnlineValue | null>(null);
@@ -187,6 +189,11 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     await vault.remove(sessionKey(CARETAKER_OWNER));
     setServer(null);
   }, [client]);
+
+  const caretakerGet = useCallback(
+    <T,>(route: string) => watched(() => client(CARETAKER_OWNER).call<T>('GET', route)),
+    [client, watched],
+  );
 
   const saveLinks = useCallback(async (next: Record<string, Link>) => {
     await vault.set(LINKS_KEY, JSON.stringify(next));
@@ -340,6 +347,7 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     serverPacks,
     downloadPack,
     check,
+    caretakerGet,
   };
   return <OnlineContext.Provider value={value}>{children}</OnlineContext.Provider>;
 }

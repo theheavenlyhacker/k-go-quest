@@ -14,7 +14,7 @@ import { Eyebrow, Pill, Pills, Row, T } from './primitives';
 const SIDEBAR_WIDTH = 293;
 
 /** App Bar (443:34): hamburger, title + subtitle. */
-export function AppBar({ title, subtitle, onMenu }: { title: string; subtitle?: string; onMenu: () => void }) {
+export function AppBar({ title, subtitle, onMenu, trailing = <SyncPill /> }: { title: string; subtitle?: string; onMenu: () => void; /** Right edge of the bar; the Learner's Sync pill unless a role shell passes its own. */ trailing?: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[{ backgroundColor: '#0c4a3e', paddingTop: insets.top + 2, paddingBottom: 16, paddingHorizontal: 18, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg }, elevation.appbar]}>
@@ -28,7 +28,7 @@ export function AppBar({ title, subtitle, onMenu }: { title: string; subtitle?: 
           <T variant="displayL" color="#ffffff" lines={1}>{title}</T>
           {subtitle ? <T variant="bodyS" color="#ffffff" style={{ opacity: 0.72 }} lines={1}>{subtitle}</T> : null}
         </View>
-        <SyncPill />
+        {trailing}
       </Row>
     </View>
   );

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { CloudOff, Link2, Link2Off, RefreshCw, Server, Upload } from 'lucide-react-native';
 
 import { useOnline } from '@/state/online-context';
@@ -18,6 +19,7 @@ import { tokens, useTheme } from '@/ui/theme';
 export function ServerPanel() {
   const { apiUrl, state, server, signOut, check } = useOnline();
   const theme = useTheme();
+  const router = useRouter();
 
   if (!apiUrl)
     return (
@@ -54,6 +56,7 @@ export function ServerPanel() {
           </View>
           <Pill color={tokens.state.success}>{server.user.role === 'LGU_ADMIN' ? 'LGU admin' : 'Teacher'}</Pill>
         </Row>
+        {server.user.role === 'TEACHER' ? <Button title="Open Teacher shell" onPress={() => router.push('/teacher/class')} /> : null}
         <Action title="Sign out of the server" variant="outline" task={signOut} />
       </Card>
     );
