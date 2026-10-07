@@ -176,6 +176,21 @@ export class SkillModelParams extends RecordEntity {
   @Column() sequences: number;
   @Column() observations: number;
 }
+export enum QuizStatus {
+  DRAFT = 'DRAFT',
+  PUBLISHED = 'PUBLISHED',
+}
+@Entity('quizzes')
+export class Quiz extends RecordEntity {
+  @Index() @Column('uuid') classroomId: string;
+  @Column({ length: 120 }) title: string;
+  @Column({ length: 30 }) subject: Subject;
+  @Column({ type: 'jsonb' }) skillCodes: string[];
+  /** Ordered. */
+  @Column({ type: 'jsonb' }) exerciseIds: string[];
+  @Column({ length: 20, default: QuizStatus.DRAFT }) status: QuizStatus;
+  @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
+}
 @Entity('audit_events')
 export class AuditEvent extends RecordEntity {
   @Column({ type: 'uuid', nullable: true }) actorId: string | null;
@@ -202,5 +217,6 @@ export const ENTITIES = [
   Redemption,
   ModelVersion,
   SkillModelParams,
+  Quiz,
   AuditEvent,
 ];

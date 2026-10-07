@@ -27,7 +27,12 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | POST learning/sync                           | Student, own account                          |
 | GET learning/progress/me, learning/quests    | Student                                       |
 | GET learning/learners/:id/progress           | Assigned teacher                              |
-| POST quizzes/classrooms/:id/build            | Assigned teacher; includes private answer key |
+| POST quizzes                                 | Assigned teacher; saves a draft, weakest Skills first when none named |
+| GET quizzes?classroomId=                     | Assigned teacher                              |
+| GET quizzes/skills?classroomId=&subject=     | Assigned teacher; Skills by mean Mastery, weakest suggested |
+| GET quizzes/:id                              | Assigned teacher; includes private answer key |
+| PATCH quizzes/:id                            | Assigned teacher; draft only (title, exerciseIds, replaceExerciseId) |
+| POST quizzes/:id/publish                     | Assigned teacher; a published Quiz is immutable |
 | GET rewards                                  | Own jurisdiction                              |
 | POST rewards                                 | LGU admin                                     |
 | PATCH rewards/:id                            | Own LGU admin; cost, stock, title, active      |

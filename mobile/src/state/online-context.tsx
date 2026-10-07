@@ -69,6 +69,8 @@ interface OnlineValue {
   check(): Promise<void>;
   /** An authenticated GET as the Caretaker's server account. */
   caretakerGet<T>(route: string): Promise<T>;
+  /** Any authenticated call as the Caretaker's server account, for a Teacher's writes. */
+  caretakerCall<T>(method: 'POST' | 'PATCH', route: string, body?: unknown): Promise<T>;
 }
 
 const OnlineContext = createContext<OnlineValue | null>(null);
@@ -194,6 +196,11 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
 
   const caretakerGet = useCallback(
     <T,>(route: string) => watched(() => client(CARETAKER_OWNER).call<T>('GET', route)),
+    [client, watched],
+  );
+
+  const caretakerCall = useCallback(
+    <T,>(method: 'POST' | 'PATCH', route: string, body?: unknown) => watched(() => client(CARETAKER_OWNER).call<T>(method, route, body)),
     [client, watched],
   );
 
@@ -370,6 +377,7 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     league,
     check,
     caretakerGet,
+    caretakerCall,
   };
   return <OnlineContext.Provider value={value}>{children}</OnlineContext.Provider>;
 }

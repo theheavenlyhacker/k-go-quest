@@ -4,6 +4,7 @@ import { classroomFixture, classroomReportFixture, teacherExtrasFixture } from '
 import type { Page, ServerClassroom } from '../domain/server';
 import type { ClassroomReport } from '../domain/teacher';
 import type { QuizRecord, TeacherRewardsRecord } from '../domain/teacher-rewards';
+import { quizRecord, type ServerQuizSummary } from '../domain/quiz';
 import { quizzesFixture, teacherRewardsFixture } from '../domain/teacher-rewards-fixture';
 import { useOnline } from './online-context';
 
@@ -16,7 +17,7 @@ export interface TeacherData {
   /** Fixture-only until the backend has Impact Points and a class count. */
   impactPoints: number;
   classCount: number;
-  /** Fixture-only: Quizzes and credentials have no backend yet (#31). */
+  /** Live Quizzes for the Classroom; credentials are still a fixture (#31). */
   quizzes: QuizRecord[];
   rewards: TeacherRewardsRecord;
   /** Fixture-only: Learner streaks by id; the Classroom report has none yet. */
@@ -47,7 +48,8 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
       const classroom = page.items[0];
       if (!classroom) throw new Error('No Classroom is assigned to this Teacher account yet. Ask your LGU Admin.');
       const report = await caretakerGet<ClassroomReport>(`reports/classrooms/${classroom.id}`);
-      return { classroom, report, impactPoints: 0, classCount: page.total, quizzes: [], rewards: { badges: [], credentials: [] }, streaks: {}, loadedAt: new Date().toISOString() };
+      const quizzes = await caretakerGet<ServerQuizSummary[]>(`quizzes?classroomId=${classroom.id}`);
+      return { classroom, report, impactPoints: 0, classCount: page.total, quizzes: quizzes.map(quizRecord), rewards: { badges: [], credentials: [] }, streaks: {}, loadedAt: new Date().toISOString() };
     })()
       .then((data) => { if (live) setLoad({ status: 'ready', data }); })
       .catch((error: unknown) => { if (live) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the Classroom report.' }); });

@@ -97,6 +97,10 @@ _Avoid_: pending, provisional, ungraded
 The first Attempt a Learner makes at an Exercise. Only Counted Attempts move Mastery and earn Coins; later Attempts are practice only. An unmarked Attempt counts once the server has graded it, never before. Where the server grades an On Device Attempt differently from the tablet, the server's verdict replaces the tablet's.
 _Avoid_: retry, score
 
+**Quiz**:
+A Teacher-built set of Exercises for one Classroom, taken on paper. Its Skills are picked for the Classroom's weakest (lowest mean Mastery, not Mastered) unless the Teacher chooses them. It is saved as a draft, editable until published, then immutable. Selection is deterministic from the item bank, never AI-written. Taking a Quiz is never a Counted Attempt.
+_Avoid_: test, assessment, generated quiz
+
 ### Learning model
 
 **Mastery**:

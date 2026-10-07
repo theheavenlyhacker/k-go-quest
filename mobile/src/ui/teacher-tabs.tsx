@@ -5,6 +5,7 @@ import { Award, CloudOff, Download, GraduationCap, Pencil, Plus, ClipboardList }
 import { credentialRows, levelCard, quizCards } from '../domain/teacher-rewards';
 import { useTeacher, type TeacherData } from '../state/teacher-context';
 import { ComingSoonSheet } from './admin';
+import { CreateQuizSheet, EditQuizSheet } from './quiz-builder';
 import { Bar, Button, Card, Empty, Eyebrow, IconTile, Info, Pill, Row, T } from './primitives';
 import { MIN_TOUCH, subjectTheme, tokens, useTheme } from './theme';
 
@@ -29,17 +30,18 @@ function TeacherGate({ children }: { children: (data: TeacherData) => React.Reac
   return <>{children(load.data)}</>;
 }
 
-/** Quiz Builder (277:199). Create and Edit are "coming soon" until the backend has quizzes. */
+/** Quiz Builder (277:199): the list and the create and edit sheets. */
 export function QuizBuilderBody() {
   const theme = useTheme();
-  const [soon, setSoon] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   return (
     <TeacherGate>
       {(data) => {
         const cards = quizCards(data.quizzes);
         return (
           <>
-            <Card index={0} onPress={() => setSoon('Creating a quiz')} accessibilityLabel="Create New Quiz" style={{ borderStyle: 'dashed', borderColor: theme.borderStrong }}>
+            <Card index={0} onPress={() => setCreating(true)} accessibilityLabel="Create New Quiz" style={{ borderStyle: 'dashed', borderColor: theme.borderStrong }}>
               <Row style={{ minHeight: MIN_TOUCH }}>
                 <IconTile icon={Plus} color={theme.navActive} tint={tokens.tint.forestBright} size={40} />
                 <View style={{ flex: 1 }}>
@@ -61,7 +63,7 @@ export function QuizBuilderBody() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Edit ${quiz.title}`}
-                      onPress={() => setSoon('Editing a quiz')}
+                      onPress={() => setEditing(quiz.id)}
                       style={{ width: MIN_TOUCH, height: MIN_TOUCH, alignItems: 'center', justifyContent: 'center', marginTop: -8, marginRight: -8 }}
                     >
                       <Pencil size={18} color={theme.muted} />
@@ -75,7 +77,8 @@ export function QuizBuilderBody() {
                 </Card>
               );
             }) : <Empty icon={ClipboardList} title="No quizzes yet" text="Create your first quiz and it appears here as a Draft." />}
-            <ComingSoonSheet feature={soon} onClose={() => setSoon(null)} />
+            <CreateQuizSheet visible={creating} classroomId={data.classroom.id} onClose={() => setCreating(false)} />
+            <EditQuizSheet quizId={editing} onClose={() => setEditing(null)} />
           </>
         );
       }}

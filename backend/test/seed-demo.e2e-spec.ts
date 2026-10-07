@@ -62,7 +62,7 @@ describe('Demo seed on real PostgreSQL', () => {
     await app.init();
     db = app.get(DataSource);
     await db.query(
-      'TRUNCATE audit_events, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
+      'TRUNCATE audit_events, quizzes, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
     );
     await seedDemo(db, { password });
   }, 120000);
