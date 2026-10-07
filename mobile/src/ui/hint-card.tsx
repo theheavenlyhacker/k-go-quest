@@ -1,30 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
-import * as Speech from 'expo-speech';
 import { Lightbulb, Play, Square } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
-import { HINT_LANGUAGES, matchVoice, type InstalledVoice } from '@/domain/hint-voice';
+import { HINT_LANGUAGES } from '@/domain/hint-voice';
 import { Action, Card, Pills, Row, T } from '@/ui/primitives';
 import { tokens } from '@/ui/theme';
+import { useHintSpeech } from '@/ui/use-hint-speech';
 
 /** One Lesson's Hint: pick a language, read it aloud only with a matching installed voice. */
 export function HintCard({ hints }: { hints: Record<string, string> }) {
   const { preferences, updatePreferences } = useApp();
   const [open, setOpen] = useState(false);
-  const [voices, setVoices] = useState<InstalledVoice[] | null>(null);
-  const [speaking, setSpeaking] = useState(false);
 
   const available = HINT_LANGUAGES.filter((l) => hints[l.code]);
   const language = available.find((l) => l.code === preferences.language) ?? available[0];
-
-  useEffect(() => {
-    Speech.getAvailableVoicesAsync().then(setVoices).catch(() => setVoices([]));
-    return () => { Speech.stop(); };
-  }, []);
+  const { voices, voice, speaking, stop, toggle } = useHintSpeech(language?.code);
 
   if (!language) return null;
-  const voice = voices ? matchVoice(language.code, voices) : null;
 
   return (
     <Card onPress={open ? undefined : () => setOpen(true)} style={{ backgroundColor: tokens.tint.sun, borderColor: `${tokens.state.warning}40` }}>
@@ -37,24 +30,14 @@ export function HintCard({ hints }: { hints: Record<string, string> }) {
               <Pills
                 items={available.map((l) => ({ label: l.label, value: l.code }))}
                 value={language.code}
-                onChange={(code) => { Speech.stop(); setSpeaking(false); void updatePreferences({ language: code }); }}
+                onChange={(code) => { stop(); void updatePreferences({ language: code }); }}
               />
               <T variant="bodyM">{hints[language.code]}</T>
               {voice ? (
                 <Action
                   title={speaking ? 'Stop' : 'Read aloud'}
                   icon={speaking ? Square : Play}
-                  task={async () => {
-                    if (speaking) { Speech.stop(); setSpeaking(false); return; }
-                    setSpeaking(true);
-                    Speech.speak(hints[language.code], {
-                      voice: voice.identifier,
-                      language: voice.language,
-                      onDone: () => setSpeaking(false),
-                      onStopped: () => setSpeaking(false),
-                      onError: () => setSpeaking(false),
-                    });
-                  }}
+                  task={async () => toggle(hints[language.code])}
                 />
               ) : (
                 <T variant="bodyS" color={tokens.brand.sunDeep}>

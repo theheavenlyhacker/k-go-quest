@@ -13,6 +13,11 @@ describe('hintSteps', () => {
   it('does not split inside a decimal or fraction', () => {
     expect(hintSteps('Write 0.5 as 1/2. Then compare.')).toEqual(['Write 0.5 as 1/2.', 'Then compare.']);
   });
+  it('does not split after an abbreviation', () => {
+    expect(hintSteps('Use a common denominator, e.g. 12 for 3 and 4. Then add 1/2 and 1/3.')).toEqual([
+      'Use a common denominator, e.g. 12 for 3 and 4.', 'Then add 1/2 and 1/3.',
+    ]);
+  });
   it('is empty for no Hint', () => {
     expect(hintSteps('  ')).toEqual([]);
   });

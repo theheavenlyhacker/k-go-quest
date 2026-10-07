@@ -261,3 +261,9 @@ describe('demoHistory', () => {
     }
   });
 });
+
+describe('growth with no history', () => {
+  it('is zero rather than throwing', () => {
+    expect(growth(starterPacks, [], new Date(2026, 0, 15))).toEqual({ thisMonth: { up: 0, mastered: 0 }, lastMonth: { up: 0, mastered: 0 } });
+  });
+});

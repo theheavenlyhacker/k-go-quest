@@ -1,25 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
-import * as Speech from 'expo-speech';
-import { Check, Lightbulb, PenLine, Play, Square, Volume2 } from 'lucide-react-native';
+import { Check, Lightbulb, PenLine, Play, Square, TriangleAlert, Volume2 } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import type { Lesson, Pack } from '@/domain/types';
 import { fields, type Stroke } from '@/domain/ink';
 import { ACCURACY, OVERALL_ACCURACY, certainty, read, spell } from '@/domain/recognise';
+import { pct } from '@/domain/format';
 import { hintSteps } from '@/domain/hint-steps';
-import { HINT_LANGUAGES, matchVoice, type InstalledVoice } from '@/domain/hint-voice';
+import { HINT_LANGUAGES } from '@/domain/hint-voice';
 import { subjectTitles } from '@/domain/subjects';
 import { Action, Bar, Card, Empty, Eyebrow, IconTile, Info, Pill, Pills, Row, Sheet, T } from '@/ui/primitives';
 import { FieldPreview, InkPad, PAD_HEIGHT, PAD_THICKNESS } from '@/ui/ink-pad';
 import { Screen } from '@/ui/screen';
-import { radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
+import { MIN_TOUCH, radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
+import { useHintSpeech } from '@/ui/use-hint-speech';
 
 /**
- * Hints: the Figma "AI Tutor" layout, without the tutor. A Hint is fixed text a
- * Pack Author wrote for one Lesson, so nothing here asks a question or invents
- * an answer; the tablet reads a Hint aloud only when it has a voice for it.
+ * Hints, laid out as the Figma tutor frame is: modes, a recognised-expression
+ * card, step checks and language chips. A Hint is fixed text a Pack Author wrote
+ * for one Lesson, so nothing here asks a question or invents an answer; the
+ * tablet reads a Hint aloud only when it has a voice for it.
+ *
+ * Type mode has no text box on purpose: a box would imply an answer is
+ * generated. It shows the Hint as text, step by step. Handwriting reads
+ * numbers and fractions; Voice reads the Hint aloud.
  */
 type Mode = 'type' | 'handwriting' | 'voice';
 
@@ -29,45 +35,38 @@ const MODES = [
   { label: 'Voice', value: 'voice' as const },
 ];
 
-type Topic = { pack: Pack; lesson: Lesson };
+const MODE_NOTE: Record<Mode, string> = {
+  type: 'Read the Hint as text and tick off each step as you do it. There is nothing to type: a Hint is written ahead of time, not made up when you ask.',
+  handwriting: 'Write a number or a fraction below and the tablet reads it back. Reading your writing is not the same as marking it.',
+  voice: 'The tablet reads the Hint aloud in the language you pick, when it has a voice for it.',
+};
+
+/** One Lesson with the Content Pack it came from. */
+type PackLesson = { pack: Pack; lesson: Lesson };
 
 export default function Hints() {
   const { learning, preferences, updatePreferences, packs } = useApp();
   const theme = useTheme();
   const [mode, setMode] = useState<Mode>('type');
   const [picking, setPicking] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [voices, setVoices] = useState<InstalledVoice[] | null>(null);
   const [done, setDone] = useState<number[]>([]);
-  const [chosen, setChosen] = useState<Topic | null>(null);
+  const [chosen, setChosen] = useState<PackLesson | null>(null);
 
-  useEffect(() => {
-    Speech.getAvailableVoicesAsync().then(setVoices).catch(() => setVoices([]));
-    return () => { Speech.stop(); };
-  }, []);
-
-  const topics: Topic[] = packs.flatMap((pack) => pack.lessons.map((lesson) => ({ pack, lesson })));
-  const masteryOf = (t: Topic) => learning.skills.find((s) => s.skillId === t.lesson.skillCode)?.mastery ?? null;
+  const lessons: PackLesson[] = packs.flatMap((pack) => pack.lessons.map((lesson) => ({ pack, lesson })));
+  const masteryOf = (item: PackLesson) => learning.skills.find((s) => s.skillId === item.lesson.skillCode)?.mastery ?? null;
   // Default to whatever the Learner is weakest at and actually has downloaded.
-  const weakest = [...topics].sort((a, b) => (masteryOf(a) ?? 1) - (masteryOf(b) ?? 1))[0];
-  const topic = chosen ?? weakest ?? null;
+  const weakest = [...lessons].sort((a, b) => (masteryOf(a) ?? 1) - (masteryOf(b) ?? 1))[0];
+  const current = chosen ?? weakest ?? null;
 
-  const available = HINT_LANGUAGES.filter((l) => topic?.lesson.hints[l.code]);
+  const available = HINT_LANGUAGES.filter((l) => current?.lesson.hints[l.code]);
   const language = available.find((l) => l.code === preferences.language) ?? available[0] ?? null;
-  const hint = language && topic ? topic.lesson.hints[language.code] : '';
+  const hint = language && current ? current.lesson.hints[language.code] : '';
   const steps = hintSteps(hint);
-  const voice = language && voices ? matchVoice(language.code, voices) : null;
-  const mastery = topic ? masteryOf(topic) : null;
+  const { voices, voice, speaking, error, stop, toggle } = useHintSpeech(language?.code);
 
-  const stop = () => { Speech.stop(); setSpeaking(false); };
-  const toggleSpeech = () => {
-    if (speaking || !voice) { stop(); return; }
-    setSpeaking(true);
-    Speech.speak(hint, { voice: voice.identifier, language: voice.language, onDone: () => setSpeaking(false), onStopped: () => setSpeaking(false), onError: () => setSpeaking(false) });
-  };
-  const choose = (next: Topic | null) => { stop(); setDone([]); setChosen(next); };
+  const choose = (next: PackLesson) => { stop(); setDone([]); setChosen(next); setPicking(false); };
 
-  if (!topics.length) {
+  if (!lessons.length) {
     return (
       <Screen chrome title="Hints" caption="Written by your Pack Author, on this tablet">
         <Empty icon={Lightbulb} title="No Lessons on this tablet" text="Hints belong to Lessons. Download a Content Pack from the Offline Library and its Hints appear here." />
@@ -78,24 +77,15 @@ export default function Hints() {
   return (
     <Screen chrome title="Hints" caption={language ? `${language.label} · works offline` : 'Written by your Pack Author, on this tablet'}>
       <Pills items={MODES} value={mode} onChange={(value) => { stop(); setMode(value); }} />
+      <T variant="bodyS" color={theme.muted}>{MODE_NOTE[mode]}</T>
 
-      {topic ? (
-        <Card onPress={() => setPicking(true)} accessibilityLabel={`Lesson: ${topic.lesson.title}, ${subjectTitles[topic.pack.subject]} ${topic.pack.grade}. Double tap to change.`}>
-          <Row style={{ gap: 11 }}>
-            <IconTile icon={Lightbulb} color={subjectTheme[topic.pack.subject].brand} tint={subjectTheme[topic.pack.subject].tint} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <T variant="titleS" lines={1}>{topic.lesson.title}</T>
-              <T variant="bodyS" color={theme.muted}>{`${subjectTitles[topic.pack.subject]} ${topic.pack.grade} · tap to change Lesson`}</T>
-            </View>
-            {mastery !== null ? <Pill color={tokens.brand.sky} tint={tokens.tint.sky}>{`${Math.round(mastery * 100)}%`}</Pill> : null}
-          </Row>
-          {mastery !== null ? <Bar value={mastery} color={subjectTheme[topic.pack.subject].brand} /> : null}
-        </Card>
+      {current ? (
+        <LessonTile item={current} mastery={masteryOf(current)} onPress={() => setPicking(true)} hint="tap to change Lesson" />
       ) : null}
 
       {mode === 'handwriting' ? <Handwriting /> : null}
 
-      {topic ? (
+      {current ? (
         <Card style={{ gap: 11 }}>
           <Row style={{ gap: 11 }}>
             <IconTile icon={Lightbulb} color={tokens.brand.sunDeep} tint={tokens.tint.sun} size={34} />
@@ -103,9 +93,17 @@ export default function Hints() {
           </Row>
           {steps.length ? (
             <>
-              <T variant="bodyM">{'Check your steps.'}</T>
+              <T variant="bodyM">Check your steps.</T>
               <Animated.View entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} style={{ gap: 8 }}>
-                {steps.map((step, index) => <StepRow key={`${topic.lesson.id}-${language?.code}-${index}`} index={index} text={step} checked={done.includes(index)} onToggle={() => setDone((now) => now.includes(index) ? now.filter((i) => i !== index) : [...now, index])} />)}
+                {steps.map((step, index) => (
+                  <StepRow
+                    key={`${current.lesson.id}-${language?.code}-${index}`}
+                    index={index}
+                    text={step}
+                    checked={done.includes(index)}
+                    onToggle={() => setDone((now) => now.includes(index) ? now.filter((i) => i !== index) : [...now, index])}
+                  />
+                ))}
               </Animated.View>
             </>
           ) : (
@@ -113,33 +111,27 @@ export default function Hints() {
           )}
 
           {available.length ? (
-            <Row style={{ gap: 8, flexWrap: 'wrap' }}>
-              {available.map((item) => {
-                const active = item.code === language?.code;
-                return (
-                  <Pressable
-                    key={item.code}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Hint in ${item.label}`}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => { stop(); void updatePreferences({ language: item.code }); }}
-                    style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? tokens.tint.sun : theme.surfaceAlt, borderWidth: 1, borderColor: active ? tokens.brand.sun : theme.border }}
-                  >
-                    <T variant="titleS" color={active ? tokens.brand.sunDeep : theme.secondary}>{item.label}</T>
-                  </Pressable>
-                );
-              })}
-            </Row>
+            <LanguageChips
+              languages={available}
+              value={language?.code}
+              onChange={(code) => { stop(); void updatePreferences({ language: code }); }}
+            />
           ) : null}
 
           {hint && (mode === 'voice' || voice) ? (
             voice ? (
-              <Action title={speaking ? 'Stop' : 'Read the Hint aloud'} icon={speaking ? Square : Play} task={async () => toggleSpeech()} />
+              <Action title={speaking ? 'Stop' : 'Read the Hint aloud'} icon={speaking ? Square : Play} task={async () => toggle(hint)} />
             ) : (
               <T variant="bodyS" color={tokens.brand.sunDeep}>
                 {voices ? `No ${language?.label ?? ''} voice is installed on this tablet, so this Hint is text only.` : 'Checking for a voice…'}
               </T>
             )
+          ) : null}
+          {error ? (
+            <Row style={{ gap: 8 }} >
+              <TriangleAlert size={16} color={tokens.state.critical} />
+              <T variant="bodyS" color={tokens.state.critical} style={{ flex: 1 }}>Reading aloud did not work just now. The Hint is still here as text.</T>
+            </Row>
           ) : null}
         </Card>
       ) : null}
@@ -152,19 +144,53 @@ export default function Hints() {
       />
 
       <Sheet visible={picking} title="Choose a Lesson" onClose={() => setPicking(false)}>
-        {topics.map((item) => (
-          <Card key={item.lesson.id} accessibilityLabel={`${item.lesson.title}, ${subjectTitles[item.pack.subject]} ${item.pack.grade}`} onPress={() => { choose(item); setPicking(false); }}>
-            <Row style={{ gap: 11 }}>
-              <IconTile icon={Lightbulb} color={subjectTheme[item.pack.subject].brand} tint={subjectTheme[item.pack.subject].tint} size={34} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T variant="titleS" lines={1}>{item.lesson.title}</T>
-                <T variant="bodyS" color={theme.muted}>{`${subjectTitles[item.pack.subject]} ${item.pack.grade}`}</T>
-              </View>
-            </Row>
-          </Card>
-        ))}
+        {lessons.map((item) => <LessonTile key={item.lesson.id} item={item} onPress={() => choose(item)} compact />)}
       </Sheet>
     </Screen>
+  );
+}
+
+/** One Lesson as a tappable tile: its Subject, grade and, when known, the Learner's Mastery of its Skill. */
+function LessonTile({ item, mastery = null, onPress, hint, compact = false }: { item: PackLesson; mastery?: number | null; onPress: () => void; hint?: string; compact?: boolean }) {
+  const theme = useTheme();
+  const subject = subjectTheme[item.pack.subject];
+  const detail = `${subjectTitles[item.pack.subject]} ${item.pack.grade}`;
+  return (
+    <Card onPress={onPress} accessibilityLabel={`${item.lesson.title}, ${detail}${hint ? `. ${hint}` : ''}`}>
+      <Row style={{ gap: 11 }}>
+        <IconTile icon={Lightbulb} color={subject.brand} tint={subject.tint} size={compact ? 34 : 38} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="titleS" lines={1}>{item.lesson.title}</T>
+          <T variant="bodyS" color={theme.muted}>{hint ? `${detail} · ${hint}` : detail}</T>
+        </View>
+        {mastery !== null ? <Pill color={tokens.brand.sky} tint={tokens.tint.sky}>{pct(mastery)}</Pill> : null}
+      </Row>
+      {mastery !== null ? <Bar value={mastery} color={subject.brand} /> : null}
+    </Card>
+  );
+}
+
+/** The languages a Hint is written in, as chips. */
+function LanguageChips({ languages, value, onChange }: { languages: readonly { code: string; label: string }[]; value: string | undefined; onChange: (code: string) => void }) {
+  const theme = useTheme();
+  return (
+    <Row style={{ gap: 8, flexWrap: 'wrap' }}>
+      {languages.map((item) => {
+        const active = item.code === value;
+        return (
+          <Pressable
+            key={item.code}
+            accessibilityRole="button"
+            accessibilityLabel={`Hint in ${item.label}`}
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(item.code)}
+            style={{ minHeight: MIN_TOUCH, minWidth: MIN_TOUCH, paddingHorizontal: 14, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? tokens.tint.sun : theme.surfaceAlt, borderWidth: 1, borderColor: active ? tokens.brand.sun : theme.border }}
+          >
+            <T variant="titleS" color={active ? tokens.brand.sunDeep : theme.secondary}>{item.label}</T>
+          </Pressable>
+        );
+      })}
+    </Row>
   );
 }
 
@@ -177,7 +203,7 @@ function StepRow({ index, text, checked, onToggle }: { index: number; text: stri
       accessibilityLabel={`Step ${index + 1}: ${text}`}
       accessibilityState={{ checked }}
       onPress={onToggle}
-      style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.sm, borderWidth: 1, backgroundColor: checked ? tokens.tint.success : theme.surfaceAlt, borderColor: checked ? tokens.state.success : theme.border }}
+      style={{ minHeight: MIN_TOUCH, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.sm, borderWidth: 1, backgroundColor: checked ? tokens.tint.success : theme.surfaceAlt, borderColor: checked ? tokens.state.success : theme.border }}
     >
       <T variant="dataS" color={theme.muted}>{`Step ${index + 1}`}</T>
       <T variant="bodyM" style={{ flex: 1 }} color={checked ? tokens.state.success : theme.text}>{text}</T>
@@ -214,7 +240,7 @@ function Handwriting() {
         <Row style={{ gap: 11 }}>
           <IconTile icon={PenLine} color={tokens.brand.grape} tint={tokens.tint.grape} />
           <View style={{ flex: 1, gap: 2 }}>
-            <T variant="titleM">Write it and I will read it</T>
+            <T variant="titleM">Write a number or a fraction</T>
             <T variant="bodyS" color={theme.muted}>Digits 0 to 9 and the fraction bar — try 3/4.</T>
           </View>
         </Row>
@@ -222,7 +248,7 @@ function Handwriting() {
       </Card>
 
       {readings.length ? (
-        <Animated.View entering={FadeIn.duration(220)} style={{ gap: 11 }}>
+        <Animated.View entering={FadeIn.duration(220).reduceMotion(ReduceMotion.System)} style={{ gap: 11 }}>
           <Card style={{ gap: 11 }}>
             <Row>
               <Eyebrow style={{ flex: 1 }}>Read as</Eyebrow>
@@ -230,7 +256,7 @@ function Handwriting() {
                 color={sure >= 0.9 ? tokens.state.success : sure >= 0.6 ? tokens.brand.sunDeep : tokens.state.critical}
                 tint={sure >= 0.9 ? tokens.tint.success : sure >= 0.6 ? tokens.tint.sun : tokens.tint.warning}
               >
-                {`${Math.round(sure * 100)}% sure`}
+                {`${pct(sure)} sure`}
               </Pill>
             </Row>
             <T variant="displayXL">{spell(readings)}</T>
@@ -240,7 +266,7 @@ function Handwriting() {
                   <FieldPreview field={shapes[index]} />
                   <View style={{ gap: 1 }}>
                     <T variant="titleM">{reading.symbol}</T>
-                    <T variant="dataS" color={theme.muted}>{`${Math.round(reading.confidence * 100)}%`}</T>
+                    <T variant="dataS" color={theme.muted}>{pct(reading.confidence)}</T>
                   </View>
                 </Row>
               ))}
