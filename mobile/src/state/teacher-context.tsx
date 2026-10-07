@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { getRepository } from '../data/storage';
 import { dataSource } from '../domain/data-source';
@@ -51,22 +51,25 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
   const [attempt, setAttempt] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [resolved, setResolved] = useState<Record<string, string>>({});
+  // The latest map, so two quick Resolves both land.
+  const latest = useRef(resolved);
 
   useEffect(() => {
     let live = true;
     void getRepository()
       .then((repo) => repo.cacheGet<Record<string, string>>(owner, RESOLVED_KEY))
       // Resolves made before this read finished are kept.
-      .then((saved) => { if (live && saved) setResolved((now) => ({ ...saved, ...now })); })
+      .then((saved) => { if (live && saved) { latest.current = { ...saved, ...latest.current }; setResolved(latest.current); } })
       .catch(() => undefined);
     return () => { live = false; };
   }, [owner]);
 
   const resolve = useCallback((id: string) => {
-    const next = { ...resolved, [id]: new Date().toISOString() };
+    const next = { ...latest.current, [id]: new Date().toISOString() };
+    latest.current = next;
     setResolved(next);
     void getRepository().then((repo) => repo.cachePut(owner, RESOLVED_KEY, next)).catch(() => undefined);
-  }, [owner, resolved]);
+  }, [owner]);
   const reload = useCallback(() => { setLoad({ status: 'loading' }); setAttempt((n) => n + 1); }, []);
   const select = useCallback((id: string) => { setSelected(id); reload(); }, [reload]);
 
