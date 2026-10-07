@@ -34,7 +34,7 @@ function fixtureReach(today: string): ReachRecord[] {
 
 const GRADES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
 
-function fixtureDevices(today: string): DeviceRecord[] {
+export function fixtureDevices(today: string): DeviceRecord[] {
   const end = Date.parse(`${today}T00:00:00Z`);
   return Array.from({ length: 160 }, (_, i) => ({
     id: `tab-${i}`,

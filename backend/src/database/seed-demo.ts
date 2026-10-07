@@ -50,8 +50,8 @@ const id = (name: string) => {
 };
 const LGU = id('jurisdiction');
 const SCHOOLS = [
-  { id: id('school:1'), name: 'Rizal Elementary School' },
-  { id: id('school:2'), name: 'Bonifacio Elementary School' },
+  { id: id('school:1'), name: 'Rizal Elementary School', barangay: 'Pembo' },
+  { id: id('school:2'), name: 'Bonifacio Elementary School', barangay: 'Cembo' },
 ];
 // ceiling = how far this Classroom's improving Learners get, so the League has distinct values.
 const CLASSROOMS = [
@@ -207,7 +207,10 @@ function simulate(
           correct,
           awardedCoins,
           occurredAt,
-          receivedAt: occurredAt,
+          receivedAt:
+            day % 2 === 0
+              ? new Date(occurredAt.getTime() + 2 * 3600000)
+              : occurredAt,
           createdAt: occurredAt,
           source: 'demo',
         }),
