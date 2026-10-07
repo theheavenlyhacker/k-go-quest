@@ -18,7 +18,7 @@ export function T({ children, variant, size, bold = false, heading = false, colo
   // that predate the token import.
   const base: TextStyle = variant
     ? type[variant]
-    : { fontSize: size ?? 13, lineHeight: (size ?? 13) * 1.45, fontFamily: heading ? 'Outfit_600SemiBold' : bold ? 'PublicSans_700Bold' : 'PublicSans_400Regular' };
+    : { fontSize: size ?? 13, lineHeight: (size ?? 13) * 1.45, fontFamily: heading ? 'Lexend_700Bold' : bold ? 'Lexend_700Bold' : 'Lexend_500Medium' };
   return (
     <Text numberOfLines={lines} style={[base, { color: color ?? theme.text }, uppercase ? { textTransform: 'uppercase' } : null, style]}>
       {children}
@@ -310,6 +310,6 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   card: { padding: 14, borderWidth: 1, borderRadius: radius.md, gap: 9 },
   button: { minHeight: 46, borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: 15, paddingVertical: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  bare: { flex: 1, minHeight: 49, fontFamily: 'PublicSans_400Regular', fontSize: 13 },
-  input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'PublicSans_400Regular', fontSize: 13 },
+  bare: { flex: 1, minHeight: 49, fontFamily: 'Lexend_500Medium', fontSize: 13 },
+  input: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Lexend_500Medium', fontSize: 13 },
 });

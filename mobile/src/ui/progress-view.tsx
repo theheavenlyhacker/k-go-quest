@@ -1,34 +1,19 @@
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Award, Flame, Gauge, TriangleAlert } from 'lucide-react-native';
+import { Award, Flame, Gauge, Gift, TriangleAlert } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { meanMastery, pct } from '@/domain/format';
-import { MASTERED_AT, growth, learningState, type Attempt, type LearningState, type UploadRecord } from '@/domain/engine';
-import type { Pack } from '@/domain/types';
+import { growth, type Attempt, type LearningState, type UploadRecord } from '@/domain/engine';
 import { badges, dailyAnswers, recentAchievements, streak } from '@/domain/progress';
 import type { Purchase } from '@/domain/shop';
 import { subjectTitles } from '@/domain/subjects';
-import { Bar, Card, Eyebrow, Pill, Ring, Row, T, Trend } from '@/ui/primitives';
-import { radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
-
-const WEEK = 7 * 24 * 60 * 60 * 1000;
-const WEEKS = 10;
-
-/** Mean Mastery at ten weekly cut-offs, replayed from the Attempt log. */
-function weekly(packs: Pack[], log: Attempt[], now: number, uploads?: ReadonlyMap<string, UploadRecord>): number[] {
-  const points: number[] = [];
-  for (let week = WEEKS - 1; week >= 0; week -= 1) {
-    const cutoff = now - week * WEEK;
-    const skills = learningState(packs, log.filter((a) => Date.parse(a.at) <= cutoff), uploads).skills;
-    points.push(meanMastery(skills) ?? 0);
-  }
-  return points;
-}
+import { Bar, Card, Eyebrow, Button, Row, T } from '@/ui/primitives';
+import { radius, useSubjectTheme, tokens, useTheme } from '@/ui/theme';
 
 /**
- * My Progress — 04 · My Progress (450:154).
+ * My Progress — Figma 34:893 (light) and 255:481 (dark).
  *
  * `readOnly` is the Caretaker's view of someone else's Profile: same numbers,
  * no Lesson links.
@@ -37,15 +22,13 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
   const router = useRouter();
   const { packs } = useApp();
   const theme = useTheme();
+  const subjectTheme = useSubjectTheme();
   // Read once when the screen opens: a render-time clock would be impure, and
   // a week boundary crossing mid-session is not worth a re-render.
   const [now] = useState(() => Date.now());
 
-  const trend = useMemo(() => weekly(packs, attempts, now, uploads), [packs, attempts, now, uploads]);
   const month = useMemo(() => growth(packs, attempts, new Date(now), uploads), [packs, attempts, now, uploads]);
   const overall = meanMastery(learning.skills);
-  // Percentage points gained across the window the sparkline draws.
-  const gained = Math.round((trend[trend.length - 1] - trend[0]) * 100);
   const days = dailyAnswers(attempts, now);
   const busiest = Math.max(1, ...days.map((d) => d.count));
   const achievements = recentAchievements(purchases);
@@ -57,29 +40,11 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
   return (
     <>
       {/* stats (450:226) */}
-      <Row style={{ gap: 10, alignItems: 'stretch' }}>
+      <Row style={{ gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
         <Stat icon={Gauge} color={tokens.brand.limeDeep} value={pct(overall)} label="Mastery" index={0} />
         <Stat icon={Flame} color={tokens.brand.sunDeep} value={`${streak(attempts, now)}`} label="Day streak" index={1} />
         <Stat icon={Award} color={tokens.brand.grape} value={`${badges(purchases).length}`} label="Badges" index={2} />
       </Row>
-
-      {/* mastery (450:156) */}
-      <Card style={{ gap: 12 }}>
-        <Row style={{ gap: 10 }}>
-          <View style={{ flex: 1, gap: 3 }}>
-            <Eyebrow>Mastery this quarter</Eyebrow>
-            <T variant="displayXL">{pct(overall)}</T>
-            <Pill color={tokens.state.success} tint={tokens.tint.success}>
-              {gained > 0 ? `▲ ${gained} pts this quarter` : `${month.thisMonth.up} skills up this month`}
-            </Pill>
-          </View>
-          <Ring value={overall} size={62} suffix="" color={tokens.brand.limeDeep} />
-        </Row>
-        <Trend values={trend} />
-        <T variant="bodyS" color={theme.muted}>
-          {`Ten weeks of Individual Mastery Delta, replayed from every answer saved on this tablet. A skill counts as Mastered at ${pct(MASTERED_AT)}.`}
-        </T>
-      </Card>
 
       {marked || corrected ? (
         <Card style={{ gap: 4 }}>
@@ -88,25 +53,27 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
         </Card>
       ) : null}
 
-      <Eyebrow>By subject</Eyebrow>
-
       {/* by-subject (450:174) */}
-      <Card style={{ gap: 13 }}>
+      <Card style={{ gap: 16, padding: 16 }}>
+        <T variant="titleM">Mastery by Subject</T>
         {packs.map((pack) => {
           const tone = subjectTheme[pack.subject];
           const skills = learning.skills.filter((skill) => pack.skills.some((spec) => spec.id === skill.skillId));
           const level = meanMastery(skills);
           return (
-            <Row key={pack.id} style={{ gap: 11 }}>
-              <Ring value={level} size={44} suffix="" color={tone.brand} />
-              <View style={{ flex: 1, gap: 4 }}>
-                <T variant="titleS">{`${subjectTitles[pack.subject]} ${pack.grade}`}</T>
-                <T variant="bodyS" color={theme.muted} lines={1}>
-                  {level === null ? 'Not practised on this tablet yet' : pack.title}
-                </T>
-                <Bar value={level ?? 0} color={tone.brand} />
-              </View>
-            </Row>
+            <View key={pack.id} accessible accessibilityLabel={`${subjectTitles[pack.subject]} ${pack.grade}: ${pack.title}. Mastery ${pct(level)}`} style={{ gap: 8 }}>
+              <Row style={{ gap: 12, alignItems: 'flex-start' }}>
+                <View style={{ width: 32, height: 32, borderRadius: radius.sm, backgroundColor: tone.tint, alignItems: 'center', justifyContent: 'center' }}>
+                  <T variant="titleS" color={tone.brand}>{subjectTitles[pack.subject][0]}</T>
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T variant="titleS">{`${subjectTitles[pack.subject]} ${pack.grade}: ${pack.title}`}</T>
+                  <T variant="bodyS" color={theme.muted}>{level === null ? 'Not practised on this tablet yet' : 'Estimated from Counted Attempts'}</T>
+                </View>
+                <T variant="titleS" color={tone.brand}>{pct(level)}</T>
+              </Row>
+              <Bar value={level ?? 0} color={tone.brand} height={6} />
+            </View>
           );
         })}
       </Card>
@@ -140,9 +107,8 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
         </Card>
       ) : null}
 
-      <Eyebrow>This week</Eyebrow>
-
-      <Card index={4} style={{ gap: 10 }}>
+      <Card index={4} style={{ gap: 10, padding: 16 }}>
+        <T variant="titleM">My Practice This Week</T>
         <View
           accessible
           accessibilityLabel={`Answers each day this week: ${days.map((d) => d.count).join(', ')}`}
@@ -150,12 +116,18 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
         >
           {days.map((d, i) => (
             <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: '100%' }}>
-              <View style={{ width: '100%', height: Math.max(3, (d.count / busiest) * 58), borderRadius: radius.sm / 2, backgroundColor: d.count ? tokens.brand.sky : theme.surfaceAlt }} />
+              <View style={{ width: '100%', height: Math.max(3, (d.count / busiest) * 58), borderRadius: radius.sm / 2, backgroundColor: d.count ? theme.navActive : theme.surfaceAlt }} />
               <T variant="dataS" color={theme.muted}>{d.label}</T>
             </View>
           ))}
         </View>
         <T variant="bodyS" color={theme.muted}>Answers saved each day. This tablet counts answers, not minutes.</T>
+      </Card>
+
+      <Card style={{ gap: 8 }}>
+        <T variant="titleM">Growth this month</T>
+        <T variant="bodyS" color={theme.secondary}>{`${month.thisMonth.up} Skills improved · ${month.thisMonth.mastered} became Mastered`}</T>
+        <T variant="bodyS" color={theme.muted}>{`Last month: ${month.lastMonth.up} Skills improved · ${month.lastMonth.mastered} became Mastered`}</T>
       </Card>
 
       <Eyebrow>Recent achievements</Eyebrow>
@@ -180,8 +152,9 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
       )}
 
       <T variant="bodyS" color={theme.muted}>
-        {`${balance} Coins earned from first answers. Mastery is an estimate from your first answer to each question, never a grade.`}
+        {`${balance} Coins available. Mastery is an estimate from your first answer to each question, never a grade.`}
       </T>
+      {readOnly ? null : <Button title="My Rewards" icon={Gift} onPress={() => router.push('/(student)/rewards')} />}
     </>
   );
 }
@@ -190,7 +163,7 @@ export function ProgressView({ learning, attempts, balance, purchases = [], uplo
 function Stat({ icon: Icon, color, value, label, index }: { icon: typeof Flame; color: string; value: string; label: string; index: number }) {
   const theme = useTheme();
   return (
-    <Card index={index} style={{ flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 14 }}>
+    <Card index={index} style={{ flex: 1, minWidth: 90, alignItems: 'flex-start', gap: 4, padding: 12 }}>
       <Icon size={21} color={color} strokeWidth={1.9} />
       <T variant="displayL">{value}</T>
       <T variant="bodyS" color={theme.muted} style={{ textAlign: 'center' }}>{label}</T>

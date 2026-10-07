@@ -8,10 +8,10 @@ import type { Subject } from '../domain/types';
  * designer change maps to exactly one line here.
  */
 export const tokens = {
-  brand: { sky: '#2e86e0', grape: '#7a5ad6', limeDeep: '#6fb733', sun: '#ffb020', sunDeep: '#e8920a' },
+  brand: { teal: '#0e5e56', coral: '#ff6a4d', green: '#2e9e6d', sky: '#2e86e0', grape: '#7a5ad6', limeDeep: '#6fb733', sun: '#ffb020', sunDeep: '#e8920a' },
   tint: { sky: '#dfedfa', grape: '#ebe6f9', limeDeep: '#e9f4e0', lime: '#eef9e4', sun: '#fff3dd', sunDeep: '#fceeda', forestBright: '#dce8e6', success: '#dcf0e8', warning: '#faedd9' },
   state: { success: '#199c67', warning: '#de8a00', critical: '#d2443a' },
-  radius: { sm: 10, md: 16, lg: 22, pill: 999 },
+  radius: { sm: 12, md: 16, lg: 22, pill: 999 },
 } as const;
 
 export const radius = tokens.radius;
@@ -21,44 +21,43 @@ export const MIN_TOUCH = 44;
 
 /** elevation/card and elevation/appbar from the Figma effect styles. */
 export const elevation = {
-  card: { shadowColor: '#0c4a3e', shadowOpacity: 0.07, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
+  card: { shadowColor: '#0e5e56', shadowOpacity: 0.07, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
   /** elevation/raised: the lifted first-place card on the League podium. */
-  raised: { shadowColor: '#0c4a3e', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 14 }, shadowRadius: 32, elevation: 8 },
-  appbar: { shadowColor: '#0c4a3e', shadowOpacity: 0.55, shadowOffset: { width: 0, height: 8 }, shadowRadius: 14, elevation: 10 },
+  raised: { shadowColor: '#0e5e56', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 14 }, shadowRadius: 32, elevation: 8 },
+  appbar: { shadowColor: '#0e5e56', shadowOpacity: 0.55, shadowOffset: { width: 0, height: 8 }, shadowRadius: 14, elevation: 10 },
 } as const;
 
 const light = {
   dark: false,
-  page: '#faf7ef',
+  page: '#fbf8f2',
   surface: '#ffffff',
-  surfaceAlt: '#f4f0e5',
-  appbar: '#0c4a3e',
-  text: '#10221d',
-  secondary: '#3c544b',
-  muted: '#71877d',
-  navActive: '#126655',
+  surfaceAlt: '#f1eee7',
+  appbar: '#0e5e56',
+  text: '#1c1b1f',
+  secondary: '#5c5b66',
+  muted: '#8e8d99',
+  navActive: '#0e5e56',
   onBrand: '#ffffff',
-  border: '#e5dfd1',
-  borderStrong: '#d6cebc',
+  border: '#e9e5dc',
+  borderStrong: '#d2cfd6',
 };
 
 /**
- * Dark values are derived from the forest ramp, not read from Figma — the
- * token collection's dark mode was not exported with the light one.
+ * Dark palette from Figma Library 255:6, Progress 255:481 and Intro 266:148.
  */
 const dark: typeof light = {
   dark: true,
-  page: '#0b1714',
-  surface: '#132520',
-  surfaceAlt: '#1b322b',
-  appbar: '#08322a',
-  text: '#eaf1ec',
-  secondary: '#c2d3cb',
-  muted: '#8ba396',
-  navActive: '#8fd89a',
+  page: '#12181a',
+  surface: '#1e2628',
+  surfaceAlt: '#2a3335',
+  appbar: '#0a3e38',
+  text: '#f3f1ea',
+  secondary: '#d7dadf',
+  muted: '#8a9098',
+  navActive: '#3ecdb0',
   onBrand: '#ffffff',
-  border: '#244037',
-  borderStrong: '#2f5347',
+  border: '#2a3335',
+  borderStrong: '#465154',
 };
 
 export function useTheme() {
@@ -72,33 +71,44 @@ export function useTheme() {
 
 /** Per-subject brand + tint pairing, matching the Offline Library cards. */
 export const subjectTheme: Record<Subject, { brand: string; tint: string }> = {
-  MATH: { brand: tokens.brand.sky, tint: tokens.tint.sky },
-  ENGLISH: { brand: tokens.brand.grape, tint: tokens.tint.grape },
-  FILIPINO: { brand: tokens.brand.limeDeep, tint: tokens.tint.limeDeep },
-  SCIENCE: { brand: tokens.brand.sunDeep, tint: tokens.tint.sunDeep },
+  MATH: { brand: tokens.brand.teal, tint: '#0e5e5624' },
+  ENGLISH: { brand: tokens.brand.sun, tint: '#ffb02024' },
+  FILIPINO: { brand: tokens.brand.green, tint: '#2e9e6d24' },
+  SCIENCE: { brand: tokens.brand.coral, tint: '#ff6a4d24' },
 };
+const darkSubjectTheme: typeof subjectTheme = {
+  MATH: { brand: '#3ecdb0', tint: '#3ecdb02e' },
+  ENGLISH: { brand: '#ffc24d', tint: '#ffc24d2e' },
+  FILIPINO: { brand: '#4fdb9e', tint: '#4fdb9e2e' },
+  SCIENCE: { brand: '#ff9e86', tint: '#ff9e862e' },
+};
+
+export function useSubjectTheme() {
+  return useTheme().dark ? darkSubjectTheme : subjectTheme;
+}
+
 export const subjectColor: Record<Subject, string> = {
-  MATH: tokens.brand.sky, ENGLISH: tokens.brand.grape, FILIPINO: tokens.brand.limeDeep, SCIENCE: tokens.brand.sunDeep,
+  MATH: tokens.brand.teal, ENGLISH: tokens.brand.sun, FILIPINO: tokens.brand.green, SCIENCE: tokens.brand.coral,
 };
 
 /** Kept for call sites that predate the token import. */
 export const palette = {
-  green: '#0c4a3e', greenLight: tokens.tint.lime, cream: '#faf7ef',
+  green: '#0e5e56', greenLight: tokens.tint.lime, cream: '#fbf8f2',
   blue: tokens.brand.sky, purple: tokens.brand.grape, orange: tokens.brand.sunDeep,
   red: tokens.state.critical, yellow: tokens.brand.sun,
 };
 
 /** Figma text styles. letterSpacing is absolute px, as React Native expects. */
 export const type = {
-  displayXL: { fontFamily: 'Outfit_700Bold', fontSize: 28, lineHeight: 28 * 1.15, letterSpacing: -0.7 },
-  displayL: { fontFamily: 'Outfit_700Bold', fontSize: 21, lineHeight: 21 * 1.18, letterSpacing: -0.378 },
-  titleM: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, lineHeight: 15 * 1.28, letterSpacing: -0.15 },
-  titleS: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, lineHeight: 13 * 1.3, letterSpacing: -0.065 },
-  labelNav: { fontFamily: 'Outfit_600SemiBold', fontSize: 9.5, lineHeight: 9.5 * 1.2, letterSpacing: 0.095 },
-  labelPill: { fontFamily: 'Outfit_700Bold', fontSize: 10, lineHeight: 10 * 1.3, letterSpacing: 0.2 },
-  eyebrow: { fontFamily: 'PublicSans_700Bold', fontSize: 10, lineHeight: 10 * 1.3, letterSpacing: 1.4 },
-  bodyM: { fontFamily: 'PublicSans_400Regular', fontSize: 13, lineHeight: 13 * 1.5, letterSpacing: 0 },
-  bodyS: { fontFamily: 'PublicSans_400Regular', fontSize: 11, lineHeight: 11 * 1.48, letterSpacing: 0 },
+  displayXL: { fontFamily: 'Lexend_800ExtraBold', fontSize: 24, lineHeight: 31, letterSpacing: 0 },
+  displayL: { fontFamily: 'Lexend_800ExtraBold', fontSize: 20, lineHeight: 26, letterSpacing: 0 },
+  titleM: { fontFamily: 'Lexend_700Bold', fontSize: 15, lineHeight: 15 * 1.28, letterSpacing: -0.15 },
+  titleS: { fontFamily: 'Lexend_700Bold', fontSize: 13, lineHeight: 13 * 1.3, letterSpacing: -0.065 },
+  labelNav: { fontFamily: 'Lexend_700Bold', fontSize: 9.5, lineHeight: 9.5 * 1.2, letterSpacing: 0.095 },
+  labelPill: { fontFamily: 'Lexend_800ExtraBold', fontSize: 10, lineHeight: 10 * 1.3, letterSpacing: 0.2 },
+  eyebrow: { fontFamily: 'Lexend_700Bold', fontSize: 10, lineHeight: 10 * 1.3, letterSpacing: 1.4 },
+  bodyM: { fontFamily: 'Lexend_500Medium', fontSize: 14, lineHeight: 18, letterSpacing: 0 },
+  bodyS: { fontFamily: 'Lexend_500Medium', fontSize: 11, lineHeight: 11 * 1.48, letterSpacing: 0 },
   dataM: { fontFamily: 'IBMPlexMono_500Medium', fontSize: 13, lineHeight: 13 * 1.4, letterSpacing: -0.13 },
   dataS: { fontFamily: 'IBMPlexMono_500Medium', fontSize: 10.5, lineHeight: 10.5 * 1.4, letterSpacing: 0 },
 } as const;

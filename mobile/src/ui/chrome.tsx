@@ -9,7 +9,7 @@ import { useOnline } from '../state/online-context';
 import { initials } from '../domain/format';
 import { HINT_LANGUAGES } from '../domain/hint-voice';
 import { gradeLabel, storageLabel } from '../domain/sidebar';
-import { elevation, radius, tokens, useTheme } from './theme';
+import { radius, tokens, useTheme } from './theme';
 import { Eyebrow, Pill, Pills, Row, Sheet, T } from './primitives';
 
 const SIDEBAR_WIDTH = 293;
@@ -17,20 +17,23 @@ const SIDEBAR_WIDTH = 293;
 /** App Bar (443:34): hamburger, title + subtitle. */
 export function AppBar({ title, subtitle, onMenu, trailing = <SyncPill /> }: { title: string; subtitle?: string; onMenu: () => void; /** Right edge of the bar; the Learner's Sync pill unless a role shell passes its own. */ trailing?: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   return (
-    <View style={[{ backgroundColor: '#0c4a3e', paddingTop: insets.top + 2, paddingBottom: 16, paddingHorizontal: 18, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg }, elevation.appbar]}>
+    <View style={{ backgroundColor: theme.page, paddingTop: insets.top }}>
+      <View style={{ backgroundColor: theme.appbar, paddingVertical: 12, paddingLeft: insets.left + 20, paddingRight: insets.right + 20 }}>
       <Row style={{ gap: 13 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={onMenu} hitSlop={12} style={{ gap: 4.5 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={onMenu} hitSlop={12} style={{ gap: 4.5, minHeight: 44, minWidth: 44, justifyContent: 'center' }}>
           {[20, 14, 18].map((width, index) => (
             <View key={index} style={{ width, height: 2, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.92)' }} />
           ))}
         </Pressable>
         <View style={{ flex: 1, gap: 2 }}>
-          <T variant="displayL" color="#ffffff" lines={1}>{title}</T>
-          {subtitle ? <T variant="bodyS" color="#ffffff" style={{ opacity: 0.72 }} lines={1}>{subtitle}</T> : null}
+          <T variant="displayL" color="#ffffff">{title}</T>
+          {subtitle ? <T variant="bodyS" color="#ffffff" style={{ opacity: 0.72 }}>{subtitle}</T> : null}
         </View>
-        {trailing}
       </Row>
+      <View style={{ alignItems: 'flex-end' }}>{trailing}</View>
+      </View>
     </View>
   );
 }
