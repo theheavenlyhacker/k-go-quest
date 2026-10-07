@@ -8,6 +8,7 @@ import {
   engagementSeries,
   impactReport,
   parseEngagement,
+  parseDevices,
   parseImpactReport,
   parsePacks,
   parseSchools,
@@ -24,6 +25,12 @@ import recordedEngagement from './recorded/admin-engagement.json';
 
 const today = '2026-10-07'; // a Wednesday
 const data = fixtureAdminData(today);
+it('parses live devices and rejects invalid status', () => {
+  const device = { ...data.devices[0], status: 'Needs update', updateAvailable: true };
+  expect(parseDevices({ items: [device] })[0]).toMatchObject({ online: true, updateAvailable: true });
+  expect(parseDevices({ items: [{ ...device, status: 'Offline' }] })[0].online).toBe(false);
+  expect(() => parseDevices({ items: [{ ...device, status: 'unknown' }] })).toThrow();
+});
 const session = (role: Session['user']['role'], revoked = false): Session =>
   ({ user: { ...data.users[0], role }, accessToken: '', refreshToken: '', expiresIn: 0, deviceId: '', offlineUntil: 0, revoked });
 
@@ -230,4 +237,3 @@ describe('parseUsers, parseSchools, parsePacks', () => {
     expect(packs[0].title).toBe('Math 5');
   });
 });
-

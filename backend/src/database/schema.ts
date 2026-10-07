@@ -139,6 +139,19 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'targetId',
     'metadata',
   ],
+  devices: [
+    'id',
+    'createdAt',
+    'deviceId',
+    'jurisdictionId',
+    'schoolId',
+    'appVersion',
+    'packVersions',
+    'storageUsedPercent',
+    'pendingAttempts',
+    'lastSeenAt',
+    'updatedAt',
+  ],
   migrations: ['id', 'timestamp', 'name'],
 };
 

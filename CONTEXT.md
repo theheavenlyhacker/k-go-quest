@@ -174,6 +174,10 @@ _Avoid_: sync mode, cloud mode, online version
 A Profile the Caretaker has tied to a Learner account on the server, so its Counted Attempts can be uploaded. A Profile that is not linked works exactly as any other and uploads nothing.
 _Avoid_: registered profile, synced account, enrolled profile
 
+**Device Check-in**:
+A report sent to the server whenever a tablet's Caretaker signs in or a Linked Profile syncs, carrying `{deviceId, appVersion, packVersions, storageUsedPercent, pendingAttempts}`. It is best effort and never blocks sign-in or sync. The server uses it to track Shared Tablets and derive their Online, Needs update, or Offline status for the LGU Admin.
+_Avoid_: heartbeat, ping, telemetry
+
 ## Relationships
 
 - A **Shared Tablet** holds one or more **Profiles**, managed by one **Caretaker**
@@ -193,6 +197,7 @@ _Avoid_: registered profile, synced account, enrolled profile
 - A **Linked Profile** is tied to one **Server Account** with the Student **Role**, and belongs to one **Classroom**
 - A published **Quiz** issues one **Quiz Paper** per active Learner in the **Classroom**, plus an answer key for the **Teacher**
 - A **League** ranks **Classrooms**; **Growth** describes one **Learner**
+- A **Shared Tablet** reports to the server through **Device Check-in** whenever its **Caretaker** signs in or a **Linked Profile** syncs
 
 ## Flagged ambiguities
 

@@ -1008,4 +1008,56 @@ describe('K-Go API on real PostgreSQL', () => {
       .set(auth(teacher.accessToken))
       .expect(401);
   });
+  it('manages device check-ins and lists devices with derived status for LGU Admin', async () => {
+    const teacher = await login('teacher-test');
+    const admin = await login('admin-test');
+    const otherAdmin = await login('other-admin');
+
+    const checkInPayload = {
+      deviceId: 'device-e2e-001',
+      appVersion: '1.0.0',
+      packVersions: [
+        {
+          id: data.pack.id,
+          version: data.pack.version,
+          subject: data.pack.subject,
+          grade: data.pack.grade,
+          title: data.pack.title,
+        },
+      ],
+      storageUsedPercent: 45,
+      pendingAttempts: 3,
+    };
+
+    // Teacher check-in
+    await request(app.getHttpServer())
+      .post('/api/v1/devices/check-in')
+      .set(auth(teacher.accessToken))
+      .send(checkInPayload)
+      .expect(201);
+
+    // LGU Admin can see the device as Online
+    const listRes = await request(app.getHttpServer())
+      .get('/api/v1/devices')
+      .set(auth(admin.accessToken))
+      .expect(200);
+
+    expect(listRes.body.items).toHaveLength(1);
+    expect(listRes.body.items[0].deviceId).toBe('device-e2e-001');
+    expect(listRes.body.items[0].status).toBe('Online');
+    expect(listRes.body.items[0].storageUsedPercent).toBe(45);
+
+    // Other jurisdiction admin cannot see this device
+    const otherRes = await request(app.getHttpServer())
+      .get('/api/v1/devices')
+      .set(auth(otherAdmin.accessToken))
+      .expect(200);
+    expect(otherRes.body.items).toHaveLength(0);
+
+    // Non-admin (teacher) cannot list devices
+    await request(app.getHttpServer())
+      .get('/api/v1/devices')
+      .set(auth(teacher.accessToken))
+      .expect(403);
+  });
 });

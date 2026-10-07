@@ -4,6 +4,7 @@ import { getRepository } from '../data/storage';
 import { dataSource } from '../domain/data-source';
 import type { AdminData, ReachRecord } from '../domain/admin';
 import {
+  parseDevices,
   parseEngagement,
   parseImpactReport,
   parsePacks,
@@ -12,7 +13,7 @@ import {
   quarterOf,
   recentQuarters,
 } from '../domain/admin';
-import { fixtureAdminData, fixtureDevices } from '../domain/admin-fixtures';
+import { fixtureAdminData } from '../domain/admin-fixtures';
 import { loadCached, type Cache } from '../domain/teacher-load';
 import { useOnline } from './online-context';
 
@@ -67,7 +68,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       const currentQ = quarterOf(today);
       const quarters = recentQuarters(today, 4);
 
-      const [schoolsRes, usersRes, publishedPacks, draftPacks, engagementRes, ...impactResults] =
+      const [schoolsRes, usersRes, publishedPacks, draftPacks, engagementRes, devicesRes, ...impactResults] =
         await Promise.all([
           loadCached(
             () => caretakerGet('schools?page=1&limit=20'),
@@ -93,6 +94,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             () => caretakerGet('reports/engagement?days=14'),
             parseEngagement,
             cache('engagement:14'),
+          ),
+          loadCached(
+            () => caretakerGet('devices?page=1&limit=100'),
+            parseDevices,
+            cache('devices'),
           ),
           ...quarters.map((q) =>
             loadCached(
@@ -137,13 +143,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         publishedPacks.stale ||
         draftPacks.stale ||
         engagementRes.stale ||
+        devicesRes.stale ||
         impactResults.some((r) => r.stale);
 
       return {
         schoolName,
         impact: currentImpact.value,
         users: usersRes.value,
-        devices: fixtureDevices(today),
+        devices: devicesRes.value,
         library: {
           capacityBytes: 2 * 1024 ** 3,
           packs,

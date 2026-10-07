@@ -7,3 +7,4 @@ export function useAdminData(): AdminLoad & { reload: () => void } {
   const { load, reload } = useAdmin();
   return { ...load, reload };
 }
+
