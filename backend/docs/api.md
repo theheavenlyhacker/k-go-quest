@@ -43,6 +43,9 @@ Base path: `/api/v1`. Protected requests use `Authorization: Bearer <accessToken
 | GET reports/classrooms/:id                   | Assigned teacher                              |
 | GET reports/impact, reports/audit            | Own LGU admin                                 |
 | GET reports/league                           | Own LGU aggregates; optional month YYYY-MM    |
+| POST devices/check-in                        | Authenticated                                 |
+| GET devices                                  | Own LGU admin                                 |
+
 
 ## Login
 
@@ -105,3 +108,33 @@ Draft authoring: create pack, add lessons, add exercises, inspect the admin-only
 ```
 
 Retain requestId on retries. Retrieve issued vouchers at rewards/redemptions/me. The redemption ID identifies the claim record; LGU authorization and database status determine whether it is claimable. A QR token has a separate audience from access tokens. Offline voucher claiming is deferred.
+
+## Device check-in
+
+Whenever a tablet's Caretaker signs in or a Linked Profile syncs, the tablet reports its status to `POST devices/check-in`:
+
+```json
+{
+  "deviceId": "<random-uuid-generated-by-tablet>",
+  "appVersion": "1.0.0",
+  "packVersions": [
+    {
+      "packId": "math5",
+      "version": "1.0.0",
+      "subject": "MATH",
+      "grade": 5,
+      "title": "Fractions & Decimals"
+    }
+  ],
+  "storageUsedPercent": 42,
+  "pendingAttempts": 0
+}
+```
+
+The server scopes the device by the signing-in account's school and jurisdiction, updating `lastSeenAt`. Check-in failure is best-effort and never blocks sign-in or sync.
+
+`GET devices` lists the Shared Tablets in the LGU Admin's jurisdiction with server-derived status:
+- **Online**: seen in the last 15 minutes with up-to-date app and Content Packs.
+- **Needs update**: seen in the last 15 minutes, but app or a held Content Pack is behind the latest published version in the jurisdiction.
+- **Offline**: not seen in the last 15 minutes.
+

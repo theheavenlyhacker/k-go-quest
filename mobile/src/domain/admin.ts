@@ -20,7 +20,7 @@ export interface ImpactReport {
   disclaimer: string;
 }
 
-/** One Shared Tablet. Fixture-only: the server has no device fleet yet. */
+/** One Shared Tablet. */
 export interface DeviceRecord {
   id: string;
   name: string;
@@ -30,6 +30,7 @@ export interface DeviceRecord {
   online: boolean;
   updateAvailable: boolean;
   storageUsedPercent: number;
+  status?: DeviceStatus;
 }
 
 /** One barangay's reach in one quarter (`2026-Q3`). Fixture-only: the server has no per-barangay or per-quarter report yet. */
@@ -131,22 +132,35 @@ export function impactReport(reach: ReachRecord[], quarter: string): { tiles: Ti
   };
 }
 
-export type DeviceStatus = 'Online' | 'Needs Update' | 'Offline';
+export type DeviceStatus = 'Online' | 'Needs Update' | 'Needs update' | 'Offline';
 
 /** A tablet that cannot be reached is Offline whatever else is true of it. */
-export const deviceStatus = (d: DeviceRecord): DeviceStatus => (!d.online ? 'Offline' : d.updateAvailable ? 'Needs Update' : 'Online');
+export const deviceStatus = (d: DeviceRecord): DeviceStatus => {
+  if (d.status) return d.status;
+  return !d.online ? 'Offline' : d.updateAvailable ? 'Needs Update' : 'Online';
+};
 
 export function deviceTiles(devices: DeviceRecord[]): Tile[] {
   return [
     { key: 'total', label: 'Total Shared Tablets', value: count(devices.length), tone: 'brand' },
     { key: 'online', label: 'Online now', value: count(devices.filter((d) => d.online).length), tone: 'brand' },
-    { key: 'attention', label: 'Need attention', value: count(devices.filter((d) => deviceStatus(d) === 'Needs Update').length), tone: 'warning' },
+    {
+      key: 'attention',
+      label: 'Need attention',
+      value: count(
+        devices.filter((d) => {
+          const s = deviceStatus(d);
+          return s === 'Needs update' || s === 'Needs Update';
+        }).length,
+      ),
+      tone: 'warning',
+    },
   ];
 }
 
 export interface DeviceRow { id: string; name: string; context: string; detail: string; status: DeviceStatus }
 
-const RANK: Record<DeviceStatus, number> = { 'Needs Update': 0, Offline: 1, Online: 2 };
+const RANK: Record<DeviceStatus, number> = { 'Needs update': 0, 'Needs Update': 0, Offline: 1, Online: 2 };
 
 /** Problem tablets first, then by name. */
 export function deviceRows(devices: DeviceRecord[]): DeviceRow[] {

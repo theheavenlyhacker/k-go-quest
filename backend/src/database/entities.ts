@@ -200,6 +200,28 @@ export class AuditEvent extends RecordEntity {
   @Column({ type: 'jsonb', default: {} }) metadata: Record<string, unknown>;
 }
 
+export interface PackVersionInfo {
+  packId?: string;
+  id?: string;
+  version: string;
+  subject?: string;
+  grade?: number;
+  title?: string;
+}
+
+@Entity('devices')
+export class Device extends RecordEntity {
+  @Index({ unique: true }) @Column({ length: 80 }) deviceId: string;
+  @Index() @Column('uuid') jurisdictionId: string;
+  @Index() @Column({ type: 'uuid', nullable: true }) schoolId: string | null;
+  @Column({ length: 40 }) appVersion: string;
+  @Column({ type: 'jsonb', default: [] }) packVersions: PackVersionInfo[];
+  @Column({ type: 'integer', default: 0 }) storageUsedPercent: number;
+  @Column({ type: 'integer', default: 0 }) pendingAttempts: number;
+  @Column({ type: 'timestamptz' }) lastSeenAt: Date;
+  @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
+}
+
 export const ENTITIES = [
   Jurisdiction,
   School,
@@ -219,4 +241,6 @@ export const ENTITIES = [
   SkillModelParams,
   Quiz,
   AuditEvent,
+  Device,
 ];
+
