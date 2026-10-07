@@ -139,7 +139,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const caretakerAccount = caretakerState(id, Boolean(local));
       setSaved({ hasCaretaker: caretakerAccount.present, pinSet: Boolean(pin), done: Boolean(done) }); setAccountLinked(caretakerAccount.linked); setDemoId(demo);
       if (labels) setProfiles(JSON.parse(labels)); if (prefs) setPreferences({ ...defaults, ...JSON.parse(prefs) });
-    } catch { toast('Profiles on this tablet could not be restored.', 'error'); }
+    } catch { setIntroSeen(true); toast('Profiles on this tablet could not be restored.', 'error'); }
     finally { setReady(true); }
   })(); }, [toast]);
 
@@ -163,8 +163,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try { await loadLocal(next.id); }
     catch (error) { lock(); throw error; }
   };
+  // The Learner moves on first; a failed save only means the intro may show once more.
+  const finishIntro = async () => {
+    setIntroSeen(true);
+    try { await vault.set(INTRO_SEEN, '1'); } catch { toast('Could not save that you have seen the intro.', 'error'); }
+  };
   // Two steps so Setup stays on the sign-in step (Clerk mounted) until the Clerk sign-out has finished.
-  const finishIntro = async () => { await vault.set(INTRO_SEEN, '1'); setIntroSeen(true); };
   const saveCaretakerId = (id: string) => vault.set(CARETAKER_ID, id);
   const caretakerSignedOut = () => { setSaved((s) => ({ ...s, hasCaretaker: true })); setAccountLinked(true); };
   // Setup with the radio off. Everything a Learner does works the same; what is

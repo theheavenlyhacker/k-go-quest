@@ -11,8 +11,8 @@ describe('intro', () => {
     expect([0, 1, 2].map(primaryLabel)).toEqual(['Next', 'Next', 'Get Started']);
     expect(isLastSlide(2)).toBe(true);
   });
-  it('keeps to the glossary', () => {
+  it('avoids the Figma placeholder terms the glossary rejects', () => {
     const copy = introSlides.map((s) => `${s.title} ${s.body}`).join(' ');
-    expect(copy).not.toMatch(/khan|voucher|redeem|\bAI\b|tutor|supplies/i);
+    expect(copy).not.toMatch(/khan|voucher|redeem|\bAI\b|tutor|badge/i);
   });
 });
