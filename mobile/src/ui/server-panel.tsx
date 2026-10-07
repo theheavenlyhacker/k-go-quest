@@ -5,6 +5,7 @@ import { CloudOff, Link2, Link2Off, RefreshCw, Server, Upload } from 'lucide-rea
 import { useOnline } from '@/state/online-context';
 import type { UploadSummary } from '@/domain/online';
 import { Action, Button, Card, Eyebrow, Field, Info, Pill, Row, Sheet, T } from '@/ui/primitives';
+import { ServerSignIn } from '@/ui/server-sign-in';
 import { tokens, useTheme } from '@/ui/theme';
 
 /**
@@ -15,10 +16,8 @@ import { tokens, useTheme } from '@/ui/theme';
  * hall needs to know which of the four it is without guessing.
  */
 export function ServerPanel() {
-  const { apiUrl, state, server, signIn, signOut, busy, check } = useOnline();
+  const { apiUrl, state, server, signOut, check } = useOnline();
   const theme = useTheme();
-  const [loginId, setLoginId] = useState('');
-  const [password, setPassword] = useState('');
 
   if (!apiUrl)
     return (
@@ -59,24 +58,7 @@ export function ServerPanel() {
       </Card>
     );
 
-  return (
-    <Card style={{ gap: 10 }}>
-      <T variant="titleS">{state === 'EXPIRED' ? 'Sign in again' : 'Connect this tablet'}</T>
-      <T variant="bodyS" color={theme.muted}>
-        {state === 'EXPIRED'
-          ? 'This tablet was signed in before, but the session is too old to use. Signing in again restores uploads.'
-          : 'Signing in lets this tablet upload answers and receive new Content Packs. Learners never sign in.'}
-      </T>
-      <Field label="Teacher or LGU login" value={loginId} onChangeText={setLoginId} autoCapitalize="none" autoCorrect={false} placeholder="teacher-demo" />
-      <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" />
-      <Action
-        title="Sign in"
-        icon={Server}
-        disabled={busy || loginId.trim().length < 3 || password.length < 8}
-        task={async () => { await signIn(loginId, password); setPassword(''); }}
-      />
-    </Card>
-  );
+  return <ServerSignIn expired={state === 'EXPIRED'} />;
 }
 
 /**
