@@ -72,7 +72,7 @@ function SyncPill() {
 /** One Nav Bar tab; `name` is the route it opens. */
 export interface NavTabSpec { name: string; label: string; icon: LucideIcon }
 
-/** Nav Bar · Student (472:152): indicator sits above the glyph. */
+/** The Learner's tabs (Nav Bar · Student, 472:152). */
 export const LEARNER_TABS: NavTabSpec[] = [
   { name: 'learn', label: 'Learn', icon: BookOpen },
   { name: 'league', label: 'League', icon: Trophy },
@@ -81,8 +81,9 @@ export const LEARNER_TABS: NavTabSpec[] = [
   { name: 'rewards', label: 'Rewards', icon: Gift },
 ];
 
-/** Shape of the slice of the tab-bar props this component reads. */
+/** Shape of the slice of the tab-bar props this component reads, plus the tabs to render. */
 export interface NavBarProps {
+  tabs: NavTabSpec[];
   state: { index: number; routes: { key: string; name: string }[] };
   navigation: {
     emit(event: { type: 'tabPress'; target: string; canPreventDefault: true }): { defaultPrevented: boolean };
@@ -90,7 +91,7 @@ export interface NavBarProps {
   };
 }
 
-export function NavBar({ state, navigation, tabs }: NavBarProps & { tabs: NavTabSpec[] }) {
+export function NavBar({ state, navigation, tabs }: NavBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -133,20 +134,22 @@ function NavTab({ label, icon: Icon, active, color, onPress }: { label: string; 
 
 export interface SidebarItem { icon: LucideIcon; label: string; value?: string; active?: boolean; onPress?: () => void }
 export interface SidebarHeader { name: string; detail: string; pill?: React.ReactNode }
-export interface SidebarAction { icon: LucideIcon; label: string; onPress: () => void }
+export interface SidebarAction { icon: LucideIcon; label: string; onPress: () => void; destructive?: boolean }
 
-/** Sidebar Menu (455:301): slides in over a scrim. Header, items and bottom action are inputs. */
-export function Sidebar({ open, onClose, header, items, action }: {
+/** Sidebar Menu (455:301): slides in over a scrim. Header, items, bottom action and footer are inputs. */
+export function Sidebar({ open, onClose, header, items, action, footer }: {
   open: boolean; onClose: () => void; header: SidebarHeader; items: SidebarItem[]; action: SidebarAction;
+  /** Rendered between the items and the bottom action. */
+  footer?: React.ReactNode;
 }) {
-  const { preferences, updatePreferences } = useApp();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const shift = useSharedValue(open ? 0 : -SIDEBAR_WIDTH);
   useEffect(() => { shift.value = withSpring(open ? 0 : -SIDEBAR_WIDTH, { damping: 22, stiffness: 210 }); }, [open, shift]);
   const panel = useAnimatedStyle(() => ({ transform: [{ translateX: shift.value }] }));
   const scrim = useAnimatedStyle(() => ({ opacity: 1 - Math.abs(shift.value) / SIDEBAR_WIDTH }));
-  const appearance = preferences.appearance;
+
+  const actionColor = action.destructive ? tokens.state.critical : theme.text;
 
   if (!open) return null;
   return (
@@ -187,23 +190,15 @@ export function Sidebar({ open, onClose, header, items, action }: {
             ))}
           </View>
 
-          <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 8 }}>
-            <Eyebrow>Appearance</Eyebrow>
-            <Pills
-              items={[{ label: 'Light', value: 'light' as const }, { label: 'Dark', value: 'dark' as const }, { label: 'System', value: 'system' as const }]}
-              value={appearance}
-              onChange={(value) => { void updatePreferences({ appearance: value }); }}
-            />
-            <T variant="bodyS" color={theme.muted}>Dims every screen for shared tablets after dark.</T>
-          </View>
+          {footer}
 
           <View style={{ flex: 1 }} />
           <Pressable
             accessibilityRole="button" onPress={action.onPress}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 18, paddingTop: 16, paddingBottom: insets.bottom + 22, borderTopWidth: 1, borderTopColor: theme.border, opacity: pressed ? 0.6 : 1 })}
           >
-            <action.icon size={17} color={tokens.state.critical} strokeWidth={1.8} />
-            <T variant="titleM" color={tokens.state.critical}>{action.label}</T>
+            <action.icon size={17} color={actionColor} strokeWidth={1.8} />
+            <T variant="titleM" color={actionColor}>{action.label}</T>
           </Pressable>
         </View>
       </Animated.View>
@@ -213,9 +208,10 @@ export function Sidebar({ open, onClose, header, items, action }: {
 
 /** The Learner's Sidebar: Coins pill, Switch Profile and tablet items, Lock. */
 export function LearnerSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { profile, balance, preferences, selectProfile, lock, packs } = useApp();
+  const { profile, balance, preferences, updatePreferences, selectProfile, lock, packs } = useApp();
   // Kilobytes, not megabytes: the Starter Pack plus every Downloaded Pack, as stored.
   const kilobytes = Math.round(JSON.stringify(packs).length / 1024);
+  const theme = useTheme();
   const languageLabel = HINT_LANGUAGES.find((l) => l.code === preferences.language)?.label ?? 'English';
   return (
     <Sidebar
@@ -233,7 +229,18 @@ export function LearnerSidebar({ open, onClose }: { open: boolean; onClose: () =
         { icon: MapPin, label: 'Siklab Hub Locator' },
         { icon: CircleHelp, label: 'Help & FAQ' },
       ]}
-      action={{ icon: Lock, label: 'Lock', onPress: () => { onClose(); lock(); } }}
+      action={{ icon: Lock, label: 'Lock', destructive: true, onPress: () => { onClose(); lock(); } }}
+      footer={
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 8 }}>
+            <Eyebrow>Appearance</Eyebrow>
+            <Pills
+              items={[{ label: 'Light', value: 'light' as const }, { label: 'Dark', value: 'dark' as const }, { label: 'System', value: 'system' as const }]}
+              value={preferences.appearance}
+              onChange={(value) => { void updatePreferences({ appearance: value }); }}
+            />
+            <T variant="bodyS" color={theme.muted}>Dims every screen for shared tablets after dark.</T>
+          </View>
+      }
     />
   );
 }
