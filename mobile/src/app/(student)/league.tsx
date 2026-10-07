@@ -1,11 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { CloudOff, Shield, Sparkles, Trophy, Users } from 'lucide-react-native';
+import { CloudOff, Shield, Sparkles, Trophy, TriangleAlert } from 'lucide-react-native';
 
-import { useApp, type Standing } from '@/state/app-context';
+import { useApp } from '@/state/app-context';
 import { useOnline } from '@/state/online-context';
-import { initials, pct } from '@/domain/format';
+import { ApiError } from '@/domain/client';
+import { growth } from '@/domain/engine';
+import { leagueView, type LeagueScope } from '@/domain/league';
+import type { LeagueReport, LeagueRow } from '@/domain/server';
 import { Bar, Card, Empty, Eyebrow, Pill, Pills, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { elevation, radius, tokens, useTheme } from '@/ui/theme';
@@ -13,19 +16,13 @@ import { elevation, radius, tokens, useTheme } from '@/ui/theme';
 /**
  * Monthly League — 02 · Monthly League (448:58).
  *
- * The design ranks barangays and schools against each other, which needs a
- * server. This build ranks the Profiles on this Shared Tablet, which needs
- * nothing — so the screen is whole with the radio off and gains the wider
- * scopes when one is reachable. Ranking is by improvement, not by totals, so a
- * Learner who started lower can still come first, and the only thing that
- * crosses between Profiles is the two Growth counts: nobody sees anyone else's
- * answers.
+ * A League ranks Classrooms by how much their Learners' Mastery improved, never
+ * by totals, and it exists only once this Shared Tablet has reached the server.
+ * A Learner never sees a named Learner's place: what they see about themselves
+ * is their own Growth, which compares them only with their own last month.
  */
-type Scope = 'tablet' | 'barangay' | 'division';
-
 const SCOPES = [
-  { label: 'Tablet', value: 'tablet' as const },
-  { label: 'Barangay', value: 'barangay' as const },
+  { label: 'Grade', value: 'grade' as const },
   { label: 'Division', value: 'division' as const },
 ];
 
@@ -36,72 +33,85 @@ const PLACES = [
   { label: '3rd', color: tokens.state.critical },
 ] as const;
 
-/** The design paints the podium 2nd · 1st · 3rd, so the winner sits in the middle. */
-const PODIUM = [1, 0, 2] as const;
+const points = (value: number) => `${value > 0 ? '+' : ''}${value.toFixed(1)} pts`;
+
+/** null is loading; 'none' is a tablet that has never connected, or a Profile with no Classroom to ask about. */
+type Report = LeagueReport | 'error' | 'none' | null;
 
 export default function League() {
-  const { profiles, profile, standings } = useApp();
-  const { state } = useOnline();
+  const { profile, packs, attempts } = useApp();
+  const { league, links } = useOnline();
   const theme = useTheme();
-  const [scope, setScope] = useState<Scope>('tablet');
-  const [rows, setRows] = useState<Standing[] | 'error' | null>(null);
+  const [scope, setScope] = useState<LeagueScope>('grade');
+  const [report, setReport] = useState<Report>(null);
+  const month = useMemo(() => growth(packs, attempts, new Date()), [packs, attempts]);
+  const profileId = profile?.id ?? null;
 
   useFocusEffect(
     useCallback(() => {
-      // Re-read on every visit: the Learner may have just finished practising.
+      // Re-read on every visit: the month moves while the Learner practises.
       let live = true;
-      void standings()
-        .then((next) => { if (live) setRows(next); })
-        .catch(() => { if (live) setRows('error'); });
+      if (!profileId) return undefined;
+      setReport(null);
+      league(profileId)
+        .then((next) => { if (live) setReport(next ?? 'none'); })
+        .catch((error: unknown) => { if (live) setReport(error instanceof ApiError && error.status === 0 ? 'none' : 'error'); });
       return () => { live = false; };
-    }, [standings]),
+    }, [league, profileId]),
   );
 
-  const caption = scope === 'tablet' ? 'This tablet · this month' : 'Needs a connection';
+  const view = report && typeof report === 'object'
+    ? leagueView(report, profileId ? links[profileId]?.classroomId ?? null : null, scope)
+    : null;
 
   return (
-    <Screen chrome title="Monthly League" caption={caption}>
-      <Pills items={SCOPES} value={scope} onChange={setScope} />
-
-      {scope !== 'tablet' ? (
-        <>
-          <Card style={{ gap: 10 }}>
-            <Row style={{ gap: 11 }}>
-              <CloudOff size={19} color={theme.muted} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <T variant="titleS">{scope === 'barangay' ? 'Barangay standings' : 'Division standings'}</T>
-                <T variant="bodyS" color={theme.muted}>
-                  {state === 'READY'
-                    ? 'Ranking across tablets is still being built on the server. The tablet standings below work today.'
-                    : 'Other tablets can only be ranked once this one reaches the school server. Your own standings keep working.'}
-                </T>
-              </View>
-            </Row>
-          </Card>
-          <Note />
-        </>
-      ) : rows === null ? (
-        <Card><T variant="bodyM" color={theme.muted}>{'Counting this month’s Growth…'}</T></Card>
-      ) : rows === 'error' ? (
-        <>
-          <Empty icon={Users} title="Could not read the standings" text="Some Profiles on this tablet could not be opened just now. Lock and unlock your Profile, then come back." />
-          <Note />
-        </>
-      ) : profiles.length < 2 ? (
-        <>
-          <Empty icon={Users} title="The league needs a second Profile" text="Standings compare the Profiles on this tablet. Ask your Caretaker to add another one and this fills in." />
-          <Note />
-        </>
+    <Screen chrome title="Monthly League" caption={report && typeof report === 'object' ? `Classrooms · ${report.month}` : 'Classrooms · this month'}>
+      {report === null ? (
+        <Card accessibilityLabel="Loading the League"><T variant="bodyM" color={theme.muted}>{'Counting this month’s improvement…'}</T></Card>
+      ) : report === 'error' ? (
+        <Empty icon={TriangleAlert} title="Could not read the League" text="The school server did not answer properly just now. Your own Growth below is unaffected." />
+      ) : report === 'none' || !view ? (
+        <Empty icon={CloudOff} title="The League needs a connection" text="Classrooms are ranked once this tablet has reached the school server. Your own Growth keeps working without it." />
       ) : (
         <>
-          <Podium rows={rows} youId={profile?.id ?? null} />
-          <Note />
-          <Eyebrow>Top learners · mastery delta</Eyebrow>
-          {rows.map((row, index) => <StandingRow key={row.id} row={row} rank={index + 1} you={profile?.id === row.id} index={index} />)}
-          <Chase rows={rows} youId={profile?.id ?? null} />
+          <Pills items={SCOPES} value={scope} onChange={setScope} />
+          {view.rows.length === 0 ? (
+            <Empty icon={Trophy} title="No Classrooms to rank yet" text="Nobody has practised in this group this month." />
+          ) : (
+            <>
+              <Podium rows={view.podium} mineId={view.mine?.classroomId ?? null} />
+              <Note />
+              <Eyebrow>Classrooms · Mastery improvement</Eyebrow>
+              {view.rows.map((row, index) => <ClassroomRow key={row.classroomId} row={row} mine={row.classroomId === view.mine?.classroomId} index={index} />)}
+              {view.mine && view.behind !== null ? <TeamProgress mine={view.mine} leader={view.rows[0]} behind={view.behind} /> : null}
+            </>
+          )}
         </>
       )}
+
+      <Eyebrow>Your Growth this month</Eyebrow>
+      <Card
+        style={{ gap: 6 }}
+        accessibilityLabel={`Your Growth this month: ${month.thisMonth.up} Skills improved, ${month.thisMonth.mastered} newly Mastered. Last month: ${month.lastMonth.up} and ${month.lastMonth.mastered}.`}
+      >
+        <Row style={{ gap: 18 }}>
+          <Stat value={month.thisMonth.up} label="Skills improved" last={month.lastMonth.up} />
+          <Stat value={month.thisMonth.mastered} label="Newly Mastered" last={month.lastMonth.mastered} />
+        </Row>
+        <T variant="bodyS" color={theme.muted}>Growth compares you only with your own last month.</T>
+      </Card>
     </Screen>
+  );
+}
+
+function Stat({ value, label, last }: { value: number; label: string; last: number }) {
+  const theme = useTheme();
+  return (
+    <View style={{ flex: 1, gap: 1 }}>
+      <T variant="displayXL">{`${value}`}</T>
+      <T variant="titleS">{label}</T>
+      <T variant="bodyS" color={theme.muted}>{`Last month ${last}`}</T>
+    </View>
   );
 }
 
@@ -113,36 +123,35 @@ function Note() {
       <Row style={{ gap: 10 }}>
         <Sparkles size={19} color={tokens.brand.limeDeep} />
         <T variant="bodyS" color={theme.secondary} style={{ flex: 1 }}>
-          Growth-Delta ranking: you climb on how much you improve, not on who was already ahead.
+          Classrooms climb on how much their Mastery improves, not on who was already ahead.
         </T>
       </Row>
     </Card>
   );
 }
 
-function Podium({ rows, youId }: { rows: Standing[]; youId: string | null }) {
+function Podium({ rows, mineId }: { rows: LeagueRow[]; mineId: string | null }) {
   const theme = useTheme();
-  const top = rows.slice(0, 3);
   return (
     <Row style={{ gap: 8, alignItems: 'flex-end' }}>
-      {PODIUM.filter((place) => top[place]).map((place) => {
-        const row = top[place];
-        const style = PLACES[place];
-        const first = place === 0;
+      {rows.map((row) => {
+        const place = PLACES[row.rank - 1] ?? PLACES[2];
+        const first = row.rank === 1;
         return (
           <Card
-            key={row.id}
-            index={place}
+            key={row.classroomId}
+            index={row.rank - 1}
+            accessibilityLabel={`${place.label} place: ${row.name}${row.classroomId === mineId ? ', your Classroom' : ''}, ${points(row.growthPercentagePoints)}`}
             style={{
               flex: 1, alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 12,
               borderWidth: first ? 2 : 1, borderColor: first ? tokens.brand.sun : theme.border,
               ...(first ? elevation.raised : null),
             }}
           >
-            <T variant="labelPill" color={style.color}>{style.label}</T>
-            <Shield size={22} color={style.color} strokeWidth={1.9} />
-            <T variant="labelPill" style={{ textAlign: 'center' }} lines={2}>{youId === row.id ? 'You' : row.alias}</T>
-            <T variant="dataS" color={style.color}>{`${row.up} up`}</T>
+            <T variant="labelPill" color={place.color}>{place.label}</T>
+            <Shield size={22} color={place.color} strokeWidth={1.9} />
+            <T variant="labelPill" style={{ textAlign: 'center' }} lines={2}>{row.classroomId === mineId ? 'Your Classroom' : row.name}</T>
+            <T variant="dataS" color={place.color}>{points(row.growthPercentagePoints)}</T>
           </Card>
         );
       })}
@@ -150,47 +159,45 @@ function Podium({ rows, youId }: { rows: Standing[]; youId: string | null }) {
   );
 }
 
-/** row/1–5 (448:91–448:145): the YOU row is the sun-tinted one. */
-function StandingRow({ row, rank, you, index }: { row: Standing; rank: number; you: boolean; index: number }) {
+/** row/1–5 (448:91–448:145): the Learner's own Classroom is the sun-tinted one. */
+function ClassroomRow({ row, mine, index }: { row: LeagueRow; mine: boolean; index: number }) {
   const theme = useTheme();
   return (
-    <Card index={index} style={you ? { backgroundColor: tokens.tint.sun, borderColor: tokens.brand.sun } : undefined}>
+    <Card
+      index={index}
+      accessibilityLabel={`${row.rank}. ${mine ? 'Your Classroom, ' : ''}${row.name}, grade ${row.grade}, ${row.participatingLearners} of ${row.enrolledLearners} Learners practised, ${points(row.growthPercentagePoints)}`}
+      style={mine ? { backgroundColor: tokens.tint.sun, borderColor: tokens.brand.sun } : undefined}
+    >
       <Row style={{ gap: 10 }}>
-        <T variant="dataS" color={theme.muted}>{`${rank}`}</T>
-        <View style={{ width: 32, height: 32, borderRadius: radius.sm, backgroundColor: you ? tokens.brand.sun : theme.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-          <T variant="labelPill" color={you ? theme.text : theme.navActive}>{initials(row.alias)}</T>
+        <T variant="dataS" color={theme.muted}>{`${row.rank}`}</T>
+        <View style={{ width: 32, height: 32, borderRadius: radius.sm, backgroundColor: mine ? tokens.brand.sun : theme.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+          <T variant="labelPill" color={mine ? theme.text : theme.navActive}>{`G${row.grade}`}</T>
         </View>
         <View style={{ flex: 1, gap: 1 }}>
-          <T variant="titleS" lines={1}>{you ? 'You' : row.alias}</T>
-          <T variant="bodyS" color={theme.muted}>{`${row.mastered} newly Mastered`}</T>
+          <T variant="titleS" lines={1}>{mine ? 'Your Classroom' : row.name}</T>
+          <T variant="bodyS" color={theme.muted}>{`${row.participatingLearners} of ${row.enrolledLearners} Learners practised`}</T>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 3 }}>
-          <T variant="dataM">{pct(row.mastery)}</T>
-          <Pill color={tokens.state.success} tint={tokens.tint.success}>{`▲ ${row.up}`}</Pill>
-        </View>
+        <Pill color={tokens.state.success} tint={tokens.tint.success}>{`▲ ${points(row.growthPercentagePoints)}`}</Pill>
       </Row>
     </Card>
   );
 }
 
-/** guild (448:146): how far the Learner is from first, with the gap drawn. */
-function Chase({ rows, youId }: { rows: Standing[]; youId: string | null }) {
+/** guild (448:146): team progress, how far the Learner's Classroom is from first, with the gap drawn. */
+function TeamProgress({ mine, leader, behind }: { mine: LeagueRow; leader: LeagueRow; behind: number }) {
   const theme = useTheme();
-  const leader = rows[0];
-  const you = rows.find((row) => row.id === youId);
-  if (!leader || !you) return null;
-  const behind = leader.up - you.up;
+  const share = leader.growthPercentagePoints > 0 ? Math.max(0, mine.growthPercentagePoints) / leader.growthPercentagePoints : 1;
   return (
     <Card style={{ gap: 9 }}>
       <Row style={{ gap: 9 }}>
         <Trophy size={19} color={tokens.brand.sunDeep} />
         <T variant="bodyS" color={theme.secondary} style={{ flex: 1 }}>
           {behind <= 0
-            ? 'You are top of this tablet this month. The count resets when the month does.'
-            : `You are ${behind} improvement${behind === 1 ? '' : 's'} from 1st place this month.`}
+            ? 'Your Classroom is first this month. The count resets when the month does.'
+            : `Your Classroom is ${behind.toFixed(1)} points from 1st place this month.`}
         </T>
       </Row>
-      <Bar value={leader.up ? you.up / leader.up : 0} color={tokens.brand.sun} />
+      <Bar value={Math.min(1, share)} color={tokens.brand.sun} />
     </Card>
   );
 }

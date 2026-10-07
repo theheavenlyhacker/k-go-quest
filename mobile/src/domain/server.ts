@@ -117,3 +117,16 @@ export interface PackPayload {
   lessons: ServerLesson[];
   checksum: string;
 }
+
+/** One Classroom's month in `GET reports/league`. Classrooms are ranked; no Learner appears here. */
+export interface LeagueRow {
+  rank: number;
+  classroomId: string;
+  name: string;
+  grade: number;
+  enrolledLearners: number;
+  participatingLearners: number;
+  growthPercentagePoints: number;
+}
+
+export interface LeagueReport { month: string; items: LeagueRow[] }

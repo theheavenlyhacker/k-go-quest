@@ -74,7 +74,7 @@ const TABS = [
   // Nav Bar · Student (472:152)
   { name: 'learn', label: 'Learn', icon: BookOpen },
   { name: 'league', label: 'League', icon: Trophy },
-  { name: 'tutor', label: 'Tutor', icon: Sparkles },
+  { name: 'hints', label: 'Hints', icon: Sparkles },
   { name: 'progress', label: 'Progress', icon: ChartColumn },
   { name: 'rewards', label: 'Rewards', icon: Gift },
 ] as const;
