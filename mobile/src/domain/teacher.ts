@@ -1,4 +1,4 @@
-import { meanMastery } from './format';
+import { meanMastery, pct } from './format';
 import { subjects, subjectTitles } from './subjects';
 import type { Subject } from './types';
 
@@ -64,4 +64,66 @@ export function classOverview(report: ClassroomReport): ClassOverview {
     subjects: bars,
     highlight: top ?? null,
   };
+}
+
+export interface InsightLearner {
+  id: string;
+  alias: string;
+  grade: number;
+  /** Fixture-only: the Classroom report carries no streak yet. */
+  streak: number | null;
+  mastery: number | null;
+  /** Why this Learner needs attention, or null. */
+  attention: string | null;
+}
+
+export interface Insights { needsAttention: InsightLearner[]; all: InsightLearner[] }
+
+const DAY = 86_400_000;
+const titleCase = (word: string) => word.charAt(0).toUpperCase() + word.slice(1).replace(/-/g, ' ');
+
+/** `math5.fractions.equivalent` becomes "Fractions · Equivalent". */
+export const skillLabel = (code: string) => code.split('.').slice(1).map(titleCase).join(' · ') || code;
+
+function attentionReason(learner: ReportLearner, now: number): string | null {
+  if (learner.learningStatus === 'TEACHER_REVIEW_SUGGESTED') {
+    const weakest = [...learner.skills].sort((a, b) => a.mastery - b.mastery)[0];
+    return weakest ? `Plateau in ${subjectTitles[weakest.subject]} (${pct(weakest.mastery)})` : 'Plateau Flag raised';
+  }
+  if (learner.connectivityStatus !== 'NO_RECENT_SYNC') return null;
+  if (!learner.lastSyncAt) return 'No sync yet';
+  const days = Math.max(1, Math.floor((now - Date.parse(learner.lastSyncAt)) / DAY));
+  return `${days} ${days === 1 ? 'day' : 'days'} inactive`;
+}
+
+const summary = (learner: ReportLearner, grade: number, streaks: Record<string, number>, now: number): InsightLearner => ({
+  id: learner.id, alias: learner.alias, grade, streak: streaks[learner.id] ?? null,
+  mastery: meanMastery(learner.skills), attention: attentionReason(learner, now),
+});
+
+/** Student Insights: Needs attention (report order) and All Learners (by alias). Aliases only, never legal names. */
+export function insights(report: ClassroomReport, grade: number, streaks: Record<string, number>, now: number): Insights {
+  const all = report.learners.map((learner) => summary(learner, grade, streaks, now));
+  return {
+    needsAttention: all.filter((learner) => learner.attention),
+    all: [...all].sort((a, b) => a.alias.localeCompare(b.alias)),
+  };
+}
+
+export const searchLearners = (learners: InsightLearner[], query: string) => {
+  const needle = query.trim().toLowerCase();
+  return needle ? learners.filter((learner) => learner.alias.toLowerCase().includes(needle)) : learners;
+};
+
+export interface LearnerDetail extends InsightLearner {
+  skills: { code: string; label: string; subjectTitle: string; mastery: number; attempts: number }[];
+}
+
+export function learnerDetail(report: ClassroomReport, id: string, grade: number, streaks: Record<string, number>, now: number): LearnerDetail | null {
+  const learner = report.learners.find((item) => item.id === id);
+  if (!learner) return null;
+  const skills = [...learner.skills].sort((a, b) => a.mastery - b.mastery).map((skill) => ({
+    code: skill.skillCode, label: skillLabel(skill.skillCode), subjectTitle: subjectTitles[skill.subject], mastery: skill.mastery, attempts: skill.attempts,
+  }));
+  return { ...summary(learner, grade, streaks, now), skills };
 }

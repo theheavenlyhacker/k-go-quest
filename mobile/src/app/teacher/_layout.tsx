@@ -10,6 +10,7 @@ export default function TeacherTabs() {
     <TeacherProvider>
       <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <NavBar tabs={TEACHER_TABS} {...props} />}>
         {TEACHER_TABS.map((tab) => <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.label }} />)}
+        <Tabs.Screen name="learner/[id]" options={{ href: null }} />
       </Tabs>
     </TeacherProvider>
   );
