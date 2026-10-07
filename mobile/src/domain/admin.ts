@@ -8,6 +8,13 @@ import type { ServerUser, Session } from './server';
  * No React, no I/O, so the dashboard's arithmetic is testable on its own.
  */
 
+export interface BarangayReach {
+  barangay: string;
+  learners: number;
+  lessons: number;
+  offlineLessons: number;
+}
+
 /** `GET reports/impact`, as `backend/src/modules/reports` returns it. */
 export interface ImpactReport {
   jurisdictionId: string;
@@ -18,6 +25,11 @@ export interface ImpactReport {
   meanEstimatedMastery: number | null;
   attempts: number;
   disclaimer: string;
+  quarter?: string;
+  learnersReached?: number;
+  lessonsCompleted?: number;
+  offlineUsageShare?: number;
+  reachByBarangay?: BarangayReach[];
 }
 
 /** One Shared Tablet. Fixture-only: the server has no device fleet yet. */
@@ -32,10 +44,10 @@ export interface DeviceRecord {
   storageUsedPercent: number;
 }
 
-/** One barangay's reach in one quarter (`2026-Q3`). Fixture-only: the server has no per-barangay or per-quarter report yet. */
+/** One barangay's reach in one quarter (`2026-Q3`). */
 export interface ReachRecord { quarter: string; barangay: string; learners: number; lessons: number; offlineLessons: number }
 
-/** Learners with practice on one day. Fixture-only: the server has no weekly engagement yet. */
+/** Learners with practice on one day. */
 export interface EngagementDay { date: string; activeLearners: number }
 
 export interface AdminData {
@@ -47,6 +59,138 @@ export interface AdminData {
   /** The last 14 days, oldest first, ending today. */
   engagement: EngagementDay[];
   reach: ReachRecord[];
+  loadedAt?: string;
+  stale?: boolean;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const text = (value: unknown, what: string): string => {
+  if (typeof value !== 'string') throw new Error(`Admin report: ${what} is not text.`);
+  return value;
+};
+const num = (value: unknown, what: string): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    throw new Error(`Admin report: ${what} is not a number.`);
+  return value;
+};
+const optNum = (value: unknown, what: string): number | null => {
+  if (value === null || value === undefined) return null;
+  return num(value, what);
+};
+const list = (value: unknown, what: string): unknown[] => {
+  if (!Array.isArray(value)) throw new Error(`Admin report: ${what} is not a list.`);
+  return value;
+};
+const record = (value: unknown, what: string): Record<string, unknown> => {
+  if (!isRecord(value)) throw new Error(`Admin report: ${what} is not an object.`);
+  return value;
+};
+
+export function parseImpactReport(raw: unknown): ImpactReport {
+  const r = record(raw, 'impact');
+  const reachByBarangay =
+    r.reachByBarangay !== undefined
+      ? list(r.reachByBarangay, 'reachByBarangay').map((entry, i) => {
+          const b = record(entry, `reachByBarangay[${i}]`);
+          return {
+            barangay: text(b.barangay, `reachByBarangay[${i}].barangay`),
+            learners: num(b.learners, `reachByBarangay[${i}].learners`),
+            lessons: num(b.lessons, `reachByBarangay[${i}].lessons`),
+            offlineLessons: num(b.offlineLessons, `reachByBarangay[${i}].offlineLessons`),
+          };
+        })
+      : undefined;
+
+  return {
+    jurisdictionId: text(r.jurisdictionId, 'jurisdictionId'),
+    generatedAt: text(r.generatedAt, 'generatedAt'),
+    schools: num(r.schools, 'schools'),
+    activeStudents: num(r.activeStudents, 'activeStudents'),
+    studentsWithPractice: num(r.studentsWithPractice, 'studentsWithPractice'),
+    meanEstimatedMastery: optNum(r.meanEstimatedMastery, 'meanEstimatedMastery'),
+    attempts: num(r.attempts, 'attempts'),
+    disclaimer: text(r.disclaimer, 'disclaimer'),
+    quarter: r.quarter !== undefined ? text(r.quarter, 'quarter') : undefined,
+    learnersReached: r.learnersReached !== undefined ? num(r.learnersReached, 'learnersReached') : undefined,
+    lessonsCompleted: r.lessonsCompleted !== undefined ? num(r.lessonsCompleted, 'lessonsCompleted') : undefined,
+    offlineUsageShare: r.offlineUsageShare !== undefined ? num(r.offlineUsageShare, 'offlineUsageShare') : undefined,
+    reachByBarangay,
+  };
+}
+
+export function parseEngagement(raw: unknown): EngagementDay[] {
+  const items = Array.isArray(raw)
+    ? raw
+    : (raw as { days?: unknown; items?: unknown } | null)?.days ??
+      (raw as { items?: unknown } | null)?.items;
+  return list(items, 'engagement').map((entry, i) => {
+    const d = record(entry, `engagement[${i}]`);
+    return {
+      date: text(d.date, `engagement[${i}].date`),
+      activeLearners: num(d.activeLearners, `engagement[${i}].activeLearners`),
+    };
+  });
+}
+
+export function parseUsers(raw: unknown): ServerUser[] {
+  const items = Array.isArray(raw) ? raw : (raw as { items?: unknown } | null)?.items;
+  return list(items, 'users').map((entry, i) => {
+    const u = record(entry, `users[${i}]`);
+    return {
+      id: text(u.id, `users[${i}].id`),
+      loginId: text(u.loginId, `users[${i}].loginId`),
+      alias: text(u.alias, `users[${i}].alias`),
+      role: text(u.role, `users[${i}].role`) as ServerUser['role'],
+      jurisdictionId: typeof u.jurisdictionId === 'string' ? u.jurisdictionId : '',
+      schoolId: u.schoolId !== null && u.schoolId !== undefined ? text(u.schoolId, `users[${i}].schoolId`) : null,
+      coins: typeof u.coins === 'number' ? u.coins : 0,
+      active: typeof u.active === 'boolean' ? u.active : true,
+    };
+  });
+}
+
+export function parseSchools(raw: unknown): { id: string; name: string; barangay?: string }[] {
+  const items = Array.isArray(raw) ? raw : (raw as { items?: unknown } | null)?.items;
+  return list(items, 'schools').map((entry, i) => {
+    const s = record(entry, `schools[${i}]`);
+    return {
+      id: text(s.id, `schools[${i}].id`),
+      name: text(s.name, `schools[${i}].name`),
+      barangay: s.barangay !== undefined ? text(s.barangay, `schools[${i}].barangay`) : undefined,
+    };
+  });
+}
+
+export function parsePacks(raw: unknown): { id: string; title: string; subject: string; grade: number; version: string }[] {
+  const items = Array.isArray(raw) ? raw : (raw as { items?: unknown } | null)?.items;
+  return list(items, 'packs').map((entry, i) => {
+    const p = record(entry, `packs[${i}]`);
+    return {
+      id: text(p.id, `packs[${i}].id`),
+      title: text(p.title, `packs[${i}].title`),
+      subject: text(p.subject, `packs[${i}].subject`),
+      grade: num(p.grade, `packs[${i}].grade`),
+      version: text(p.version, `packs[${i}].version`),
+    };
+  });
+}
+
+/** Generates the last `count` quarters in YYYY-Qn format, newest first, starting with the quarter of `today`. */
+export function recentQuarters(today: string, count: number = 4): string[] {
+  const year = Number(today.slice(0, 4));
+  const currentQ = Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1;
+  const result: string[] = [];
+  for (let i = 0; i < count; i++) {
+    let q = currentQ - i;
+    let y = year;
+    while (q <= 0) {
+      q += 4;
+      y -= 1;
+    }
+    result.push(`${y}-Q${q}`);
+  }
+  return result;
 }
 
 /** The Admin shell opens for a live LGU Admin session on a reachable server, and for nothing else. */

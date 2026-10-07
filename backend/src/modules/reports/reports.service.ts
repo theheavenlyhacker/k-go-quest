@@ -14,7 +14,13 @@ import {
 import { ScopeService } from '../../common/scope.service';
 import type { Principal } from '../../common/security';
 import type { PaginationDto } from '../../common/pagination.dto';
-import { manilaMonth, manilaStreak } from '../learning/mastery';
+import {
+  manilaDay,
+  manilaMonth,
+  manilaQuarter,
+  manilaStreak,
+  quarterDateRange,
+} from '../learning/mastery';
 
 @Injectable()
 export class ReportsService {
@@ -89,7 +95,10 @@ export class ReportsService {
         'Supplementary rule-based signals; teacher decides next action',
     };
   }
-  async impact(actor: Principal) {
+  async impact(actor: Principal, quarter?: string) {
+    const targetQuarter = quarter ?? manilaQuarter(new Date());
+    const { start, end } = quarterDateRange(targetQuarter);
+
     const schools = await this.db
       .getRepository(School)
       .findBy({ jurisdictionId: actor.jurisdictionId });
@@ -111,6 +120,90 @@ export class ReportsService {
         const values = skills.filter((s) => s.studentId === id);
         return values.reduce((sum, s) => sum + s.mastery, 0) / values.length;
       });
+
+    const [attemptStats, completedRows, barangayLearners] = await Promise.all([
+      this.db.query(
+        `SELECT
+           COUNT(DISTINCT a."studentId") AS learners_reached,
+           COUNT(*) AS total_attempts,
+           COUNT(*) FILTER (WHERE a."receivedAt" - a."occurredAt" > interval '1 hour') AS offline_attempts
+         FROM attempts a
+         JOIN users u ON u.id = a."studentId"
+         WHERE u."jurisdictionId" = $1
+           AND u.role = $2
+           AND a."occurredAt" >= $3
+           AND a."occurredAt" < $4`,
+        [actor.jurisdictionId, Role.STUDENT, start, end],
+      ),
+      this.db.query(
+        `SELECT
+           a."studentId",
+           s.barangay,
+           l.id AS "lessonId",
+           BOOL_OR(a."receivedAt" - a."occurredAt" > interval '1 hour') AS is_offline
+         FROM attempts a
+         JOIN users u ON u.id = a."studentId"
+         JOIN schools s ON s.id = u."schoolId"
+         JOIN exercises e ON e.id = a."exerciseId"
+         JOIN lessons l ON l.id = e."lessonId"
+         JOIN content_packs p ON p.id = l."packId"
+         JOIN (
+           SELECT "lessonId", COUNT(*) AS total_exercises
+           FROM exercises
+           GROUP BY "lessonId"
+         ) ex_counts ON ex_counts."lessonId" = l.id
+         WHERE u."jurisdictionId" = $1
+           AND p."jurisdictionId" = $1
+           AND u.role = $2
+           AND a."occurredAt" >= $3
+           AND a."occurredAt" < $4
+         GROUP BY a."studentId", s.barangay, l.id, ex_counts.total_exercises
+         HAVING COUNT(DISTINCT a."exerciseId") = ex_counts.total_exercises`,
+        [actor.jurisdictionId, Role.STUDENT, start, end],
+      ),
+      this.db.query(
+        `SELECT
+           s.barangay,
+           COUNT(DISTINCT a."studentId") AS learners
+         FROM attempts a
+         JOIN users u ON u.id = a."studentId"
+         JOIN schools s ON s.id = u."schoolId"
+         WHERE u."jurisdictionId" = $1
+           AND u.role = $2
+           AND a."occurredAt" >= $3
+           AND a."occurredAt" < $4
+         GROUP BY s.barangay`,
+        [actor.jurisdictionId, Role.STUDENT, start, end],
+      ),
+    ]);
+
+    const totalAttempts = Number(attemptStats[0]?.total_attempts ?? 0);
+    const offlineAttempts = Number(attemptStats[0]?.offline_attempts ?? 0);
+    const offlineUsageShare = totalAttempts
+      ? Number((offlineAttempts / totalAttempts).toFixed(4))
+      : 0;
+
+    const reachByBarangay = barangayLearners
+      .map((row: { barangay: string; learners: string | number }) => {
+        const bName = row.barangay || 'Unknown';
+        const bLessons = completedRows.filter(
+          (r: { barangay: string; is_offline: boolean }) =>
+            (r.barangay || 'Unknown') === bName,
+        );
+        return {
+          barangay: bName,
+          learners: Number(row.learners),
+          lessons: bLessons.length,
+          offlineLessons: bLessons.filter(
+            (r: { is_offline: boolean }) => r.is_offline,
+          ).length,
+        };
+      })
+      .sort(
+        (a: { learners: number; barangay: string }, b: { learners: number; barangay: string }) =>
+          b.learners - a.learners || a.barangay.localeCompare(b.barangay),
+      );
+
     return {
       jurisdictionId: actor.jurisdictionId,
       generatedAt: new Date().toISOString(),
@@ -123,7 +216,49 @@ export class ReportsService {
       attempts: skills.reduce((s, p) => s + p.attempts, 0),
       disclaimer:
         'Practice estimates, not measured learning impact. No cost or hours-saved claims are inferred.',
+      quarter: targetQuarter,
+      learnersReached: Number(attemptStats[0]?.learners_reached ?? 0),
+      lessonsCompleted: completedRows.length,
+      offlineUsageShare,
+      reachByBarangay,
     };
+  }
+  async engagement(actor: Principal, days: number = 7) {
+    const todayStr = manilaDay(new Date());
+    const midnightToday = new Date(`${todayStr}T00:00:00+08:00`).getTime();
+    const dateStrings: string[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const ms = midnightToday - i * 86_400_000;
+      dateStrings.push(manilaDay(new Date(ms + 43_200_000)));
+    }
+    const startDate = new Date(`${dateStrings[0]}T00:00:00+08:00`);
+    const endDate = new Date(midnightToday + 86_400_000);
+
+    const rows = await this.db.query(
+      `SELECT
+         TO_CHAR(a."occurredAt" AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD') AS day,
+         COUNT(DISTINCT a."studentId") AS learners
+       FROM attempts a
+       JOIN users u ON u.id = a."studentId"
+       WHERE u."jurisdictionId" = $1
+         AND u.role = $2
+         AND a."occurredAt" >= $3
+         AND a."occurredAt" < $4
+       GROUP BY day`,
+      [actor.jurisdictionId, Role.STUDENT, startDate, endDate],
+    );
+
+    const countByDay = new Map(
+      rows.map((r: { day: string; learners: string | number }) => [
+        r.day,
+        Number(r.learners),
+      ]),
+    );
+
+    return dateStrings.map((date) => ({
+      date,
+      activeLearners: countByDay.get(date) ?? 0,
+    }));
   }
   async league(actor: Principal, month: string = manilaMonth(new Date())) {
     const schools = await this.db
