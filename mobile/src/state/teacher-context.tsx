@@ -7,6 +7,7 @@ import { parseClassroomReport, type ClassroomReport } from '../domain/teacher';
 import { classroomFixture, classroomReportFixture, classroomsFixture, teacherExtrasFixture } from '../domain/teacher-fixture';
 import { loadCached, parseClassrooms, type Cache } from '../domain/teacher-load';
 import type { QuizRecord, TeacherRewardsRecord } from '../domain/teacher-rewards';
+import { parseQuizSummaries, quizRecord } from '../domain/quiz';
 import { quizzesFixture, teacherRewardsFixture } from '../domain/teacher-rewards-fixture';
 import { useOnline } from './online-context';
 
@@ -20,7 +21,7 @@ export interface TeacherData {
   report: ClassroomReport;
   /** Demo: Impact Points have no backend concept, so they stay fixture-backed and are tagged "Demo" on screen. */
   impactPoints: number;
-  /** Quizzes are not stored on the server yet, so live mode lists none. Credentials and badges are Demo too. */
+  /** Live Quizzes for the Classroom; credentials are still a fixture (#31). */
   quizzes: QuizRecord[];
   rewards: TeacherRewardsRecord;
   /** When the server last answered with this report. */
@@ -86,9 +87,10 @@ export function TeacherProvider({ children }: { children: React.ReactNode }) {
       const classroom = rooms.value.find((c) => c.id === selected) ?? rooms.value[0];
       if (!classroom) throw new Error('No Classroom is assigned to this Teacher account yet. Ask your LGU Admin.');
       const report = await loadCached(() => caretakerGet(`reports/classrooms/${classroom.id}`), parseClassroomReport, cache(`report:${classroom.id}`));
+      const quizzes = await loadCached(() => caretakerGet(`quizzes?classroomId=${classroom.id}`), parseQuizSummaries, cache(`quizzes:${classroom.id}`));
       return {
-        classroom, classrooms: rooms.value, report: report.value, ...teacherExtrasFixture, quizzes: [], rewards: teacherRewardsFixture,
-        loadedAt: report.fetchedAt, stale: report.stale || rooms.stale,
+        classroom, classrooms: rooms.value, report: report.value, ...teacherExtrasFixture, quizzes: quizzes.value.map(quizRecord), rewards: teacherRewardsFixture,
+        loadedAt: report.fetchedAt, stale: report.stale || rooms.stale || quizzes.stale,
       };
     })()
       .then((data) => { if (live) setLoad({ status: 'ready', data }); })

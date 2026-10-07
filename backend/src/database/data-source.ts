@@ -6,6 +6,7 @@ import { ENTITIES } from './entities';
 import { InitialSchema1790800000000 } from './migrations/1790800000000-initial-schema';
 import { ModelParams1790900000000 } from './migrations/1790900000000-model-params';
 import { AttemptSource1791000000000 } from './migrations/1791000000000-attempt-source';
+import { Quizzes1791100000000 } from './migrations/1791100000000-quizzes';
 import { databaseSchema } from './schema';
 
 /**
@@ -63,6 +64,7 @@ export function databaseOptions(
       InitialSchema1790800000000,
       ModelParams1790900000000,
       AttemptSource1791000000000,
+      Quizzes1791100000000,
     ],
     synchronize: false,
     migrationsRun: false,

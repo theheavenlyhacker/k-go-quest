@@ -113,7 +113,7 @@ describe('K-Go API on real PostgreSQL', () => {
     await app.init();
     db = app.get(DataSource);
     await db.query(
-      'TRUNCATE audit_events, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
+      'TRUNCATE audit_events, quizzes, redemptions, rewards, growth_snapshots, skill_progress, attempts, exercises, lessons, content_packs, enrollments, classrooms, auth_sessions, users, schools, jurisdictions CASCADE',
     );
     const lgu = await db.manager.save(
       Jurisdiction,
@@ -563,19 +563,72 @@ describe('K-Go API on real PostgreSQL', () => {
         hints: { en: 'Hint' },
       })
       .expect(409);
-    const teacher = await login('teacher-test');
-    const quiz = await request(app.getHttpServer())
-      .post(`/api/v1/quizzes/classrooms/${data.classroom.id}/build`)
-      .set(auth(teacher.accessToken))
-      .send({ skillCodes: ['math5.fractions'], itemCount: 3 })
-      .expect(201);
-    expect(quiz.body.answerKey).toHaveLength(3);
     const student = await login('student-test');
     await request(app.getHttpServer())
-      .post(`/api/v1/quizzes/classrooms/${data.classroom.id}/build`)
+      .post('/api/v1/quizzes')
       .set(auth(student.accessToken))
-      .send({ skillCodes: ['math5.fractions'], itemCount: 3 })
+      .send({ classroomId: data.classroom.id, subject: 'MATH', itemCount: 3 })
       .expect(403);
+  });
+  it('lets a Teacher build, edit and publish a Quiz that others cannot touch', async () => {
+    const teacher = await login('teacher-test');
+    const other = await login('other-teacher');
+    const student = await login('student-test');
+    const http = () => request(app.getHttpServer());
+    const draft = await http()
+      .post('/api/v1/quizzes')
+      .set(auth(teacher.accessToken))
+      .send({ classroomId: data.classroom.id, subject: 'MATH', itemCount: 3 })
+      .expect(201);
+    expect(draft.body.status).toBe('DRAFT');
+    expect(draft.body.skillCodes).toEqual(['math5.fractions']);
+    expect(draft.body.answerKey).toHaveLength(3);
+    const id = draft.body.id as string;
+    const listed = await http()
+      .get(`/api/v1/quizzes?classroomId=${data.classroom.id}`)
+      .set(auth(teacher.accessToken))
+      .expect(200);
+    expect(listed.body).toHaveLength(1);
+    expect(JSON.stringify(listed.body)).not.toContain('correctOption');
+    const skills = await http()
+      .get(`/api/v1/quizzes/skills?classroomId=${data.classroom.id}&subject=MATH`)
+      .set(auth(teacher.accessToken))
+      .expect(200);
+    expect(skills.body[0]).toMatchObject({ skillCode: 'math5.fractions', suggested: true });
+    // Another Teacher's Classroom is closed to read and edit; Learners never see keys.
+    await http().get(`/api/v1/quizzes/${id}`).set(auth(other.accessToken)).expect(403);
+    await http()
+      .patch(`/api/v1/quizzes/${id}`)
+      .set(auth(other.accessToken))
+      .send({ title: 'Mine now' })
+      .expect(403);
+    await http().get(`/api/v1/quizzes/${id}`).set(auth(student.accessToken)).expect(403);
+    await http()
+      .get(`/api/v1/quizzes?classroomId=${data.classroom.id}`)
+      .set(auth(student.accessToken))
+      .expect(403);
+    // Remove an item, rename, then publish.
+    const remaining = draft.body.questions.slice(1).map((q: { id: string }) => q.id);
+    const edited = await http()
+      .patch(`/api/v1/quizzes/${id}`)
+      .set(auth(teacher.accessToken))
+      .send({ title: 'Fractions check', exerciseIds: remaining })
+      .expect(200);
+    expect(edited.body.questionCount).toBe(2);
+    expect(edited.body.title).toBe('Fractions check');
+    const swapped = await http()
+      .patch(`/api/v1/quizzes/${id}`)
+      .set(auth(teacher.accessToken))
+      .send({ replaceExerciseId: remaining[0] })
+      .expect(200);
+    expect(swapped.body.questions.map((q: { id: string }) => q.id)).not.toContain(remaining[0]);
+    await http().post(`/api/v1/quizzes/${id}/publish`).set(auth(teacher.accessToken)).expect(201);
+    await http()
+      .patch(`/api/v1/quizzes/${id}`)
+      .set(auth(teacher.accessToken))
+      .send({ title: 'Too late' })
+      .expect(409);
+    await http().post(`/api/v1/quizzes/${id}/publish`).set(auth(teacher.accessToken)).expect(409);
   });
   it('deducts coins once, scopes vouchers, prevents double claims and voucher login', async () => {
     const student = await login('student-test');

@@ -118,6 +118,17 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'claimedAt',
     'claimedBy',
   ],
+  quizzes: [
+    'id',
+    'createdAt',
+    'classroomId',
+    'title',
+    'subject',
+    'skillCodes',
+    'exerciseIds',
+    'status',
+    'updatedAt',
+  ],
   audit_events: [
     'id',
     'createdAt',

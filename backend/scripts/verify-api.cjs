@@ -188,12 +188,17 @@ async function verifyApi(base, credentials, exerciseFlow = false) {
       );
       const quiz = await call(
         'POST',
-        `quizzes/classrooms/${classroom.id}/build`,
-        { skillCodes: [download.lessons[0].skillCode], itemCount: 3 },
+        'quizzes',
+        {
+          classroomId: classroom.id,
+          subject: download.pack.subject,
+          skillCodes: [download.lessons[0].skillCode],
+          itemCount: 3,
+        },
         teacher.accessToken,
         201,
       );
-      if (quiz.actualItems !== 3 || quiz.answerKey.length !== 3)
+      if (quiz.questionCount !== 3 || quiz.answerKey.length !== 3)
         throw new Error('Compiled teacher quiz failed');
     }
     return {
