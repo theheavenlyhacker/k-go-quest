@@ -18,7 +18,7 @@ import {
   BATCH_LIMIT, CARETAKER_OWNER, LINKS_KEY, onlineState, parseLinks, sessionKey, uploadSummary,
   type OnlineState, type UploadSummary,
 } from '../domain/online';
-import type { Link, Page, PackPayload, ServerClassroom, ServerPackSummary, ServerUser, Session, SyncResponse } from '../domain/server';
+import type { LeagueReport, Link, Page, PackPayload, ServerClassroom, ServerPackSummary, ServerUser, Session, SyncResponse } from '../domain/server';
 import { SyncEngine, type SyncSummary } from '../domain/sync';
 
 /**
@@ -63,6 +63,8 @@ interface OnlineValue {
   serverPacks(): Promise<PackOffer[]>;
   /** Downloads, checks and saves one Content Pack, superseding the version it continues. */
   downloadPack(offer: PackOffer): Promise<void>;
+  /** The month's League for the Classroom this Profile is linked to; null when the Profile is not linked, so there is nothing to ask. */
+  league(profileId: string): Promise<LeagueReport | null>;
   /** Re-asks whether the server is reachable. Safe to call often; it sends one unauthenticated request. */
   check(): Promise<void>;
 }
@@ -325,6 +327,11 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     return uploadSummary(attempts, uploads);
   }, []);
 
+  const league = useCallback(async (profileId: string): Promise<LeagueReport | null> => {
+    if (!links[profileId] || !sessions.current.get(profileId)) return null;
+    return watched(() => client(profileId).call<LeagueReport>('GET', 'reports/league'));
+  }, [client, links, watched]);
+
   const value: OnlineValue = {
     apiUrl,
     state: onlineState(reachable, server, now),
@@ -339,6 +346,7 @@ export function OnlineProvider({ children }: { children: React.ReactNode }) {
     summary,
     serverPacks,
     downloadPack,
+    league,
     check,
   };
   return <OnlineContext.Provider value={value}>{children}</OnlineContext.Provider>;

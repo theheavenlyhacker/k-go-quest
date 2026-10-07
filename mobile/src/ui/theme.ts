@@ -16,6 +16,9 @@ export const tokens = {
 
 export const radius = tokens.radius;
 
+/** The smallest a tappable control may be, in points. */
+export const MIN_TOUCH = 44;
+
 /** elevation/card and elevation/appbar from the Figma effect styles. */
 export const elevation = {
   card: { shadowColor: '#0c4a3e', shadowOpacity: 0.07, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
