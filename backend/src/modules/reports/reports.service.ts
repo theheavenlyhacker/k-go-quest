@@ -14,7 +14,7 @@ import {
 import { ScopeService } from '../../common/scope.service';
 import type { Principal } from '../../common/security';
 import type { PaginationDto } from '../../common/pagination.dto';
-import { manilaMonth } from '../learning/mastery';
+import { manilaMonth, manilaStreak } from '../learning/mastery';
 
 @Injectable()
 export class ReportsService {
@@ -36,12 +36,19 @@ export class ReportsService {
       const skills = await this.db
         .getRepository(SkillProgress)
         .findBy({ studentId: student.id });
-      const lastAttempt = await this.db
-        .getRepository(Attempt)
-        .findOne({
-          where: { studentId: student.id },
-          order: { receivedAt: 'DESC' },
-        });
+      const lastAttempt = await this.db.getRepository(Attempt).findOne({
+        where: { studentId: student.id },
+        order: { receivedAt: 'DESC' },
+      });
+      // Counted Attempts: the first Attempt at each Exercise.
+      const attempts = await this.db.getRepository(Attempt).find({
+        select: { exerciseId: true, occurredAt: true },
+        where: { studentId: student.id },
+        order: { occurredAt: 'ASC', id: 'ASC' },
+      });
+      const counted = new Map<string, Date>();
+      for (const a of attempts)
+        if (!counted.has(a.exerciseId)) counted.set(a.exerciseId, a.occurredAt);
       const stale =
         !lastAttempt ||
         Date.now() - lastAttempt.receivedAt.getTime() > 7 * 86400000;
@@ -53,6 +60,17 @@ export class ReportsService {
         alias: student.alias,
         skills,
         lastSyncAt: lastAttempt?.receivedAt ?? null,
+        lastPracticeAt: attempts.at(-1)?.occurredAt ?? null,
+        streak: manilaStreak([...counted.values()], new Date()),
+        subjects: [...new Set(skills.map((s) => s.subject))]
+          .sort()
+          .map((subject) => {
+            const own = skills.filter((s) => s.subject === subject);
+            return {
+              subject,
+              mastery: own.reduce((sum, s) => sum + s.mastery, 0) / own.length,
+            };
+          }),
         connectivityStatus: stale ? 'NO_RECENT_SYNC' : 'RECENT_SYNC',
         learningStatus: !skills.length
           ? 'INSUFFICIENT_DATA'
@@ -75,13 +93,11 @@ export class ReportsService {
     const schools = await this.db
       .getRepository(School)
       .findBy({ jurisdictionId: actor.jurisdictionId });
-    const students = await this.db
-      .getRepository(User)
-      .findBy({
-        jurisdictionId: actor.jurisdictionId,
-        role: Role.STUDENT,
-        active: true,
-      });
+    const students = await this.db.getRepository(User).findBy({
+      jurisdictionId: actor.jurisdictionId,
+      role: Role.STUDENT,
+      active: true,
+    });
     const ids = students.map((s) => s.id);
     const skills = ids.length
       ? await this.db

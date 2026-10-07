@@ -1,0 +1,35 @@
+{
+  "classroomId": "391f531f-7a9b-448b-9920-3e949e96b9b8",
+  "learners": [
+    {
+      "id": "fa8a9a7c-9578-4436-9bda-a7774364a84b",
+      "alias": "student-test",
+      "skills": [
+        {
+          "id": "ef9b438f-2d92-4e54-a428-f705aa1c9b90",
+          "createdAt": "2026-10-07T14:20:00.240Z",
+          "studentId": "fa8a9a7c-9578-4436-9bda-a7774364a84b",
+          "skillCode": "math5.fractions",
+          "subject": "MATH",
+          "mastery": 0.6,
+          "attempts": 2,
+          "correctAttempts": 2,
+          "updatedAt": "2026-10-07T14:20:00.240Z"
+        }
+      ],
+      "lastSyncAt": "2026-10-07T14:20:00.235Z",
+      "lastPracticeAt": "2026-10-07T14:20:00.235Z",
+      "streak": 1,
+      "subjects": [
+        {
+          "subject": "MATH",
+          "mastery": 0.6
+        }
+      ],
+      "connectivityStatus": "RECENT_SYNC",
+      "learningStatus": "NO_RULE_TRIGGERED",
+      "reason": null
+    }
+  ],
+  "decisionPolicy": "Supplementary rule-based signals; teacher decides next action"
+}

@@ -18,12 +18,72 @@ export interface ReportLearner {
   skills: ReportSkill[];
   /** ISO time of the last Attempt the server received, or null if it has none. */
   lastSyncAt: string | null;
+  /** ISO time the Learner last answered anything, or null. */
+  lastPracticeAt: string | null;
+  /** Consecutive Manila days with a Counted Attempt. */
+  streak: number;
+  /** Mean Mastery per Subject. */
+  subjects: { subject: Subject; mastery: number }[];
   connectivityStatus: 'RECENT_SYNC' | 'NO_RECENT_SYNC';
   learningStatus: 'INSUFFICIENT_DATA' | 'TEACHER_REVIEW_SUGGESTED' | 'NO_RULE_TRIGGERED';
   reason: string | null;
 }
 
 export interface ClassroomReport { classroomId: string; learners: ReportLearner[]; decisionPolicy: string }
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+const text = (value: unknown, what: string) => { if (typeof value !== 'string') throw new Error(`Classroom report: ${what} is not text.`); return value; };
+const num = (value: unknown, what: string) => { if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Classroom report: ${what} is not a number.`); return value; };
+const time = (value: unknown, what: string) => (value === null ? null : text(value, what));
+const oneOf = <T extends string>(value: unknown, allowed: readonly T[], what: string): T => {
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) throw new Error(`Classroom report: ${what} is not one of ${allowed.join(', ')}.`);
+  return value as T;
+};
+const list = (value: unknown, what: string): unknown[] => { if (!Array.isArray(value)) throw new Error(`Classroom report: ${what} is not a list.`); return value; };
+const record = (value: unknown, what: string): Record<string, unknown> => { if (!isRecord(value)) throw new Error(`Classroom report: ${what} is not an object.`); return value; };
+
+function parseSkill(raw: unknown, where: string): ReportSkill {
+  const r = record(raw, where);
+  return {
+    skillCode: text(r.skillCode, `${where}.skillCode`), subject: oneOf(r.subject, subjects, `${where}.subject`),
+    mastery: num(r.mastery, `${where}.mastery`), attempts: num(r.attempts, `${where}.attempts`), correctAttempts: num(r.correctAttempts, `${where}.correctAttempts`),
+  };
+}
+
+/** Per-Skill rows of `GET learning/learners/:id/progress`. */
+export const parseProgressSkills = (raw: unknown): ReportSkill[] =>
+  list(record(raw, 'progress').skills, 'progress.skills').map((skill, i) => parseSkill(skill, `progress.skills[${i}]`));
+
+/**
+ * Checks a `GET reports/classrooms/:id` body and keeps only what the screens use.
+ * Strict on purpose: if the server's shape drifts, the Teacher sees an error (or
+ * their cached report) and the contract test fails, rather than a screen quietly
+ * showing wrong numbers.
+ */
+export function parseClassroomReport(raw: unknown): ClassroomReport {
+  const r = record(raw, 'report');
+  return {
+    classroomId: text(r.classroomId, 'classroomId'),
+    decisionPolicy: text(r.decisionPolicy, 'decisionPolicy'),
+    learners: list(r.learners, 'learners').map((entry, i) => {
+      const where = `learners[${i}]`;
+      const l = record(entry, where);
+      return {
+        id: text(l.id, `${where}.id`), alias: text(l.alias, `${where}.alias`),
+        skills: list(l.skills, `${where}.skills`).map((skill, j) => parseSkill(skill, `${where}.skills[${j}]`)),
+        lastSyncAt: time(l.lastSyncAt, `${where}.lastSyncAt`), lastPracticeAt: time(l.lastPracticeAt, `${where}.lastPracticeAt`),
+        streak: num(l.streak, `${where}.streak`),
+        subjects: list(l.subjects, `${where}.subjects`).map((row, j) => {
+          const s = record(row, `${where}.subjects[${j}]`);
+          return { subject: oneOf(s.subject, subjects, `${where}.subjects[${j}].subject`), mastery: num(s.mastery, `${where}.subjects[${j}].mastery`) };
+        }),
+        connectivityStatus: oneOf(l.connectivityStatus, ['RECENT_SYNC', 'NO_RECENT_SYNC'], `${where}.connectivityStatus`),
+        learningStatus: oneOf(l.learningStatus, ['INSUFFICIENT_DATA', 'TEACHER_REVIEW_SUGGESTED', 'NO_RULE_TRIGGERED'], `${where}.learningStatus`),
+        reason: l.reason === null ? null : text(l.reason, `${where}.reason`),
+      };
+    }),
+  };
+}
 
 export interface SubjectBar { subject: Subject; title: string; mastery: number }
 
@@ -70,8 +130,10 @@ export interface InsightLearner {
   id: string;
   alias: string;
   grade: number;
-  /** Fixture-only: the Classroom report carries no streak yet. */
-  streak: number | null;
+  /** Consecutive days with a Counted Attempt; 0 means none. */
+  streak: number;
+  /** ISO time of the Learner's last practice, or null. */
+  lastPracticeAt: string | null;
   mastery: number | null;
   /** Why this Learner needs attention, or null. */
   attention: string | null;
@@ -96,14 +158,14 @@ function attentionReason(learner: ReportLearner, now: number): string | null {
   return `${days} ${days === 1 ? 'day' : 'days'} inactive`;
 }
 
-const summary = (learner: ReportLearner, grade: number, streaks: Record<string, number>, now: number): InsightLearner => ({
-  id: learner.id, alias: learner.alias, grade, streak: streaks[learner.id] ?? null,
+const summary = (learner: ReportLearner, grade: number, now: number): InsightLearner => ({
+  id: learner.id, alias: learner.alias, grade, streak: learner.streak, lastPracticeAt: learner.lastPracticeAt,
   mastery: meanMastery(learner.skills), attention: attentionReason(learner, now),
 });
 
 /** Student Insights: Needs attention (report order) and All Learners (by alias). Aliases only, never legal names. */
-export function insights(report: ClassroomReport, grade: number, streaks: Record<string, number>, now: number): Insights {
-  const all = report.learners.map((learner) => summary(learner, grade, streaks, now));
+export function insights(report: ClassroomReport, grade: number, now: number): Insights {
+  const all = report.learners.map((learner) => summary(learner, grade, now));
   return {
     needsAttention: all.filter((learner) => learner.attention),
     all: [...all].sort((a, b) => a.alias.localeCompare(b.alias)),
@@ -119,13 +181,15 @@ export interface LearnerDetail extends InsightLearner {
   skills: { code: string; label: string; subjectTitle: string; mastery: number; attempts: number }[];
 }
 
-export function learnerDetail(report: ClassroomReport, id: string, grade: number, streaks: Record<string, number>, now: number): LearnerDetail | null {
+/** `progress` is the Learner's own per-Skill Mastery from the server; without it the report's Skills are shown. */
+export function learnerDetail(report: ClassroomReport, id: string, grade: number, now: number, progress?: ReportSkill[]): LearnerDetail | null {
   const learner = report.learners.find((item) => item.id === id);
   if (!learner) return null;
-  const skills = [...learner.skills].sort((a, b) => a.mastery - b.mastery).map((skill) => ({
+  const skills = [...(progress ?? learner.skills)].sort((a, b) => a.mastery - b.mastery).map((skill) => ({
     code: skill.skillCode, label: skillLabel(skill.skillCode), subjectTitle: subjectTitles[skill.subject], mastery: skill.mastery, attempts: skill.attempts,
   }));
-  return { ...summary(learner, grade, streaks, now), skills };
+  const base = summary(learner, grade, now);
+  return { ...base, mastery: progress ? meanMastery(progress) : base.mastery, skills };
 }
 
 export type AlertPriority = 'high' | 'medium' | 'low';
