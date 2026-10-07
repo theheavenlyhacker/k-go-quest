@@ -77,7 +77,7 @@ const english = pack('eng5', 'ENGLISH', 'Reading Comprehension', ['eng5.reading.
 const filipino = pack('fil5', 'FILIPINO', 'Panitikan at Balarila', ['fil5.balarila.pangngalan'], [
   lesson('fil5', 'pangngalan', 'Ang pangngalan', 'fil5.balarila.pangngalan',
     'Ang pangngalan ay salitang tumutukoy sa tao, hayop, bagay, lugar o pangyayari. Halimbawa: guro, aso, lapis, paaralan, pista.',
-    'Itanong: ito ba ay pangalan ng tao, hayop, bagay, lugar o pangyayari?',
+    'Ask yourself: is this the name of a person, animal, thing, place or event?',
     [
       ['Alin ang pangngalan?', ['tumakbo', 'mabilis', 'paaralan', 'masaya'], 2],
       ['Alin ang pangngalang tumutukoy sa hayop?', ['kalabaw', 'upuan', 'Maynila', 'guro'], 0],
