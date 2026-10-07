@@ -92,8 +92,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           ),
           loadCached(
             () => caretakerGet('reports/engagement?days=14'),
-            parseDevices,
-  parseEngagement,
+            parseEngagement,
             cache('engagement:14'),
           ),
           loadCached(
