@@ -1,3 +1,4 @@
+import { ago } from './format';
 import type { OnlineState } from './online';
 import type { ServerUser, Session } from './server';
 
@@ -19,7 +20,19 @@ export interface ImpactReport {
 }
 
 /** One Shared Tablet. Fixture-only: the server has no device fleet yet. */
-export interface DeviceRecord { id: string; name: string; lastSeenAt: string | null; online: boolean }
+export interface DeviceRecord {
+  id: string;
+  name: string;
+  grade: string;
+  classroom: string;
+  lastSeenAt: string | null;
+  online: boolean;
+  updateAvailable: boolean;
+  storageUsedPercent: number;
+}
+
+/** One barangay's reach in one quarter (`2026-Q3`). Fixture-only: the server has no per-barangay or per-quarter report yet. */
+export interface ReachRecord { quarter: string; barangay: string; learners: number; lessons: number; offlineLessons: number }
 
 /** Learners with practice on one day. Fixture-only: the server has no weekly engagement yet. */
 export interface EngagementDay { date: string; activeLearners: number }
@@ -31,6 +44,7 @@ export interface AdminData {
   devices: DeviceRecord[];
   /** The last 14 days, oldest first, ending today. */
   engagement: EngagementDay[];
+  reach: ReachRecord[];
 }
 
 /** The Admin shell opens for a live LGU Admin session on a reachable server, and for nothing else. */
@@ -82,4 +96,68 @@ export function engagementSeries(days: EngagementDay[], today: string): Engageme
     total,
     changePercent: previous ? Math.round(((total - previous) / previous) * 100) : null,
   };
+}
+
+export const quarterOf = (date: string) => `${date.slice(0, 4)}-Q${Math.floor((Number(date.slice(5, 7)) - 1) / 3) + 1}`;
+const quarterLabel = (q: string) => `${q.slice(5)} ${q.slice(0, 4)}`;
+
+/** Quarters with records plus the current one, newest first. */
+export function quarterOptions(reach: ReachRecord[], today: string) {
+  const all = new Set([quarterOf(today), ...reach.map((r) => r.quarter)]);
+  return [...all].sort().reverse().map((value) => ({ value, label: quarterLabel(value) }));
+}
+
+export interface BarangayBar { name: string; learners: number; share: number }
+
+/** Impact tiles and reach-by-barangay bars for one quarter. */
+export function impactReport(reach: ReachRecord[], quarter: string): { tiles: Tile[]; barangays: BarangayBar[] } {
+  const rows = reach.filter((r) => r.quarter === quarter);
+  const sum = (f: (r: ReachRecord) => number) => rows.reduce((a, r) => a + f(r), 0);
+  const lessons = sum((r) => r.lessons);
+  const offline = lessons ? Math.round((sum((r) => r.offlineLessons) / lessons) * 100) : 0;
+  const peak = Math.max(...rows.map((r) => r.learners), 0);
+  return {
+    tiles: [
+      { key: 'learners', label: 'Learners reached', value: count(sum((r) => r.learners)), tone: 'brand' },
+      { key: 'barangays', label: 'Barangays covered', value: count(new Set(rows.map((r) => r.barangay)).size), tone: 'brand' },
+      { key: 'lessons', label: 'Lessons completed', value: count(lessons), tone: 'brand' },
+      { key: 'offline', label: 'Offline usage', value: `${offline}%`, tone: 'warning' },
+    ],
+    barangays: rows
+      .map((r) => ({ name: r.barangay, learners: r.learners, share: peak ? r.learners / peak : 0 }))
+      .sort((a, b) => b.learners - a.learners || a.name.localeCompare(b.name)),
+  };
+}
+
+export type DeviceStatus = 'Online' | 'Needs Update' | 'Offline';
+
+/** A tablet that cannot be reached is Offline whatever else is true of it. */
+export const deviceStatus = (d: DeviceRecord): DeviceStatus => (!d.online ? 'Offline' : d.updateAvailable ? 'Needs Update' : 'Online');
+
+export function deviceTiles(devices: DeviceRecord[]): Tile[] {
+  return [
+    { key: 'total', label: 'Total Shared Tablets', value: count(devices.length), tone: 'brand' },
+    { key: 'online', label: 'Online now', value: count(devices.filter((d) => d.online).length), tone: 'brand' },
+    { key: 'attention', label: 'Need attention', value: count(devices.filter((d) => deviceStatus(d) === 'Needs Update').length), tone: 'warning' },
+  ];
+}
+
+export interface DeviceRow { id: string; name: string; context: string; detail: string; status: DeviceStatus }
+
+const RANK: Record<DeviceStatus, number> = { 'Needs Update': 0, Offline: 1, Online: 2 };
+
+/** Problem tablets first, then by name. */
+export function deviceRows(devices: DeviceRecord[]): DeviceRow[] {
+  return devices
+    .map((d) => {
+      const status = deviceStatus(d);
+      return {
+        id: d.id,
+        name: d.name,
+        context: `${d.grade} · ${d.classroom}`,
+        detail: status === 'Offline' ? (d.lastSeenAt ? `Last seen ${ago(d.lastSeenAt)}` : 'Not seen yet') : `${d.storageUsedPercent}% storage used`,
+        status,
+      };
+    })
+    .sort((a, b) => RANK[a.status] - RANK[b.status] || a.name.localeCompare(b.name, 'en', { numeric: true }));
 }
