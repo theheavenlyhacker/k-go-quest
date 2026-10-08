@@ -25,6 +25,9 @@ export interface ImpactReport {
   meanEstimatedMastery: number | null;
   attempts: number;
   disclaimer: string;
+  meanEstimatedMasteryChange?: number | null;
+  totalTablets?: number;
+  tabletsCheckedInQuarter?: number;
   quarter?: string;
   learnersReached?: number;
   lessonsCompleted?: number;
@@ -54,6 +57,7 @@ export interface EngagementDay { date: string; activeLearners: number }
 export interface AdminData {
   schoolName: string;
   impact: ImpactReport;
+  impactReports?: ImpactReport[];
   users: ServerUser[];
   devices: DeviceRecord[];
   library: Library;
@@ -112,6 +116,9 @@ export function parseImpactReport(raw: unknown): ImpactReport {
     meanEstimatedMastery: optNum(r.meanEstimatedMastery, 'meanEstimatedMastery'),
     attempts: num(r.attempts, 'attempts'),
     disclaimer: text(r.disclaimer, 'disclaimer'),
+    meanEstimatedMasteryChange: optNum(r.meanEstimatedMasteryChange, 'meanEstimatedMasteryChange'),
+    totalTablets: r.totalTablets !== undefined ? num(r.totalTablets, 'totalTablets') : undefined,
+    tabletsCheckedInQuarter: r.tabletsCheckedInQuarter !== undefined ? num(r.tabletsCheckedInQuarter, 'tabletsCheckedInQuarter') : undefined,
     quarter: r.quarter !== undefined ? text(r.quarter, 'quarter') : undefined,
     learnersReached: r.learnersReached !== undefined ? num(r.learnersReached, 'learnersReached') : undefined,
     lessonsCompleted: r.lessonsCompleted !== undefined ? num(r.lessonsCompleted, 'lessonsCompleted') : undefined,
@@ -270,7 +277,7 @@ export const quarterOf = (date: string) => `${date.slice(0, 4)}-Q${Math.floor((N
 const quarterLabel = (q: string) => `${q.slice(5)} ${q.slice(0, 4)}`;
 
 /** Quarters with records plus the current one, newest first. */
-export function quarterOptions(reach: ReachRecord[], today: string) {
+export function quarterOptions(reach: Pick<ReachRecord, 'quarter'>[], today: string) {
   const all = new Set([quarterOf(today), ...reach.map((r) => r.quarter)]);
   return [...all].sort().reverse().map((value) => ({ value, label: quarterLabel(value) }));
 }

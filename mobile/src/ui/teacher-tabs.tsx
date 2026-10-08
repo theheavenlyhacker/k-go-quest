@@ -78,6 +78,7 @@ export function QuizBuilderBody() {
                       <Pencil size={18} color={theme.muted} />
                     </Pressable>
                   </Row>
+                  {quiz.published ? <T variant="bodyS" color={theme.muted}>{`${data.quizzes[index]!.submittedCount ?? 0} submitted · ${data.quizzes[index]!.classAverage == null ? 'No class average yet' : `${Math.round(data.quizzes[index]!.classAverage!)}% class average`}`}</T> : null}
                   <Row>
                     <Pill color={brand.brand} tint={brand.tint}>{quiz.subjectTitle}</Pill>
                     <Pill color={quiz.published ? tokens.state.success : tokens.state.warning} tint={quiz.published ? tokens.tint.success : tokens.tint.warning}>{quiz.statusLabel}</Pill>

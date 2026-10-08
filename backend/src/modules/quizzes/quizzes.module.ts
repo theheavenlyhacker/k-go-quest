@@ -78,6 +78,11 @@ export class UpdateQuizDto {
   @IsOptional() @IsUUID() replaceExerciseId?: string;
 }
 
+export class SaveQuizResultDto {
+  @IsUUID() paperId: string;
+  @IsArray() @ArrayMaxSize(50) answers: (number | null)[];
+}
+
 interface Bank extends Candidate {
   prompt: string;
   options: string[];
@@ -104,7 +109,10 @@ export class QuizzesService {
        FROM exercises e
        JOIN lessons l ON l.id = e."lessonId"
        JOIN content_packs p ON p.id = l."packId"
-       WHERE p.published = true AND p.grade = $1 AND p."jurisdictionId" = $2 AND p.subject = $3`,
+       WHERE p.published = true AND p.grade = $1 AND p."jurisdictionId" = $2 AND p.subject = $3
+         AND jsonb_array_length(e.options) BETWEEN 2 AND 4
+         AND e."correctOption" BETWEEN 0 AND 3
+         AND e."correctOption" < jsonb_array_length(e.options)`,
       [classroom.grade, jurisdictionId, subject, classroom.id],
     );
   }
@@ -242,6 +250,15 @@ export class QuizzesService {
     const quizzes = await this.db
       .getRepository(Quiz)
       .find({ where: { classroomId }, order: { updatedAt: 'DESC' } });
+    const summaries = await this.db.query<
+      { quizId: string; submittedCount: number; classAverage: number }[]
+    >(
+      `SELECT p."quizId", count(*)::int AS "submittedCount",
+         avg(p.score::float / jsonb_array_length(q."exerciseIds") * 100) AS "classAverage"
+       FROM quiz_papers p JOIN quizzes q ON q.id = p."quizId"
+       WHERE q."classroomId" = $1 AND p."gradedAt" IS NOT NULL GROUP BY p."quizId"`,
+      [classroomId],
+    );
     return quizzes.map((q) => ({
       id: q.id,
       classroomId: q.classroomId,
@@ -250,6 +267,10 @@ export class QuizzesService {
       skillCodes: q.skillCodes,
       status: q.status,
       questionCount: q.exerciseIds.length,
+      submittedCount:
+        summaries.find((s) => s.quizId === q.id)?.submittedCount ?? 0,
+      classAverage:
+        summaries.find((s) => s.quizId === q.id)?.classAverage ?? null,
       updatedAt: q.updatedAt,
     }));
   }
@@ -318,9 +339,120 @@ export class QuizzesService {
     const { quiz } = await this.own(actor, id);
     if (quiz.status === QuizStatus.PUBLISHED)
       throw new ConflictException('Quiz is already published');
+    const view = await this.view(quiz);
+    if (
+      view.questions.some((q) => q.options.length > 4) ||
+      view.answerKey.some((k) => k.correctOption > 3)
+    )
+      throw new BadRequestException(
+        'Paper Quizzes support A–D only. Replace items with more than four options before publishing.',
+      );
     return this.view(
       await this.saveDraft(quiz, { status: QuizStatus.PUBLISHED }),
     );
+  }
+
+  async saveResult(actor: Principal, id: string, dto: SaveQuizResultDto) {
+    const { quiz } = await this.own(actor, id);
+    if (quiz.status !== QuizStatus.PUBLISHED)
+      throw new ConflictException('Publish the Quiz before marking papers');
+    const repo = this.db.getRepository(QuizPaper);
+    const paper = await repo.findOneBy({ id: dto.paperId, quizId: id });
+    if (!paper)
+      throw new BadRequestException('This paper does not belong to this Quiz');
+    const view = await this.view(quiz);
+    if (
+      view.questions.some((q) => q.options.length > 4) ||
+      view.answerKey.some((k) => k.correctOption > 3)
+    )
+      throw new ConflictException(
+        'This Quiz has items beyond A–D and cannot be marked as a Paper Quiz',
+      );
+    if (view.answerKey.length !== quiz.exerciseIds.length)
+      throw new ConflictException('The Quiz answer key is incomplete');
+    if (
+      dto.answers.length !== view.questions.length ||
+      dto.answers.some(
+        (a, i) =>
+          a !== null &&
+          (!Number.isInteger(a) ||
+            a < 0 ||
+            a > 3 ||
+            a >= view.questions[i].options.length),
+      )
+    )
+      throw new BadRequestException(
+        'Send one answer per item: an option index 0–3, or null for blank',
+      );
+    const correctness = dto.answers.map(
+      (a, i) => a !== null && a === view.answerKey[i].correctOption,
+    );
+    const score = correctness.filter(Boolean).length;
+    // An atomic update on the issued Paper makes retries and rescans replace the result.
+    await repo.update(
+      { id: paper.id, quizId: id },
+      { answers: dto.answers, score, gradedAt: new Date() },
+    );
+    return {
+      paperId: paper.id,
+      studentId: paper.studentId,
+      score,
+      total: quiz.exerciseIds.length,
+      correctness,
+    };
+  }
+
+  async results(actor: Principal, id: string) {
+    const { quiz } = await this.own(actor, id);
+    const view = await this.view(quiz);
+    const learners = await this.db
+      .getRepository(QuizPaper)
+      .createQueryBuilder('p')
+      .innerJoin(User, 'u', 'u.id = p.studentId')
+      .where('p.quizId = :id AND p.gradedAt IS NOT NULL', { id })
+      .select([
+        'p.id AS "paperId"',
+        'p.studentId AS "studentId"',
+        'u.alias AS "alias"',
+        'p.answers AS "answers"',
+        'p.score AS "score"',
+        'p.gradedAt AS "gradedAt"',
+      ])
+      .orderBy('u.alias', 'ASC')
+      .getRawMany<{
+        paperId: string;
+        studentId: string;
+        alias: string;
+        answers: (number | null)[];
+        score: number;
+        gradedAt: Date;
+      }>();
+    return {
+      quizId: id,
+      title: quiz.title,
+      total: quiz.exerciseIds.length,
+      submittedCount: learners.length,
+      classAverage: learners.length
+        ? learners.reduce(
+            (sum, p) => sum + (p.score / quiz.exerciseIds.length) * 100,
+            0,
+          ) / learners.length
+        : null,
+      learners,
+      items: view.answerKey.map((key, i) => {
+        const correctCount = learners.filter(
+          (p) => p.answers[i] === key.correctOption,
+        ).length;
+        return {
+          exerciseId: key.exerciseId,
+          correctCount,
+          submittedCount: learners.length,
+          difficulty: learners.length
+            ? 1 - correctCount / learners.length
+            : null,
+        };
+      }),
+    };
   }
 
   async papers(actor: Principal, id: string) {
@@ -421,6 +553,19 @@ export class QuizzesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.quizzes.publish(actor, id);
+  }
+  @Post(':id/results') saveResult(
+    @CurrentUser() actor: Principal,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SaveQuizResultDto,
+  ) {
+    return this.quizzes.saveResult(actor, id, dto);
+  }
+  @Get(':id/results') results(
+    @CurrentUser() actor: Principal,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quizzes.results(actor, id);
   }
   @Post(':id/papers') papers(
     @CurrentUser() actor: Principal,

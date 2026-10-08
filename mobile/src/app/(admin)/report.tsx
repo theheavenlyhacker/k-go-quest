@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { Download, TrendingUp } from 'lucide-react-native';
 
-import { impactReport, quarterOptions } from '@/domain/admin';
+import { quarterOptions } from '@/domain/admin';
+import { formatImpactReport, impactReportHtml } from '@/domain/impact-report';
 import { useAdminData } from '@/state/admin-data';
-import { AdminSidebar, ComingSoonSheet, LoadGate } from '@/ui/admin';
-import { Bar, Button, Card, Empty, Eyebrow, Pills, Row, T } from '@/ui/primitives';
+import { AdminSidebar, LoadGate } from '@/ui/admin';
+import { Action, Bar, Card, Empty, Eyebrow, Pills, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { tokens, useTheme } from '@/ui/theme';
 
@@ -14,21 +17,28 @@ export default function Report() {
   const load = useAdminData();
   const theme = useTheme();
   const [picked, setPicked] = useState<string | null>(null);
-  const [soon, setSoon] = useState(false);
   return (
     <Screen chrome title="LGU Impact Report" menu={AdminSidebar}>
       <LoadGate load={load}>
         {({ data, today }) => {
-          const options = quarterOptions(data.reach, today);
+          const options = quarterOptions([
+            ...data.reach,
+            ...(data.impactReports ?? []).flatMap((r) => r.quarter ? [{ quarter: r.quarter }] : []),
+          ], today);
           const quarter = options.some((o) => o.value === picked) ? picked! : options[0].value;
-          const { tiles, barangays } = impactReport(data.reach, quarter);
+          const report = data.impactReports?.find((r) => r.quarter === quarter)
+            ?? (data.impact.quarter === quarter ? data.impact : null);
+          const view = report ? formatImpactReport(report) : null;
+          const { tiles, barangays } = view ?? { tiles: [], barangays: [] };
           return (
             <>
+              {view && <T variant="bodyS" color={theme.muted}>Jurisdiction: {view.jurisdiction} · {view.quarter}</T>}
               <Pills items={options.slice(0, 4)} value={quarter} onChange={setPicked} />
-              {barangays.length === 0 ? (
-                <Empty icon={TrendingUp} title="No reach recorded" text="No Learners practised in this quarter. Pick another quarter." />
-              ) : (
+              {!view ? <Empty icon={TrendingUp} title="Report unavailable" text="Reload to fetch this quarter’s report." /> : (
                 <>
+                  {barangays.length === 0 && (
+                    <Empty icon={TrendingUp} title="No barangay reach recorded" text="No reach by barangay is recorded in this quarter. Pick another quarter." />
+                  )}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 11 }}>
                     {tiles.map((tile, i) => (
                       <Card key={tile.key} index={i} style={{ flexBasis: '47%', flexGrow: 1 }}>
@@ -51,11 +61,16 @@ export default function Report() {
                       </View>
                     ))}
                   </Card>
-                  <T variant="bodyS" color={theme.muted}>{data.impact.disclaimer}</T>
                 </>
               )}
-              <Button title="Export PDF Report" variant="soft" icon={Download} onPress={() => setSoon(true)} />
-              <ComingSoonSheet feature={soon ? 'Export PDF Report' : null} onClose={() => setSoon(false)} />
+              <T variant="bodyS" color={theme.muted}>{view?.disclaimer ?? data.impact.disclaimer}</T>
+              <T variant="bodyS" color={theme.muted}>{view?.dataQuality ?? 'Data quality: No report available for this quarter.'}</T>
+              <Action title="Export PDF Report" variant="soft" icon={Download} disabled={!view} task={async () => {
+                if (!view) return;
+                if (!(await Sharing.isAvailableAsync())) throw new Error('PDF sharing is unavailable on this device.');
+                const { uri } = await Print.printToFileAsync({ html: impactReportHtml(view) });
+                await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: '.pdf', dialogTitle: 'Share LGU Impact Report' });
+              }} />
             </>
           );
         }}

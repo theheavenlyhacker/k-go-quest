@@ -1,7 +1,11 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { databaseCertificate, databaseOptions } from './data-source';
+import {
+  databaseCertificate,
+  databaseOptions,
+  MIGRATIONS,
+} from './data-source';
 
 const PEM = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n';
 
@@ -66,4 +70,22 @@ describe('the connection it builds', () => {
   it('leaves TLS off only when it was asked to', () => {
     expect((databaseOptions(url, false) as { ssl: false }).ssl).toBe(false);
   });
+});
+
+it('exports the complete migration chain with bookkeeping for fresh databases', async () => {
+  const { generateSchemaSql } = require('../../scripts/export-schema.cjs') as {
+    generateSchemaSql: () => Promise<string>;
+  };
+  const sql = await generateSchemaSql();
+  for (const Migration of MIGRATIONS) {
+    const name = new Migration().name;
+    expect(sql).toContain(`VALUES (${Number(name.slice(-13))}, '${name}')`);
+  }
+  expect(sql.match(/INSERT INTO "migrations"/g)).toHaveLength(
+    MIGRATIONS.length,
+  );
+  expect(sql).toContain('CREATE TABLE "quiz_papers"');
+  for (const column of ['answers', 'score', 'gradedAt'])
+    expect(sql).toContain(`ADD COLUMN "${column}"`);
+  expect(sql).toContain('CREATE TABLE "devices"');
 });

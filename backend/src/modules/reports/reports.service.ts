@@ -266,7 +266,7 @@ export class ReportsService {
         return values.reduce((sum, s) => sum + s.mastery, 0) / values.length;
       });
 
-    const [attemptStats, completedRows, barangayLearners] = await Promise.all([
+    const [attemptStats, completedRows, barangayLearners, masteryChange, tabletCoverage] = await Promise.all([
       this.db.query(
         `SELECT
            COUNT(DISTINCT a."studentId") AS learners_reached,
@@ -320,6 +320,34 @@ export class ReportsService {
          GROUP BY s.barangay`,
         [actor.jurisdictionId, Role.STUDENT, start, end],
       ),
+      // Sum monthly changes per skill, then average skills per provisioned Learner.
+      // Missing practice is zero, matching the League's aggregate policy.
+      this.db.query(
+        `WITH skill_changes AS (
+           SELECT g."studentId", g."skillCode", SUM(g.latest - g.baseline) AS change
+           FROM growth_snapshots g
+           JOIN users u ON u.id = g."studentId"
+           WHERE u."jurisdictionId" = $1 AND u.role = $2 AND u.active = true
+             AND g.month >= $3 AND g.month <= $4
+           GROUP BY g."studentId", g."skillCode"
+         ), learner_changes AS (
+           SELECT "studentId", AVG(change) AS change FROM skill_changes GROUP BY "studentId"
+         )
+         SELECT AVG(COALESCE(c.change, 0)) * 100 AS change
+         FROM users u LEFT JOIN learner_changes c ON c."studentId" = u.id
+         WHERE u."jurisdictionId" = $1 AND u.role = $2 AND u.active = true`,
+        [actor.jurisdictionId, Role.STUDENT,
+          `${targetQuarter.slice(0, 4)}-${String((Number(targetQuarter.at(-1)) - 1) * 3 + 1).padStart(2, '0')}`,
+          `${targetQuarter.slice(0, 4)}-${String(Number(targetQuarter.at(-1)) * 3).padStart(2, '0')}`],
+      ),
+      // Only the latest check-in is persisted. Past-quarter coverage is a lower
+      // bound; the report footnote states this rather than inventing history.
+      this.db.query(
+        `SELECT COUNT(*) AS total,
+           COUNT(*) FILTER (WHERE "lastSeenAt" >= $2 AND "lastSeenAt" < $3) AS checked
+         FROM devices WHERE "jurisdictionId" = $1`,
+        [actor.jurisdictionId, start, end],
+      ),
     ]);
 
     const totalAttempts = Number(attemptStats[0]?.total_attempts ?? 0);
@@ -361,6 +389,9 @@ export class ReportsService {
       attempts: skills.reduce((s, p) => s + p.attempts, 0),
       disclaimer:
         'Practice estimates, not measured learning impact. No cost or hours-saved claims are inferred.',
+      meanEstimatedMasteryChange: masteryChange[0]?.change == null ? null : Number(masteryChange[0].change),
+      totalTablets: Number(tabletCoverage[0]?.total ?? 0),
+      tabletsCheckedInQuarter: Number(tabletCoverage[0]?.checked ?? 0),
       quarter: targetQuarter,
       learnersReached: Number(attemptStats[0]?.learners_reached ?? 0),
       lessonsCompleted: completedRows.length,
