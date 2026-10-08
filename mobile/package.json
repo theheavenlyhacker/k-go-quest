@@ -37,6 +37,7 @@
     "expo-video": "~57.0.5",
     "expo-web-browser": "~57.0.3",
     "jpeg-js": "^0.4.4",
+    "llama.rn": "^0.13.0-rc.7",
     "lucide-react-native": "^1.49.0",
     "qrcode-svg": "^1.1.0",
     "react": "19.2.3",
@@ -62,10 +63,11 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "fetch-model": "node scripts/fetch-coach-model.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "export:pack": "npx --yes tsx scripts/export-starter-pack.mjs"
