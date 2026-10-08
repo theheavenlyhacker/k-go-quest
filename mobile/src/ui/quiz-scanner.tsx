@@ -5,13 +5,14 @@ import * as Linking from 'expo-linking';
 
 import { identifyQuizPaper, markingGrid, parseQuizPapers, type PaperAnswer, type QuizResults, type ServerQuiz, type ServerQuizPaper } from '../domain/quiz';
 import { useOnline } from '../state/online-context';
+import { readPaperPhoto } from './read-paper-photo';
 import { Button, Info, Row, T } from './primitives';
 import { MIN_TOUCH, tokens, useTheme } from './theme';
 
 const message = (error: unknown) => error instanceof Error ? error.message : 'Please try again.';
 const letters = ['A', 'B', 'C', 'D'];
 
-/** QR identification only: no photo capture, storage or bubble recognition. */
+/** QR identification, then one still read in JS to pre-fill the grid; the photo is discarded and nothing saves without Confirm. */
 export function QuizScanner({ quiz, onDone }: { quiz: ServerQuiz; onDone: () => void }) {
   const theme = useTheme();
   const { caretakerCall } = useOnline();
@@ -22,6 +23,9 @@ export function QuizScanner({ quiz, onDone }: { quiz: ServerQuiz; onDone: () => 
   const [saved, setSaved] = useState<{ score: number; total: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [flagged, setFlagged] = useState<boolean[]>([]);
+  const [reading, setReading] = useState(false);
+  const camera = useRef<CameraView>(null);
   const scanned = useRef(false);
   const supported = quiz.questions.every((q) => q.options.length <= 4)
     && quiz.answerKey.every((k) => k.correctOption < 4);
@@ -38,12 +42,22 @@ export function QuizScanner({ quiz, onDone }: { quiz: ServerQuiz; onDone: () => 
     return () => { live = false; };
   }, [caretakerCall, quiz.id, supported]);
 
-  const next = () => { scanned.current = false; setPaper(null); setSaved(null); setAnswers([]); setError(null); };
+  const next = () => { scanned.current = false; setPaper(null); setSaved(null); setAnswers([]); setFlagged([]); setError(null); };
   const scan = (data: string) => {
     if (scanned.current || !papers) return;
     scanned.current = true;
-    try { setPaper(identifyQuizPaper(data, quiz.id, papers)); setAnswers(quiz.questions.map(() => null)); }
-    catch (e) { setError(message(e)); }
+    let identified: ServerQuizPaper;
+    try { identified = identifyQuizPaper(data, quiz.id, papers); }
+    catch (e) { setError(message(e)); return; }
+    const blank = quiz.questions.map(() => null as PaperAnswer);
+    const open = (a: PaperAnswer[], f: boolean[]) => { setAnswers(a); setFlagged(f); setPaper(identified); setReading(false); };
+    setReading(true);
+    // Any failure (no fiducials, camera error) falls back to manual marking without an error.
+    void (camera.current ? readPaperPhoto(camera.current, quiz.questions.length) : Promise.resolve(null)).then((r) => {
+      if (!r) return open(blank, []);
+      const ok = r.answers.map((a, i) => a !== null && a < quiz.questions[i].options.length ? a : null);
+      open(ok, r.flagged);
+    });
   };
   const confirm = async () => {
     if (!paper || busy) return;
@@ -68,9 +82,9 @@ export function QuizScanner({ quiz, onDone }: { quiz: ServerQuiz; onDone: () => 
     const grid = markingGrid(quiz, answers);
     return <>
       <T variant="titleM">{paper.alias}</T>
-      <T variant="bodyS" color={theme.muted}>Tap each answer written on the paper. Leave unanswered items blank.</T>
+      <T variant="bodyS" color={theme.muted}>Check each answer against the paper. Highlighted items could not be read clearly, so please set them yourself.</T>
       <T variant="titleS">{`Score: ${grid.score} / ${grid.total}`}</T>
-      {grid.rows.map((row, index) => <View key={row.number} style={{ gap: 4 }}>
+      {grid.rows.map((row, index) => <View key={row.number} style={{ gap: 4, ...(flagged[index] ? { borderWidth: 2, borderColor: tokens.state.warning, borderRadius: 8, padding: 4 } : {}) }}>
         <Row style={{ gap: 4 }}>
           <T variant="titleS" style={{ width: 22 }}>{row.number}</T>
           {[0, 1, 2, 3, null].map((option) => <Pressable key={option ?? 'blank'} accessibilityRole="button"
@@ -92,7 +106,7 @@ export function QuizScanner({ quiz, onDone }: { quiz: ServerQuiz; onDone: () => 
   }
 
   return <>
-    <T variant="bodyS" color={theme.muted}>Point the camera at this Quiz&apos;s paper QR code. No photos are saved.</T>
+    <T variant="bodyS" color={theme.muted}>Point the camera at this Quiz&apos;s paper QR code and hold the whole sheet in view. The photo is used once to pre-fill answers, then deleted.</T>
     {error ? <><Info title="Could not scan this paper" text={error} color={tokens.state.critical} />
       <Button title="Try again" onPress={papers ? next : loadPapers} /></> : !permission || !papers ? <ActivityIndicator accessibilityLabel="Preparing scanner" />
       : !papers.length ? <Info title="No Quiz Papers" text="Add active Learners to this Classroom before scanning." />
@@ -101,8 +115,9 @@ export function QuizScanner({ quiz, onDone }: { quiz: ServerQuiz; onDone: () => 
         {permission.canAskAgain ? <Button title="Allow camera" onPress={() => permissionAction(requestPermission)} /> : null}
         <Button title="Open Settings" variant="soft" onPress={() => permissionAction(Linking.openSettings)} />
         <Button title="Check permission" variant="soft" onPress={() => permissionAction(getPermission)} />
-      </> : <CameraView style={{ height: 300, width: '100%' }} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+      </> : <CameraView ref={camera} style={{ height: 300, width: '100%' }} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={({ data }) => scan(data)} onMountError={(e) => setError(e.message)} />}
+    {reading ? <ActivityIndicator accessibilityLabel="Reading sheet" /> : null}
     <Button title="Back to Quiz" variant="soft" onPress={onDone} />
   </>;
 }
