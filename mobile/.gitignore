@@ -44,4 +44,7 @@ example
 
 
 # environment files
-.envassets/models/
+.env
+
+# bundled coach model (npm run fetch-model)
+assets/models/
