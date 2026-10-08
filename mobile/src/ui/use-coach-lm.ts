@@ -10,10 +10,10 @@ const SYSTEM = 'You are a kind tutor for a young child. Say the given advice in 
  * model is missing, fails, or drops a number, `advice` is kept as it was.
  */
 export function useCoachLm(advice: string) {
-  const [text, setText] = useState(advice);
+  // Keyed by the advice it rewords, so a stale rewrite never shows for new advice.
+  const [reworded, setReworded] = useState({ of: '', text: '' });
 
   useEffect(() => {
-    setText(advice);
     if (Platform.OS !== 'android') return;
     let stopped = false;
     let release: (() => Promise<void>) | undefined;
@@ -27,10 +27,10 @@ export function useCoachLm(advice: string) {
         temperature: 0.3,
       });
       const nums = advice.match(/\d+/g) ?? [];
-      if (!stopped && out.trim() && nums.every((n) => out.includes(n))) setText(out.trim());
+      if (!stopped && out.trim() && nums.every((n) => out.includes(n))) setReworded({ of: advice, text: out.trim() });
     })().catch(() => {}).finally(() => { if (stopped) release?.(); });
     return () => { stopped = true; release?.(); };
   }, [advice]);
 
-  return text;
+  return reworded.of === advice ? reworded.text : advice;
 }
