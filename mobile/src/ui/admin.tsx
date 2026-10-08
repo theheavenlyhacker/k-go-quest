@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { ClipboardList, CircleHelp, CloudOff, Download, Folder, LayoutDashboard, LogOut, Settings, Tablet, TrendingUp, User, Users, type LucideIcon } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ArrowLeft, ClipboardList, CircleHelp, CloudOff, Download, Folder, LayoutDashboard, LogOut, Settings, Tablet, TrendingUp, User, Users, type LucideIcon } from 'lucide-react-native';
 
 import { ago } from '../domain/format';
 import { useOnline } from '../state/online-context';
@@ -21,6 +22,7 @@ export const ADMIN_TABS: NavTabSpec[] = [
 /** Admin Sidebar (321:10). Items with no screen yet open the "coming soon" sheet. */
 export function AdminSidebar({ open, onClose, schoolName, teachers }: { open: boolean; onClose: () => void; schoolName?: string; teachers?: number }) {
   const { server, signOut } = useOnline();
+  const router = useRouter();
   const [soon, setSoon] = useState<string | null>(null);
   const later = (label: string) => () => setSoon(label);
   const items: { icon: LucideIcon; label: string; value?: string; active?: boolean }[] = [
@@ -41,7 +43,7 @@ export function AdminSidebar({ open, onClose, schoolName, teachers }: { open: bo
           detail: schoolName ? `School Admin · ${schoolName}` : 'School Admin',
           pill: <Pill color={tokens.brand.sky} tint={tokens.tint.sky} icon={Settings}>Administrator Access</Pill>,
         }}
-        items={items.map((item) => ({ ...item, onPress: later(item.label) }))}
+        items={[{ icon: ArrowLeft, label: 'Back to Caretaker', onPress: () => { onClose(); router.back(); } }, ...items.map((item) => ({ ...item, onPress: later(item.label) }))]}
         action={{ icon: LogOut, label: 'Sign out', destructive: true, onPress: () => { onClose(); void signOut(); } }}
       />
       <ComingSoonSheet feature={soon} onClose={() => setSoon(null)} />

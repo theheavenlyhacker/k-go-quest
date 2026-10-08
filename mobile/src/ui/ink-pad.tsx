@@ -63,6 +63,8 @@ export function InkPad({ strokes, onChange, disabled = false }: {
         onMoveShouldSetResponder={() => !disabled}
         onResponderGrant={(event) => { current.current = []; add(event.nativeEvent.locationX, event.nativeEvent.locationY); }}
         onResponderMove={(event) => add(event.nativeEvent.locationX, event.nativeEvent.locationY)}
+        // Keep the touch once writing starts, or the page scrolls under the finger.
+        onResponderTerminationRequest={() => false}
         onResponderRelease={finish}
         onResponderTerminate={finish}
         style={{

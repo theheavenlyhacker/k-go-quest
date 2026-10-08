@@ -8,7 +8,7 @@ import { useApp } from '@/state/app-context';
 import { useOnline } from '@/state/online-context';
 import { canSubmit, connectionDetail, FORGOT_PASSWORD, signInProblem, type SignInProblem } from '@/domain/sign-in';
 import type { Role } from '@/domain/server';
-import { Button, Field, Info, Row, Sheet, T } from '@/ui/primitives';
+import { BackLink, Button, Field, Info, Row, Sheet, T } from '@/ui/primitives';
 import { elevation, radius, tokens, useTheme } from '@/ui/theme';
 
 // Clerk is never imported at app start; it loads only if Google is tapped.
@@ -35,7 +35,7 @@ const ROLES: { value: Role; label: string; icon: LucideIcon }[] = [
  * one thing a chip can honestly do before a password is typed.
  */
 export default function SignIn() {
-  const { finishSignIn } = useApp();
+  const { finishSignIn, signInReopened } = useApp();
   const { signIn, busy, apiUrl } = useOnline();
   // Inlined at bundle time, so this is a fact about the build, not the network.
   const configured = Boolean(process.env.EXPO_PUBLIC_API_URL?.trim());
@@ -74,6 +74,7 @@ export default function SignIn() {
         </View>
 
         <View style={{ gap: 14, paddingHorizontal: 26, paddingTop: 20 }}>
+          {signInReopened ? <BackLink label="Back" onPress={skip} /> : null}
           <View style={{ gap: 4 }}>
             <T variant="displayXL" heading>Welcome back!</T>
             <T variant="bodyM" color={theme.muted}>Log in to continue your learning journey</T>

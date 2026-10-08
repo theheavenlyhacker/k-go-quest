@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Award, Bell, CloudOff, ChartColumn, ClipboardList, CircleHelp, Download, GraduationCap, LayoutGrid, LogOut, ShieldAlert, User, Users } from 'lucide-react-native';
+import { ArrowLeft, Award, Bell, CloudOff, ChartColumn, ClipboardList, CircleHelp, Download, GraduationCap, LayoutGrid, LogOut, ShieldAlert, User, Users } from 'lucide-react-native';
 
 import { ago } from '../domain/format';
+import { useApp } from '../state/app-context';
 import { useOnline } from '../state/online-context';
 import { useTeacher } from '../state/teacher-context';
 import { AppBar, Sidebar, type NavTabSpec, type SidebarItem } from './chrome';
@@ -44,6 +45,7 @@ export function TeacherScreen({ title, caption, children }: { title: string; cap
 /** Teacher sidebar (319:10). Items with no screen yet open a "coming soon" sheet. */
 function TeacherSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { server, signOut } = useOnline();
+  const { closeCaretaker } = useApp();
   const { load, select } = useTeacher();
   const theme = useTheme();
   const [picking, setPicking] = useState(false);
@@ -51,6 +53,7 @@ function TeacherSidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const data = load.status === 'ready' ? load.data : null;
   const later = (label: string) => () => { onClose(); setSoon(label); };
   const items: SidebarItem[] = [
+    { icon: ArrowLeft, label: 'Back to this tablet', onPress: () => { onClose(); closeCaretaker(); } },
     { icon: User, label: 'My Profile', active: true, onPress: later('My Profile') },
     { icon: Users, label: 'My Classes', value: data ? `${data.classrooms.length}` : undefined, onPress: data && data.classrooms.length > 1 ? () => { onClose(); setPicking(true); } : later('My Classes') },
     { icon: Bell, label: 'Notification Settings', onPress: later('Notification Settings') },

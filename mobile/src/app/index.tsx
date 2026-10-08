@@ -4,17 +4,18 @@ import { ShieldCheck } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
 import { initials } from '@/domain/format';
-import { Button, Card, Eyebrow, Row, T } from '@/ui/primitives';
+import { BackLink, Button, Card, Eyebrow, Row, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 import { useTheme } from '@/ui/theme';
 
 /** Profile picker. Only the Caretaker, behind the Caretaker PIN, creates Profiles. */
 export default function Picker() {
-  const { profiles, selectProfile } = useApp();
+  const { profiles, selectProfile, reopenSignIn } = useApp();
   const theme = useTheme();
   const router = useRouter();
   return (
     <Screen title="Who is learning?" caption="Pick your name, then enter your PIN">
+      <BackLink label="Sign in as a Teacher or Admin" onPress={reopenSignIn} />
       <Eyebrow>Profiles on this tablet</Eyebrow>
       {profiles.map((p) => (
         <Card key={p.id} onPress={() => selectProfile(p.id)}>

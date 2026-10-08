@@ -3,7 +3,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useApp } from '@/state/app-context';
 import { keepCaretaker } from '@/domain/setup';
 import { isValidPin } from '@/domain/pin-lock';
-import { Action, Card, Eyebrow, Field, T } from '@/ui/primitives';
+import { Action, BackLink, Card, Eyebrow, Field, T } from '@/ui/primitives';
 import { Screen } from '@/ui/screen';
 
 // Loaded on demand so the app never touches Clerk while starting.
@@ -20,11 +20,12 @@ export default function Setup() {
 }
 
 function SignInStep() {
-  const { saveCaretakerId, caretakerSignedOut, setUpWithoutAccount } = useApp();
+  const { saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, reopenSignIn } = useApp();
   // Only after the Clerk sign-out has finished does Setup leave this step and unmount Clerk.
   const onSignedIn = async (id: string, signOut: () => Promise<void>) => { await keepCaretaker(id, saveCaretakerId, signOut); caretakerSignedOut(); };
   return (
     <>
+      <BackLink label="Sign in as a Teacher or Admin" onPress={reopenSignIn} />
       <T size={12}>Setup needs a network only for this sign-in. Use the email of your Caretaker Account.</T>
       <Suspense fallback={<T size={12}>Loading sign-in...</T>}><CaretakerSignIn onSignedIn={onSignedIn} /></Suspense>
       <Eyebrow>No network here</Eyebrow>
