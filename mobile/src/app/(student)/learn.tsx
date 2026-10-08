@@ -3,6 +3,8 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BookOpen, CircleCheck, CloudDownload, CloudOff, Coins, Flame, Library, RefreshCw, type LucideIcon } from 'lucide-react-native';
 
+import { coach } from '@/domain/coach';
+import { useCoachLm } from '@/ui/use-coach-lm';
 import { quests } from '@/domain/engine';
 import { gradingLabel, gradingMode } from '@/domain/grading-mode';
 import { downloadedCount, libraryProgress } from '@/domain/library';
@@ -61,6 +63,7 @@ export default function Learn() {
   const count = downloadedCount(downloaded.length, offers);
   const needDownload = offers?.status === 'ready' ? offers.offers.filter((o) => o.status === 'NEW') : [];
   const nextQuests = quests(packs, attempts);
+  const coachText = useCoachLm(coach(packs, attempts));
 
   return (
     <Screen chrome title="Learn" caption="Small steps. Big progress.">
@@ -167,6 +170,7 @@ export default function Learn() {
         </Card>
       ) : null}
       </> : null}
+      <Card><T variant="bodyS">{coachText}</T></Card>
       {nextQuests.length ? (
         <>
           <Eyebrow>Quests · practise next</Eyebrow>
