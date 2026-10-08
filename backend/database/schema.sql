@@ -158,4 +158,8 @@ ALTER TABLE "quiz_papers"
 
 INSERT INTO "migrations" ("timestamp", "name") VALUES (1791300000000, 'QuizResults1791300000000');
 
+ALTER TABLE content_packs ADD COLUMN "expectedLessons" jsonb;
+
+INSERT INTO "migrations" ("timestamp", "name") VALUES (1791400000000, 'ContentImport1791400000000');
+
 COMMIT;

@@ -78,7 +78,10 @@ export interface ImportProgress { packId?: string; lessonIds: string[]; exercise
 export async function importPack(call: AdminCall, pack: ImportPack, attribution: string, progress: ImportProgress = { lessonIds: [], exerciseCounts: [] }): Promise<string> {
   if (attribution.trim().length < 2 || attribution.length > 500) throw new Error('Attribution must be 2–500 characters.');
   const { lessons, ...metadata } = pack;
-  if (!progress.packId) progress.packId = (await call<{ id: string }>('POST', 'content/packs', { ...metadata, attribution: attribution.trim() })).id;
+  if (!progress.packId) progress.packId = (await call<{ id: string }>('POST', 'content/packs', {
+    ...metadata, attribution: attribution.trim(),
+    expectedLessons: lessons.map((l) => ({ title: l.title, skillCode: l.skillCode, exerciseCount: l.exercises.length })),
+  })).id;
   try {
     for (const [i, { exercises, ...lesson }] of lessons.entries()) {
       if (!progress.lessonIds[i]) progress.lessonIds[i] = (await call<{ id: string }>('POST', `content/packs/${progress.packId}/lessons`, lesson)).id;

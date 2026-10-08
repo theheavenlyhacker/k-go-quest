@@ -11,6 +11,7 @@ import { SchoolBarangay1791200000000 } from './migrations/1791200000000-school-b
 import { QuizPapers1791200000000 } from './migrations/1791200000000-quiz-papers';
 import { Devices1791200000000 } from './migrations/1791200000000-devices';
 import { QuizResults1791300000000 } from './migrations/1791300000000-quiz-results';
+import { ContentImport1791400000000 } from './migrations/1791400000000-content-import';
 import { databaseSchema } from './schema';
 
 export const MIGRATIONS = [
@@ -22,6 +23,7 @@ export const MIGRATIONS = [
   QuizPapers1791200000000,
   Devices1791200000000,
   QuizResults1791300000000,
+  ContentImport1791400000000,
 ];
 
 /**

@@ -81,6 +81,8 @@ export class ContentPack extends RecordEntity {
   @Column({ length: 30 }) version: string;
   @Column({ default: false }) published: boolean;
   @Column({ default: 'Original K-Go demo content' }) attribution: string;
+  @Column({ type: 'jsonb', nullable: true })
+  expectedLessons: { title: string; skillCode: string; exerciseCount: number }[] | null;
 }
 @Entity('lessons')
 export class Lesson extends RecordEntity {
@@ -255,4 +257,3 @@ export const ENTITIES = [
   AuditEvent,
   Device,
 ];
-

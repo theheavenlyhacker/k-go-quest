@@ -855,6 +855,7 @@ describe('K-Go API on real PostgreSQL', () => {
         grade: 5,
         version: '1.0',
         attribution: 'Original test content',
+        expectedLessons: [{ title: 'States of water', skillCode: 'science5.water.states', exerciseCount: 2 }],
       })
       .expect(201);
     const path = `/api/v1/content/packs/${pack.body.id}`;
@@ -914,6 +915,17 @@ describe('K-Go API on real PostgreSQL', () => {
       .set(auth(admin.accessToken))
       .expect(200);
     expect(detail.body.lessons[0].exercises[0].correctOption).toBe(1);
+    // A file import can stop after one Exercise, survive a tablet restart, and still be refused publication.
+    const incomplete = await request(app.getHttpServer())
+      .post(`${path}/publish`)
+      .set(auth(admin.accessToken))
+      .expect(400);
+    expect(incomplete.body.message).toContain('import is incomplete');
+    await request(app.getHttpServer())
+      .post(`/api/v1/content/lessons/${lesson.body.id}/exercises`)
+      .set(auth(admin.accessToken))
+      .send({ prompt: 'What is steam?', options: ['Gas', 'Solid'], correctOption: 0, coinAward: 5 })
+      .expect(201);
     await request(app.getHttpServer())
       .post(`${path}/publish`)
       .set(auth(admin.accessToken))
@@ -923,7 +935,7 @@ describe('K-Go API on real PostgreSQL', () => {
       .set(auth(student.accessToken))
       .expect(200);
     expect(JSON.stringify(download.body)).not.toContain('correctOption');
-    expect(download.body.lessons[0].exercises).toHaveLength(1);
+    expect(download.body.lessons[0].exercises).toHaveLength(2);
   });
   it('lets assigned teachers end enrollment, retains history, and allows safe re-enrollment', async () => {
     const student = await login('student-test');

@@ -133,6 +133,8 @@ Manage a reward with `PATCH rewards/:id`, supplying any of title, cost, stock, a
 
 Draft authoring: create pack, add lessons, add exercises, inspect the admin-only detail, then publish. A pack must have lessons and an exercise in every lesson. Published content stays immutable; create a new version for changes. Learner downloads always omit answer keys.
 
+File imports supply `expectedLessons: [{ title, skillCode, exerciseCount }]` in the pack creation request (1–100 Lessons, each with 1–100 Exercises). The server stores this manifest before content upload and refuses publication unless the exact Lesson titles, Skill codes and Exercise counts match, including duplicate Lesson keys. Interrupted imports remain drafts across sessions and tablet restarts. Omit the manifest for ordinary incremental authoring.
+
 ## Redemption
 
 ```json

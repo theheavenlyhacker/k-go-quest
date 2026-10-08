@@ -52,6 +52,7 @@ describe('Pack-file parser', () => {
     await importPack(request as AdminCall, pack, 'Pack Author');
     expect(request).toHaveBeenNthCalledWith(1, 'POST', 'content/packs', {
       title: pack.title, subject: pack.subject, grade: pack.grade, version: pack.version, attribution: 'Pack Author',
+      expectedLessons: pack.lessons.map((l) => ({ title: l.title, skillCode: l.skillCode, exerciseCount: l.exercises.length })),
     });
     expect(request.mock.calls[1][1]).toBe('content/packs/server-id/lessons');
     expect(request.mock.calls[2][1]).toBe('content/lessons/server-id/exercises');

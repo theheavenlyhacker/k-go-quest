@@ -125,6 +125,7 @@ export class ContentService {
           subject: dto.subject,
           version: dto.version,
           attribution: dto.attribution,
+          expectedLessons: dto.expectedLessons ?? null,
           jurisdictionId: actor.jurisdictionId,
         }),
       );
@@ -199,13 +200,22 @@ export class ContentService {
   }
   async publish(actor: Principal, id: string) {
     return this.db.transaction(async (manager) => {
-      await this.draft(manager, id, actor.jurisdictionId);
+      const pack = await this.draft(manager, id, actor.jurisdictionId);
       const lessons = await manager.findBy(Lesson, { packId: id });
       if (!lessons.length)
         throw new BadRequestException('Pack must contain lessons');
-      for (const lesson of lessons)
-        if (!(await manager.existsBy(Exercise, { lessonId: lesson.id })))
+      const actual: { title: string; skillCode: string; exerciseCount: number }[] = [];
+      for (const lesson of lessons) {
+        const exerciseCount = await manager.countBy(Exercise, { lessonId: lesson.id });
+        if (!exerciseCount)
           throw new BadRequestException('Every lesson must contain exercises');
+        actual.push({ title: lesson.title, skillCode: lesson.skillCode, exerciseCount });
+      }
+      if (pack.expectedLessons) {
+        const signature = (rows: typeof actual) => JSON.stringify(rows.map((row) => JSON.stringify([row.title, row.skillCode, row.exerciseCount])).sort());
+        if (signature(actual) !== signature(pack.expectedLessons))
+          throw new BadRequestException('Content import is incomplete or has duplicate content. Finish importing every expected Lesson and Exercise before publishing.');
+      }
       await manager.update(ContentPack, id, { published: true });
       await this.audit.record(actor, 'CONTENT_PUBLISHED', id, manager);
       return { id, published: true };

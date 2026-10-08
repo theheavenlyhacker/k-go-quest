@@ -22,12 +22,20 @@ export class ContentQueryDto extends PaginationDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(12) grade?: number;
   @IsOptional() @IsIn(['published', 'draft']) status?: 'published' | 'draft';
 }
+export class ExpectedLessonDto {
+  @IsString() @Length(2, 120) title: string;
+  @IsString() @Length(2, 100) skillCode: string;
+  @IsInt() @Min(1) @Max(100) exerciseCount: number;
+}
 export class CreatePackDto {
   @IsString() @Length(2, 120) title: string;
   @IsEnum(Subject) subject: Subject;
   @IsInt() @Min(1) @Max(12) grade: number;
   @IsString() @Length(1, 30) version: string;
   @IsString() @Length(2, 500) attribution: string;
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ArrayMaxSize(100)
+  @ValidateNested({ each: true }) @Type(() => ExpectedLessonDto)
+  expectedLessons?: ExpectedLessonDto[];
 }
 export class HintDto {
   @IsString() @Length(1, 2000) en: string;

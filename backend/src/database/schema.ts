@@ -50,6 +50,7 @@ export const REQUIRED_COLUMNS: Record<string, string[]> = {
     'version',
     'published',
     'attribution',
+    'expectedLessons',
   ],
   lessons: ['id', 'createdAt', 'packId', 'title', 'skillCode', 'body', 'hints'],
   exercises: [
