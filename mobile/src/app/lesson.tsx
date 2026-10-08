@@ -7,12 +7,14 @@ import * as Speech from 'expo-speech';
 import { Check, CircleCheck, CloudUpload, Play, RefreshCw, TriangleAlert, WifiOff } from 'lucide-react-native';
 
 import { useApp } from '@/state/app-context';
+import { lessonVideos } from '@/content/lesson-videos';
 import { gradingMode } from '@/domain/grading-mode';
 import { subjectTitles } from '@/domain/subjects';
 import type { Exercise } from '@/domain/types';
 import { Action, BackLink, Card, Empty, Info, Row, T } from '@/ui/primitives';
 import { HintCard } from '@/ui/hint-card';
 import { Screen } from '@/ui/screen';
+import { LessonVideo } from '@/ui/lesson-video';
 import { radius, tokens, useTheme } from '@/ui/theme';
 
 type Verdict = 'correct' | 'wrong' | 'saved';
@@ -45,6 +47,7 @@ export default function ModuleScreen() {
   }
 
   const { pack, lesson } = found;
+  const videoId = lessonVideos[lesson.skillCode];
   const answered = new Set(attempts.map((a) => a.exerciseId));
   // A Quest opens on its own Exercise, then the rest of the Lesson follows.
   const unanswered = lesson.exercises.filter((item) => !answered.has(item.id)).sort((a, b) => Number(b.id === exerciseId) - Number(a.id === exerciseId));
@@ -65,7 +68,8 @@ export default function ModuleScreen() {
       ) : null}
 
       <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
-        <LinearGradient colors={['#0c4a3e', '#126655']} start={{ x: 0, y: 0 }} end={{ x: 0.78, y: 1 }} style={{ height: 200, alignItems: 'center', justifyContent: 'center' }}>
+        {videoId ? <LessonVideo key={videoId} id={videoId} /> : null}
+        <LinearGradient colors={['#0c4a3e', '#126655']} start={{ x: 0, y: 0 }} end={{ x: 0.78, y: 1 }} style={{ height: videoId ? 0 : 200, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Play this module aloud"
