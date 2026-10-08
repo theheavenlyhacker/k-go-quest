@@ -11,7 +11,7 @@ import { pct } from '@/domain/format';
 import { hintSteps } from '@/domain/hint-steps';
 import { HINT_LANGUAGES } from '@/domain/hint-voice';
 import { subjectTitles } from '@/domain/subjects';
-import { Action, Bar, Card, Empty, Eyebrow, IconTile, Info, Pill, Pills, Row, Sheet, T } from '@/ui/primitives';
+import { Action, Bar, Button, Card, Empty, Eyebrow, IconTile, Info, Pill, Pills, Row, Sheet, T } from '@/ui/primitives';
 import { FieldPreview, InkPad, PAD_HEIGHT, PAD_THICKNESS } from '@/ui/ink-pad';
 import { Screen } from '@/ui/screen';
 import { MIN_TOUCH, radius, subjectTheme, tokens, useTheme } from '@/ui/theme';
@@ -227,10 +227,11 @@ function Handwriting() {
   const theme = useTheme();
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [width, setWidth] = useState(0);
+  // The Learner says when they are done. Any change after that hides the reading,
+  // because `submitted` no longer matches `strokes`.
+  const [submitted, setSubmitted] = useState<Stroke[] | null>(null);
 
-  // Reading is a few hundred thousand multiplications: fast enough to redo on
-  // every stroke, so there is no button to press and nothing to wait for.
-  const shapes = width ? fields(strokes, width, PAD_HEIGHT, PAD_THICKNESS) : [];
+  const shapes = width && submitted === strokes ? fields(strokes, width, PAD_HEIGHT, PAD_THICKNESS) : [];
   const readings = read(shapes);
   const sure = certainty(readings);
 
@@ -245,6 +246,7 @@ function Handwriting() {
           </View>
         </Row>
         <InkPad strokes={strokes} onChange={setStrokes} />
+        <Button title="Done writing" disabled={!strokes.length || submitted === strokes} onPress={() => setSubmitted(strokes)} />
       </Card>
 
       {readings.length ? (
