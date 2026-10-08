@@ -39,7 +39,7 @@ interface AppContextValue {
   /** False until the intro has been finished or skipped once on this Shared Tablet. */
   introSeen: boolean; finishIntro(): Promise<void>;
   /** False until the sign-in screen has been passed, signed in or not. Once per Shared Tablet. */
-  signInSeen: boolean; finishSignIn(): Promise<void>;
+  signInSeen: boolean; finishSignIn(): Promise<void>; signInReopened: boolean; reopenSignIn(): void;
   step: SetupStep; saveCaretakerId(id: string): Promise<void>; caretakerSignedOut(): void; setCaretakerPin(pin: string): Promise<void>; finishSetup(): Promise<void>;
   /** Finishes Setup's first step with no network. No account, so no PIN recovery until one is linked. */
   setUpWithoutAccount(): Promise<void>;
@@ -110,6 +110,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [accountLinked, setAccountLinked] = useState(false);
   const [introSeen, setIntroSeen] = useState(false);
   const [signInSeen, setSignInSeen] = useState(false);
+  const [signInReopened, setSignInReopened] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [demoId, setDemoId] = useState<string | null>(null);
   const profileRef = useRef(profile); const attemptsRef = useRef(attempts); const uploadsRef = useRef(uploads); const purchasesRef = useRef(purchases); const packsRef = useRef(effectivePacks);
@@ -208,9 +209,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Signed in or walked past: either way the door is done with. A failed write
   // costs the Caretaker the screen again, never a session and never any data.
   const finishSignIn = async () => {
-    setSignInSeen(true);
+    setSignInSeen(true); setSignInReopened(false);
     try { await vault.set(SIGN_IN_SEEN, '1'); } catch { /* shown again next launch, which is harmless */ }
   };
+  // The front door again, from Setup or the Profile picker, so a Caretaker who walked past it can still sign in as a Teacher or Admin. Not saved: the next launch skips it as before.
+  const reopenSignIn = () => { setSignInReopened(true); setSignInSeen(false); };
   // Two steps so Setup stays on the sign-in step (Clerk mounted) until the Clerk sign-out has finished.
   const saveCaretakerId = (id: string) => vault.set(CARETAKER_ID, id);
   const caretakerSignedOut = () => { setSaved((s) => ({ ...s, hasCaretaker: true })); setAccountLinked(true); };
@@ -348,7 +351,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
   const updatePreferences = async (change: Partial<Preferences>) => { const next = { ...preferences, ...change }; await vault.set('kgo-preferences', JSON.stringify(next)); setPreferences(next); };
-  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs: effectivePacks, activeModel, saveActiveModel, downloaded, reloadPacks, attempts, learning, reloadVerdicts: loadLocal, uploads, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, signInSeen, finishSignIn, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
+  return <AppContext.Provider value={{ ready, profiles, profile, locked, caretaker, packs: effectivePacks, activeModel, saveActiveModel, downloaded, reloadPacks, attempts, learning, reloadVerdicts: loadLocal, uploads, purchases, balance, notice, preferences, toast, dismiss: () => setNotice(null), step: setupStep(saved), introSeen, finishIntro, signInSeen, finishSignIn, signInReopened, reopenSignIn, saveCaretakerId, caretakerSignedOut, setUpWithoutAccount, accountLinked, linkCaretakerAccount, setCaretakerPin, finishSetup, createProfile, openCaretaker, closeCaretaker, confirmCaretakerAccount, resetCaretakerPin, demoId, resetDemo, deleteProfile, resetProfilePin, lockoutFor, clearLockout, viewProfile, selectProfile, lock, unlock, answer, buyBadge, updatePreferences }}>
     <InteractionBoundary onTouch={() => { lastInteraction.current = Date.now(); }}>{children}</InteractionBoundary>
   </AppContext.Provider>;
 }
