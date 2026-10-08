@@ -121,7 +121,7 @@ A single printable bubble sheet for one Learner for a published Quiz, headed wit
 _Avoid_: test paper, exam sheet, answer sheet, scantron
 
 **Paper Result**:
-The Teacher's confirmed marking of one Quiz Paper: one A–D answer or blank per item, scored by the server against the Quiz answer key. A rescan replaces that Paper's result. It is never an Attempt, moves no Mastery and earns no Coins. The camera reads only the QR code; no photos are stored.
+The Teacher's confirmed marking of one Quiz Paper: one A–D answer or blank per item, scored by the server against the Quiz answer key. A rescan replaces that Paper's result. It is never an Attempt, moves no Mastery and earns no Coins. The camera reads the QR code, then one still is read on the tablet to pre-fill the A–D answers; items that are blank-ambiguous or double-filled are left blank and highlighted. The photo is discarded after reading and nothing saves without Confirm.
 _Avoid_: Counted Attempt, bubble recognition
 
 ### Learning model
